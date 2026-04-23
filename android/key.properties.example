@@ -1,0 +1,15 @@
+# Android 发布签名配置文件
+# 复制此文件为 key.properties 并填写实际的签名信息
+# 注意: key.properties 不应提交到版本控制，已添加到 .gitignore
+
+# 密钥库文件路径 (相对于 android 目录)
+storeFile=../upload-keystore.jks
+
+# 密钥库密码
+storePassword=your_keystore_password
+
+# 密钥别名
+keyAlias=your_key_alias
+
+# 密钥密码
+keyPassword=your_key_password

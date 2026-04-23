@@ -1,0 +1,42 @@
+# Flutter Native Splash 配置文件
+# 用于生成 Android 和 iOS 启动页
+#
+# 使用方法:
+# 1. 配置此文件
+# 2. 运行: flutter pub run flutter_native_splash:create
+# 3. 如需移除: flutter pub run flutter_native_splash:remove
+
+flutter_native_splash:
+  # 背景颜色 (必需)
+  color: "#2196F3"
+
+  # 背景图片 (可选，会覆盖 color)
+  # background_image: "assets/icons/splash_background.png"
+
+  # 启动页图片 (可选)
+  image: "assets/icons/app_icon.png"
+
+  # 图片模式: contain, cover, stretch, center, repeat
+  android_gravity: center
+  ios_content_mode: center
+
+  # 全屏模式 (隐藏状态栏)
+  fullscreen: true
+
+  # Android 12+ 配置
+  android_12:
+    # Android 12+ 使用原生 Splash API
+    image: "assets/icons/app_icon.png"
+    icon_background_color: "#2196F3"
+    # 品牌图片 (显示在底部)
+    # branding: "assets/icons/branding.png"
+    # branding_mode: bottom
+
+  # Web 配置
+  web: false
+
+  # 颜色配置
+  color_dark: "#1565C0" # 深色模式背景色
+  image_dark: "assets/icons/app_icon.png" # 深色模式图片
+  android_gravity_dark: center
+  ios_content_mode_dark: center

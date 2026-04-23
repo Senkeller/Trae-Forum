@@ -1,0 +1,37 @@
+# Flutter Launcher Icons 配置文件
+# 用于生成 Android 和 iOS 应用图标
+#
+# 使用方法:
+# 1. 将应用图标放在 assets/icons/app_icon.png (1024x1024)
+# 2. 运行: flutter pub run flutter_launcher_icons:main
+
+flutter_launcher_icons:
+  # Android 配置
+  android: "launcher_icon"
+  image_path_android: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "assets/icons/background.png" # 可选：自适应图标背景
+  adaptive_icon_foreground: "assets/icons/foreground.png" # 可选：自适应图标前景
+
+  # iOS 配置
+  ios: true
+  image_path_ios: "assets/icons/app_icon.png"
+  remove_alpha_ios: true # iOS 图标需要移除透明通道
+
+  # Web 配置
+  web:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    background_color: "#FFFFFF"
+    theme_color: "#2196F3"
+
+  # macOS 配置
+  macos:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+
+  # Windows 配置
+  windows:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+    icon_size: 48

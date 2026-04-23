@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 应用颜色配置 -->
+<resources>
+    <!-- 应用主题色 (蓝色) -->
+    <color name="primaryColor">#2196F3</color>
+    <!-- 应用深色主题色 -->
+    <color name="primaryDarkColor">#1565C0</color>
+    <!-- 强调色 -->
+    <color name="accentColor">#FF4081</color>
+    <!-- 启动页背景色 -->
+    <color name="splashBackground">#2196F3</color>
+    <!-- 白色 -->
+    <color name="white">#FFFFFF</color>
+    <!-- 黑色 -->
+    <color name="black">#000000</color>
+</resources>
