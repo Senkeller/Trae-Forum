@@ -228,7 +228,7 @@ class MessageNotifier extends _$MessageNotifier {
   /// 构建消息状态
   @override
   MessageState build() {
-    _apiService = ApiService(ref.read(dioClientProvider));
+    _apiService = ref.read(apiServiceProvider);
     return const MessageState();
   }
 

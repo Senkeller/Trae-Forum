@@ -149,7 +149,7 @@ class SearchNotifier extends _$SearchNotifier {
   /// 构建搜索状态
   @override
   SearchState build() {
-    _apiService = ApiService(ref.read(dioClientProvider));
+    _apiService = ref.read(apiServiceProvider);
     _loadSearchHistory();
     return const SearchState();
   }

@@ -168,7 +168,7 @@ class HomeNotifier extends _$HomeNotifier {
   /// 构建首页状态
   @override
   HomeState build() {
-    _apiService = ApiService(ref.read(dioClientProvider));
+    _apiService = ref.read(apiServiceProvider);
     return const HomeState();
   }
 

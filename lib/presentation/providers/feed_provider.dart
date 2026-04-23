@@ -165,7 +165,7 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
   /// [feedId] 动态ID
   @override
   FeedDetailState build(String feedId) {
-    _apiService = ApiService(ref.read(dioClientProvider));
+    _apiService = ref.read(apiServiceProvider);
     return FeedDetailState(feedId: feedId);
   }
 

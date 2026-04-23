@@ -178,7 +178,7 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
   /// [uid] 用户ID
   @override
   UserSpaceState build(String uid) {
-    _apiService = ApiService(ref.read(dioClientProvider));
+    _apiService = ref.read(apiServiceProvider);
     return UserSpaceState(uid: uid);
   }
 

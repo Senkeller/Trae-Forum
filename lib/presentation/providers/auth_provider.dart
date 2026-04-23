@@ -117,7 +117,7 @@ class AuthNotifier extends _$AuthNotifier {
   /// 从本地存储读取用户登录信息，初始化认证状态
   @override
   Future<UserInfo> build() async {
-    _apiService = ApiService(ref.read(dioClientProvider));
+    _apiService = ref.read(apiServiceProvider);
     return _loadUserInfo();
   }
 

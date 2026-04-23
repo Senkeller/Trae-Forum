@@ -270,7 +270,7 @@ class _FeedListView extends ConsumerWidget {
       enablePullDown: true,
       enablePullUp: hasMore,
       onRefresh: onRefresh,
-      onLoadMore: hasMore ? onLoading : null,
+      onLoading: hasMore ? onLoading : null,
       header: const WaterDropMaterialHeader(
         backgroundColor: Colors.white,
         color: Colors.black87,
@@ -288,7 +288,7 @@ class _FeedListView extends ConsumerWidget {
         cacheExtent: 250,
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
-        addSemanticIndexes: false,
+        addSemanticIndexes: true,
         itemBuilder: (context, index) {
           final feed = feedList[index];
 

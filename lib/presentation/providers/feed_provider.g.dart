@@ -596,7 +596,7 @@ class _IsCommentsLoadingProviderElement extends AutoDisposeProviderElement<bool>
 }
 
 String _$feedDetailNotifierHash() =>
-    r'23afb0d64901c5cddbbc78c34a6fbefd51bf3008';
+    r'5beb0e6d134a3b5dc707b590a57732d6be3575ac';
 
 abstract class _$FeedDetailNotifier
     extends BuildlessAutoDisposeNotifier<FeedDetailState> {
