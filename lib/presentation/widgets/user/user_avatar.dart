@@ -47,6 +47,15 @@ class UserAvatar extends StatelessWidget {
   /// 边框宽度
   final double borderWidth;
 
+  /// 回退图标（当没有头像时显示）
+  final IconData? fallbackIcon;
+
+  /// 回退背景色
+  final Color? fallbackBackgroundColor;
+
+  /// 回退图标颜色
+  final Color? fallbackIconColor;
+
   /// 构造函数
   ///
   /// [avatarUrl] 头像 URL
@@ -61,6 +70,9 @@ class UserAvatar extends StatelessWidget {
   /// [placeholderColor] 占位图背景色
   /// [borderColor] 边框颜色
   /// [borderWidth] 边框宽度，默认 0
+  /// [fallbackIcon] 回退图标（当没有头像时显示）
+  /// [fallbackBackgroundColor] 回退背景色
+  /// [fallbackIconColor] 回退图标颜色
   const UserAvatar({
     super.key,
     this.avatarUrl,
@@ -75,6 +87,9 @@ class UserAvatar extends StatelessWidget {
     this.placeholderColor,
     this.borderColor,
     this.borderWidth = 0,
+    this.fallbackIcon,
+    this.fallbackBackgroundColor,
+    this.fallbackIconColor,
   });
 
   /// 小尺寸头像（40px）
@@ -91,6 +106,9 @@ class UserAvatar extends StatelessWidget {
     this.placeholderColor,
     this.borderColor,
     this.borderWidth = 0,
+    this.fallbackIcon,
+    this.fallbackBackgroundColor,
+    this.fallbackIconColor,
   }) : size = 40;
 
   /// 中尺寸头像（48px）
@@ -107,6 +125,9 @@ class UserAvatar extends StatelessWidget {
     this.placeholderColor,
     this.borderColor,
     this.borderWidth = 0,
+    this.fallbackIcon,
+    this.fallbackBackgroundColor,
+    this.fallbackIconColor,
   }) : size = 48;
 
   /// 大尺寸头像（56px）
@@ -123,6 +144,9 @@ class UserAvatar extends StatelessWidget {
     this.placeholderColor,
     this.borderColor,
     this.borderWidth = 0,
+    this.fallbackIcon,
+    this.fallbackBackgroundColor,
+    this.fallbackIconColor,
   }) : size = 56;
 
   /// 超大尺寸头像（80px）
@@ -139,6 +163,9 @@ class UserAvatar extends StatelessWidget {
     this.placeholderColor,
     this.borderColor,
     this.borderWidth = 0,
+    this.fallbackIcon,
+    this.fallbackBackgroundColor,
+    this.fallbackIconColor,
   }) : size = 80;
 
   @override

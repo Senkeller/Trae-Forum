@@ -4,7 +4,7 @@ import '../../providers/main_provider.dart';
 import '../home/home_page.dart';
 import '../search/search_page.dart';
 import '../message/message_page.dart';
-import '../user/user_profile_page.dart';
+import '../user/profile_page_new.dart';
 
 /// 主页面
 ///
@@ -22,7 +22,7 @@ class MainPage extends ConsumerWidget {
     HomePage(),
     SearchPage(),
     MessagePage(),
-    UserProfilePage(),
+    ProfilePageNew(),
   ];
 
   /// 底部导航项列表

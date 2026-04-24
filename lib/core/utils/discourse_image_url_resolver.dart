@@ -1,4 +1,21 @@
 class DiscourseImageUrlResolver {
+  /// 解析头像 URL
+  ///
+  /// [avatarTemplate] 头像模板，例如: "/user_avatar/forum.trae.cn/username/{size}/{timestamp}.png"
+  /// [size] 头像尺寸，默认 48
+  /// 返回完整的头像 URL
+  static String? resolveAvatarUrl(String avatarTemplate, {int size = 48}) {
+    if (avatarTemplate.isEmpty) {
+      return null;
+    }
+
+    // 替换模板中的 {size} 占位符
+    var url = avatarTemplate.replaceAll('{size}', size.toString());
+
+    // 确保 URL 是完整的
+    return normalizeUrl(url);
+  }
+
   static String? resolveFromAttributes(Map<dynamic, String> attributes) {
     final srcsetBest = _bestFromSrcset(attributes['srcset']);
     final candidates = <String?>[

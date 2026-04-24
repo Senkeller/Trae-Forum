@@ -736,7 +736,7 @@ class _IsFollowingUserProviderElement extends AutoDisposeProviderElement<bool>
   String get uid => (origin as IsFollowingUserProvider).uid;
 }
 
-String _$userSpaceNotifierHash() => r'aaae5163b622797044bdc8c3b4f62622da6e402c';
+String _$userSpaceNotifierHash() => r'949c07fb27afed16e90fd27d5643dd62994d63b3';
 
 abstract class _$UserSpaceNotifier
     extends BuildlessAutoDisposeNotifier<UserSpaceState> {

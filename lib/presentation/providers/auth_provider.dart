@@ -119,7 +119,7 @@ class AuthNotifier extends _$AuthNotifier {
     if (currentUser == null || currentUser.uid.isEmpty) return;
 
     state = const AsyncLoading();
-    
+
     try {
       final response = await _apiService.getProfile(uid: currentUser.uid);
       if (response.status == 1 && response.data != null && response.data!.userInfo != null) {
@@ -129,6 +129,19 @@ class AuthNotifier extends _$AuthNotifier {
     } catch (e, stackTrace) {
       // 刷新失败，保持原有状态
       state = AsyncData(currentUser);
+    }
+  }
+
+  /// 设置用户信息（用于 WebView 登录成功后）
+  ///
+  /// [userInfo] 用户信息对象
+  /// 将用户信息保存到本地存储并更新状态
+  Future<void> setUserInfo(UserInfo userInfo) async {
+    try {
+      await _saveUserInfo(userInfo);
+      state = AsyncData(userInfo);
+    } catch (e, stackTrace) {
+      state = AsyncError(e, stackTrace);
     }
   }
 }

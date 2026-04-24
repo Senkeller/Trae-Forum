@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../config/constants.dart';
-import '../../../config/theme.dart';
+import 'webview_login_page.dart';
 
 /// 登录页面
 ///
-/// 用户登录入口，支持账号密码登录
-/// 提供跳转到注册和找回密码页面的入口
+/// 用户登录入口，支持 WebView 登录方式
+/// 由于 TRAE 论坛使用 SSO 登录体系，需要通过 WebView 加载官方登录页面
 class LoginPage extends ConsumerStatefulWidget {
   /// 构造函数
   const LoginPage({super.key});
@@ -18,62 +16,8 @@ class LoginPage extends ConsumerStatefulWidget {
 
 /// 登录页面状态
 class _LoginPageState extends ConsumerState<LoginPage> {
-  /// 表单键
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
-  /// 账号控制器
-  final TextEditingController _accountController = TextEditingController();
-
-  /// 密码控制器
-  final TextEditingController _passwordController = TextEditingController();
-
-  /// 是否显示密码
-  bool _obscurePassword = true;
-
-  /// 是否正在登录
+  /// 是否正在加载
   bool _isLoading = false;
-
-  @override
-  void dispose() {
-    _accountController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
-  /// 处理登录
-  ///
-  /// 验证表单并执行登录操作
-  Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // TODO: 实现登录逻辑
-      await Future.delayed(const Duration(seconds: 1));
-
-      if (mounted) {
-        // 登录成功，跳转到首页
-        context.go(RoutePaths.main);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('登录失败: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,248 +34,187 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Logo 和标题
-                const SizedBox(height: 40),
-                Icon(
-                  Icons.forum,
-                  size: 80,
-                  color: colorScheme.primary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Logo 和标题
+              const SizedBox(height: 40),
+              Icon(
+                Icons.forum,
+                size: 80,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '欢迎回来',
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  '欢迎回来',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '登录以继续探索精彩内容',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '登录以继续探索精彩内容',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 48),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 48),
 
-                // 账号输入
-                TextFormField(
-                  controller: _accountController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: '邮箱/手机号',
-                    prefixIcon: Icon(Icons.person_outline),
-                    hintText: '请输入邮箱或手机号',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '请输入账号';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // 密码输入
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _handleLogin(),
-                  decoration: InputDecoration(
-                    labelText: '密码',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    hintText: '请输入密码',
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _obscurePassword = !_obscurePassword;
-                        });
-                      },
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '请输入密码';
-                    }
-                    if (value.length < 6) {
-                      return '密码长度不能少于6位';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-
-                // 忘记密码
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      context.push(RoutePaths.forgotPassword);
-                    },
-                    child: const Text('忘记密码?'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 登录按钮
-                FilledButton(
-                  onPressed: _isLoading ? null : _handleLogin,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('登录'),
-                ),
-                const SizedBox(height: 24),
-
-                // 分隔线
-                Row(
-                  children: [
-                    Expanded(
-                      child: Divider(
-                        color: colorScheme.outline.withOpacity(0.5),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        '或使用以下方式登录',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
+              // 主要登录按钮 - WebView 登录
+              FilledButton.icon(
+                onPressed: _isLoading ? null : _handleWebViewLogin,
+                icon: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
                         ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Divider(
-                        color: colorScheme.outline.withOpacity(0.5),
-                      ),
-                    ),
-                  ],
+                      )
+                    : const Icon(Icons.login),
+                label: const Text('使用 TRAE 账号登录'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                const SizedBox(height: 24),
+              ),
+              const SizedBox(height: 16),
 
-                // 第三方登录
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _SocialLoginButton(
-                      icon: Icons.chat_bubble_outline,
-                      label: '微信',
-                      onTap: () {},
-                    ),
-                    const SizedBox(width: 24),
-                    _SocialLoginButton(
-                      icon: Icons.alternate_email,
-                      label: 'QQ',
-                      onTap: () {},
-                    ),
-                    const SizedBox(width: 24),
-                    _SocialLoginButton(
-                      icon: Icons.code,
-                      label: 'GitHub',
-                      onTap: () {},
-                    ),
-                  ],
+              // 说明文字
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 48),
-
-                // 注册入口
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '登录说明',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      '还没有账号?',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      'TRAE 论坛使用统一的账号体系，点击上方按钮将跳转到官方登录页面完成认证。登录成功后即可在应用内访问论坛的所有功能。',
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        context.push(RoutePaths.register);
-                      },
-                      child: const Text('立即注册'),
-                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 48),
+
+              // 分隔线
+              Row(
+                children: [
+                  Expanded(
+                    child: Divider(
+                      color: colorScheme.outline.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      '其他方式',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Divider(
+                      color: colorScheme.outline.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // 浏览器打开选项
+              OutlinedButton.icon(
+                onPressed: _openInBrowser,
+                icon: const Icon(Icons.open_in_browser),
+                label: const Text('在浏览器中打开论坛'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              // 用户协议
+              Text(
+                '登录即表示您同意我们的服务条款和隐私政策',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-}
 
-/// 社交登录按钮
-///
-/// 用于第三方登录的按钮组件
-class _SocialLoginButton extends StatelessWidget {
-  /// 图标
-  final IconData icon;
+  /// 处理 WebView 登录
+  ///
+  /// 打开 WebView 登录页面，加载 TRAE 官方登录页面
+  Future<void> _handleWebViewLogin() async {
+    setState(() {
+      _isLoading = true;
+    });
 
-  /// 标签
-  final String label;
+    try {
+      // 延迟一下以显示加载状态
+      await Future.delayed(const Duration(milliseconds: 300));
 
-  /// 点击回调
-  final VoidCallback onTap;
+      if (mounted) {
+        // 导航到 WebView 登录页面
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const WebViewLoginPage(),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
-  /// 构造函数
-  const _SocialLoginButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(12),
+  /// 在浏览器中打开论坛
+  ///
+  /// 使用系统浏览器打开论坛登录页面
+  Future<void> _openInBrowser() async {
+    // 这里可以使用 url_launcher 打开浏览器
+    // 暂时显示提示
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('将在浏览器中打开论坛登录页面'),
+          duration: Duration(seconds: 2),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+      );
+    }
   }
 }

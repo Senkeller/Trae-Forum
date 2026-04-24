@@ -14,6 +14,9 @@ class EmptyWidget extends StatelessWidget {
   /// 副标题/描述文字
   final String? subtitle;
 
+  /// 描述文字（与 subtitle 相同，用于兼容）
+  final String? description;
+
   /// 按钮文字
   final String? buttonText;
 
@@ -31,6 +34,7 @@ class EmptyWidget extends StatelessWidget {
   /// [icon] 图标，默认 Icons.inbox
   /// [title] 标题文字（必填）
   /// [subtitle] 副标题/描述文字
+  /// [description] 描述文字（与 subtitle 相同，用于兼容）
   /// [buttonText] 按钮文字
   /// [onButtonPressed] 按钮点击回调
   /// [iconSize] 图标大小，默认 80
@@ -40,6 +44,7 @@ class EmptyWidget extends StatelessWidget {
     this.icon = Icons.inbox,
     required this.title,
     this.subtitle,
+    this.description,
     this.buttonText,
     this.onButtonPressed,
     this.iconSize = 80,
@@ -51,6 +56,7 @@ class EmptyWidget extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final defaultIconColor = iconColor ?? colorScheme.primary.withOpacity(0.5);
+    final displaySubtitle = subtitle ?? description;
 
     return Center(
       child: Padding(
@@ -72,10 +78,10 @@ class EmptyWidget extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            if (subtitle != null) ...[
+            if (displaySubtitle != null) ...[
               const SizedBox(height: 8),
               Text(
-                subtitle!,
+                displaySubtitle,
                 style: textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),

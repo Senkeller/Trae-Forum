@@ -315,3 +315,33 @@ class FullScreenErrorWidget extends StatelessWidget {
     );
   }
 }
+
+/// 带重试功能的错误组件
+///
+/// 简化版的错误组件，用于列表等场景的错误展示
+class ErrorWidgetWithRetry extends StatelessWidget {
+  /// 错误描述
+  final String message;
+
+  /// 重试回调
+  final VoidCallback onRetry;
+
+  /// 构造函数
+  ///
+  /// [message] 错误描述（必填）
+  /// [onRetry] 重试回调（必填）
+  const ErrorWidgetWithRetry({
+    super.key,
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ErrorWidget(
+      title: '加载失败',
+      message: message,
+      onRetry: onRetry,
+    );
+  }
+}

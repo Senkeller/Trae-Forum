@@ -55,6 +55,8 @@ dependencies:
 
   # WebView
   webview_flutter: ^4.8.0
+  webview_flutter_android: ^3.16.8
+  webview_flutter_wkwebview: ^3.14.0
 
   # 日志
   logger: ^2.3.0
