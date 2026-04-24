@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../config/constants.dart';
-import '../../../config/theme.dart';
+import '../../../data/models/user.dart' as user_model;
+import '../../providers/auth_provider.dart';
+import '../../providers/home_provider.dart';
+import '../../providers/user_provider.dart';
 
 /// 用户资料页
-///
-/// 展示用户的个人信息、动态列表、关注/粉丝数等
-/// 支持查看自己的资料或其他用户的资料
 class UserProfilePage extends ConsumerStatefulWidget {
-  /// 用户 ID，为空时表示当前登录用户
+  /// 用户名（Discourse username）
   final String? uid;
 
-  /// 构造函数
   const UserProfilePage({
     super.key,
     this.uid,
@@ -22,101 +22,271 @@ class UserProfilePage extends ConsumerStatefulWidget {
   ConsumerState<UserProfilePage> createState() => _UserProfilePageState();
 }
 
-/// 用户资料页状态
-class _UserProfilePageState extends ConsumerState<UserProfilePage>
-    with SingleTickerProviderStateMixin {
-  /// Tab 控制器
-  late TabController _tabController;
-
-  /// 滚动控制器
+class _UserProfilePageState extends ConsumerState<UserProfilePage> {
   final ScrollController _scrollController = ScrollController();
+  String? _activeUsername;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
-  /// 判断是否为自己的资料页
-  bool get _isOwnProfile => widget.uid == null || widget.uid == 'current_user';
+  void _onScroll() {
+    if (_activeUsername == null || !_scrollController.hasClients) {
+      return;
+    }
+
+    final state = ref.read(userSpaceNotifierProvider(_activeUsername!));
+    if (state.isLoadingFeeds || !state.hasMoreFeeds) {
+      return;
+    }
+
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(userSpaceNotifierProvider(_activeUsername!).notifier).loadMoreUserFeeds();
+    }
+  }
+
+  String? _resolveUsername(user_model.UserInfo? currentUser) {
+    final target = widget.uid;
+    if (target != null && target.isNotEmpty && target != 'current_user') {
+      return target;
+    }
+
+    if (currentUser != null && currentUser.username.isNotEmpty) {
+      return currentUser.username;
+    }
+
+    return null;
+  }
+
+  void _ensureLoaded(String username) {
+    if (_activeUsername == username) return;
+    _activeUsername = username;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final notifier = ref.read(userSpaceNotifierProvider(username).notifier);
+      notifier.loadUserProfile();
+      notifier.loadUserFeeds();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final currentUser = ref.watch(currentUserProvider);
+    final username = _resolveUsername(currentUser);
+
+    if (username == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('个人主页')),
+        body: const _StateView(
+          icon: Icons.person_search,
+          title: '无法确定用户',
+          message: '请先登录，或通过 /user/{username} 打开用户主页。',
+        ),
+      );
+    }
+
+    _ensureLoaded(username);
+
+    final userState = ref.watch(userSpaceNotifierProvider(username));
+    final notifier = ref.read(userSpaceNotifierProvider(username).notifier);
+    final isOwnProfile = currentUser?.username == username;
 
     return Scaffold(
-      body: NestedScrollView(
-        controller: _scrollController,
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            // 顶部导航栏
-            SliverAppBar(
-              pinned: true,
-              floating: true,
-              snap: true,
-              forceElevated: innerBoxIsScrolled,
-              title: const Text('个人主页'),
-              actions: [
-                if (_isOwnProfile) ...[
-                  IconButton(
-                    icon: const Icon(Icons.settings),
-                    onPressed: () {
-                      context.push(RoutePaths.settings);
-                    },
-                  ),
-                ] else ...[
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    onPressed: () => _showMoreOptions(context),
-                  ),
-                ],
-              ],
+      appBar: AppBar(
+        title: Text('@$username'),
+        actions: [
+          if (isOwnProfile)
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () {
+                context.push(RoutePaths.settings);
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.more_vert),
+              onPressed: () {
+                _showMoreOptions(context);
+              },
             ),
-            // 用户信息头部
-            SliverToBoxAdapter(
-              child: _ProfileHeader(
-                isOwnProfile: _isOwnProfile,
-              ),
-            ),
-            // Tab 栏
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _SliverTabBarDelegate(
-                TabBar(
-                  controller: _tabController,
-                  tabs: const [
-                    Tab(text: '动态'),
-                    Tab(text: '收藏'),
-                    Tab(text: '赞过'),
-                  ],
-                ),
-              ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _FeedList(),
-            _FeedList(),
-            _FeedList(),
-          ],
-        ),
+        ],
+      ),
+      body: _buildBody(
+        context: context,
+        userState: userState,
+        notifier: notifier,
+        isOwnProfile: isOwnProfile,
       ),
     );
   }
 
-  /// 显示更多选项菜单
-  ///
-  /// [context] 构建上下文
+  Widget _buildBody({
+    required BuildContext context,
+    required UserSpaceState userState,
+    required UserSpaceNotifier notifier,
+    required bool isOwnProfile,
+  }) {
+    if (userState.isLoadingProfile && userState.profile == null) {
+      return const _StateView(
+        icon: Icons.person,
+        title: '正在加载资料',
+        message: '正在从 forum.trae.cn 拉取用户数据…',
+        loading: true,
+      );
+    }
+
+    if (userState.errorMessage != null && userState.profile == null) {
+      return _StateView(
+        icon: Icons.error_outline,
+        title: '加载失败',
+        message: userState.errorMessage!,
+        actionLabel: '重试',
+        onAction: () {
+          notifier.loadUserProfile();
+          notifier.loadUserFeeds();
+        },
+      );
+    }
+
+    if (userState.profile == null) {
+      return const _StateView(
+        icon: Icons.person_off,
+        title: '未获取到用户资料',
+        message: '该用户可能不存在，或接口返回了空数据。',
+      );
+    }
+
+    final profile = userState.profile!;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await notifier.loadUserProfile();
+        await notifier.refreshUserFeeds();
+      },
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: _ProfileHeader(
+              profile: profile,
+              isOwnProfile: isOwnProfile,
+              onEditProfile: () {
+                context.push(RoutePaths.userEdit);
+              },
+              onToggleFollow: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final success = await notifier.toggleFollow();
+                if (!mounted) return;
+
+                final text = success
+                    ? (profile.isFollowing ? '已取消关注' : '已关注')
+                    : '操作失败';
+                messenger.showSnackBar(
+                  SnackBar(content: Text(text)),
+                );
+              },
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(
+                '最近话题',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+          ),
+          ..._buildFeedSlivers(context, userState, notifier),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildFeedSlivers(
+    BuildContext context,
+    UserSpaceState userState,
+    UserSpaceNotifier notifier,
+  ) {
+    if (userState.isLoadingFeeds && userState.feeds.isEmpty) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _StateView(
+            icon: Icons.forum,
+            title: '正在加载话题',
+            message: '请稍候…',
+            loading: true,
+          ),
+        ),
+      ];
+    }
+
+    if (userState.errorMessage != null && userState.feeds.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _StateView(
+            icon: Icons.error_outline,
+            title: '加载话题失败',
+            message: userState.errorMessage!,
+            actionLabel: '重试',
+            onAction: notifier.loadUserFeeds,
+          ),
+        ),
+      ];
+    }
+
+    if (userState.feeds.isEmpty) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _StateView(
+            icon: Icons.inbox,
+            title: '暂无话题',
+            message: '该用户近期还没有可展示的话题。',
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverList.builder(
+        itemCount: userState.feeds.length,
+        itemBuilder: (context, index) {
+          final feed = userState.feeds[index];
+          return _FeedCard(feed: feed);
+        },
+      ),
+      if (userState.isLoadingFeeds)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        )
+      else if (!userState.hasMoreFeeds)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: Text('没有更多内容了')),
+          ),
+        ),
+    ];
+  }
+
   void _showMoreOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -127,16 +297,12 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             ListTile(
               leading: const Icon(Icons.report),
               title: const Text('举报用户'),
-              onTap: () {
-                Navigator.of(context).pop();
-              },
+              onTap: () => Navigator.of(context).pop(),
             ),
             ListTile(
               leading: const Icon(Icons.block),
               title: const Text('加入黑名单'),
-              onTap: () {
-                Navigator.of(context).pop();
-              },
+              onTap: () => Navigator.of(context).pop(),
             ),
           ],
         ),
@@ -145,74 +311,54 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   }
 }
 
-/// 个人资料头部
-///
-/// 展示用户头像、昵称、简介、统计数据等
 class _ProfileHeader extends StatelessWidget {
-  /// 是否为自己的资料
+  final UserProfile profile;
   final bool isOwnProfile;
+  final VoidCallback onEditProfile;
+  final VoidCallback onToggleFollow;
 
-  /// 构造函数
-  const _ProfileHeader({required this.isOwnProfile});
+  const _ProfileHeader({
+    required this.profile,
+    required this.isOwnProfile,
+    required this.onEditProfile,
+    required this.onToggleFollow,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 头像和基本信息行
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 头像
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: colorScheme.primaryContainer,
-                  border: Border.all(
-                    color: colorScheme.outline.withOpacity(0.2),
-                    width: 2,
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.person,
-                    size: 40,
-                    color: colorScheme.onPrimaryContainer,
-                  ),
-                ),
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: profile.avatarUrl.isNotEmpty
+                    ? NetworkImage(profile.avatarUrl)
+                    : null,
+                child: profile.avatarUrl.isEmpty
+                    ? const Icon(Icons.person, size: 36)
+                    : null,
               ),
               const SizedBox(width: 16),
-              // 统计信息
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _StatItem(
-                      count: '128',
+                      count: profile.feedCount.toString(),
                       label: '动态',
-                      onTap: () {},
                     ),
                     _StatItem(
-                      count: '256',
+                      count: profile.followCount.toString(),
                       label: '关注',
-                      onTap: () {
-                        context.push('/user/123/follows');
-                      },
                     ),
                     _StatItem(
-                      count: '1.2k',
+                      count: profile.fansCount.toString(),
                       label: '粉丝',
-                      onTap: () {
-                        context.push('/user/123/fans');
-                      },
                     ),
                   ],
                 ),
@@ -220,99 +366,41 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // 用户名和认证标识
-          Row(
-            children: [
-              Text(
-                isOwnProfile ? '我的昵称' : '用户昵称',
-                style: theme.textTheme.titleLarge?.copyWith(
+          Text(
+            profile.username,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.verified,
-                size: 18,
-                color: colorScheme.primary,
-              ),
-            ],
           ),
           const SizedBox(height: 4),
-          // 用户 ID
           Text(
-            '@userid123',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // 个人简介
-          Text(
-            '这里是个人简介，可以写一些关于自己的介绍。热爱技术，喜欢分享。',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 12),
-          // 其他信息
-          Row(
-            children: [
-              Icon(
-                Icons.location_on_outlined,
-                size: 16,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '北京',
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(width: 16),
-              Icon(
-                Icons.link,
-                size: 16,
-                color: colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'github.com/username',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colorScheme.primary,
+            '@${profile.username}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-              ),
-            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            profile.bio.isNotEmpty ? profile.bio : '这个用户还没有填写简介。',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
-          // 操作按钮
           if (isOwnProfile)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      context.push(RoutePaths.userEdit);
-                    },
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('编辑资料'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onEditProfile,
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('编辑资料'),
+              ),
             )
           else
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton(
-                    onPressed: () {},
-                    child: const Text('关注'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {},
-                    child: const Text('私信'),
-                  ),
-                ),
-              ],
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: onToggleFollow,
+                child: Text(profile.isFollowing ? '取消关注' : '关注'),
+              ),
             ),
         ],
       ),
@@ -320,126 +408,52 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-/// 统计项组件
-///
-/// 展示用户的统计数据（动态数、关注数、粉丝数）
 class _StatItem extends StatelessWidget {
-  /// 数量
   final String count;
-
-  /// 标签
   final String label;
 
-  /// 点击回调
-  final VoidCallback onTap;
-
-  /// 构造函数
   const _StatItem({
     required this.count,
     required this.label,
-    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          children: [
-            Text(
-              count,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        children: [
+          Text(
+            count,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
       ),
     );
   }
 }
 
-/// Sliver TabBar 委托
-///
-/// 用于在 Sliver 中固定 TabBar
-class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
-  /// TabBar
-  final TabBar tabBar;
-
-  /// 构造函数
-  _SliverTabBarDelegate(this.tabBar);
-
-  @override
-  double get minExtent => tabBar.preferredSize.height;
-
-  @override
-  double get maxExtent => tabBar.preferredSize.height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      child: tabBar,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
-    return false;
-  }
-}
-
-/// Feed 列表
-///
-/// 展示用户的动态列表
-class _FeedList extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: 10,
-      itemBuilder: (context, index) {
-        return _FeedCard(index: index);
-      },
-    );
-  }
-}
-
-/// Feed 卡片
-///
-/// 单个动态项的展示卡片
 class _FeedCard extends StatelessWidget {
-  /// 索引
-  final int index;
+  final FeedItem feed;
 
-  /// 构造函数
-  const _FeedCard({required this.index});
+  const _FeedCard({required this.feed});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final content = feed.content.isNotEmpty ? feed.content : 'Topic #${feed.id}';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
-        onTap: () {
-          context.push('/feed/$index');
-        },
+        onTap: feed.id.isEmpty
+            ? null
+            : () {
+                context.push(RoutePaths.feedDetail.replaceFirst(':id', feed.id));
+              },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -447,41 +461,57 @@ class _FeedCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '这是第 $index 条动态的内容，展示在用户主页的动态列表中。',
-                style: theme.textTheme.bodyMedium,
+                content,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
-              const SizedBox(height: 12),
-              if (index % 2 == 0)
-                Container(
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.image,
-                      color: colorScheme.onSurfaceVariant,
+              if (feed.images.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    feed.images.first,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 160,
+                      alignment: Alignment.center,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.broken_image),
                     ),
                   ),
                 ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
                   Text(
-                    '${index + 1}天前',
-                    style: theme.textTheme.bodySmall,
+                    feed.createTime.isNotEmpty ? feed.createTime : '未知时间',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
-                  _ActionButton(
-                    icon: Icons.thumb_up_outlined,
-                    label: '${index * 5 + 3}',
-                    onTap: () {},
+                  Icon(
+                    Icons.thumb_up_outlined,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
-                  _ActionButton(
-                    icon: Icons.comment_outlined,
-                    label: '${index * 2 + 1}',
-                    onTap: () {},
+                  const SizedBox(width: 4),
+                  Text(
+                    '${feed.likeCount}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.comment_outlined,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${feed.replyCount}',
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -493,48 +523,56 @@ class _FeedCard extends StatelessWidget {
   }
 }
 
-/// 操作按钮
-///
-/// 用于点赞、评论等操作
-class _ActionButton extends StatelessWidget {
-  /// 图标
+class _StateView extends StatelessWidget {
   final IconData icon;
+  final String title;
+  final String message;
+  final bool loading;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
-  /// 标签
-  final String label;
-
-  /// 点击回调
-  final VoidCallback onTap;
-
-  /// 构造函数
-  const _ActionButton({
+  const _StateView({
     required this.icon,
-    required this.label,
-    required this.onTap,
+    required this.title,
+    required this.message,
+    this.loading = false,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
+        padding: const EdgeInsets.all(24),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 4),
+            if (loading)
+              const CircularProgressIndicator()
+            else
+              Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 16),
             Text(
-              label,
-              style: theme.textTheme.bodySmall,
+              title,
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: onAction,
+                child: Text(actionLabel!),
+              ),
+            ],
           ],
         ),
       ),

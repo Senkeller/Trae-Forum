@@ -63,10 +63,9 @@ void main() {
         ),
       );
 
-      // 验证三个 Tab
       expect(find.text('推荐'), findsOneWidget);
-      expect(find.text('关注'), findsOneWidget);
       expect(find.text('热门'), findsOneWidget);
+      expect(find.text('官方'), findsOneWidget);
     });
 
     /// 测试目的：验证 AppBar 存在

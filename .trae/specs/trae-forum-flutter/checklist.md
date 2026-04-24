@@ -1,278 +1,240 @@
-# TRAE 论坛 Discourse API 对接验收检查清单
+# TRAE Community APK - 验收检查清单
 
-**最后更新**: 2026-04-23
-**规格版本**: Discourse API 对接版
+**最后更新**: 2026-04-24  
+**规格版本**: CoolApk 风格社区 APK 版  
+**目标**: 将 `https://forum.trae.cn/` 做成原生 Flutter 社区 APK
 
----
+## 0. 产品方向
 
-## 第一阶段：Discourse API 适配层
+- [x] 明确 App 不是 WebView 套壳
+- [x] 明确 CoolApk/c001apk 是交互与功能参考
+- [x] 明确数据源是 TRAE 论坛 Discourse API
+- [x] 明确只读浏览 MVP 优先
+- [x] 明确登录、发帖、回复、点赞等写操作后置到认证方案确认后
 
-### Task 1: 创建 Discourse 数据模型
-- [ ] `lib/data/models/discourse/discourse_topic.dart` 创建完成
-  - [ ] DiscourseTopic 模型定义正确
-  - [ ] DiscourseTopicListResponse 模型定义正确
-  - [ ] 所有字段与 Discourse API 响应匹配
-- [ ] `lib/data/models/discourse/discourse_post.dart` 创建完成
-  - [ ] DiscoursePost 模型定义正确
-  - [ ] DiscoursePostListResponse 模型定义正确
-- [ ] `lib/data/models/discourse/discourse_category.dart` 创建完成
-  - [ ] DiscourseCategory 模型定义正确
-  - [ ] DiscourseCategoryListResponse 模型定义正确
-- [ ] `lib/data/models/discourse/discourse_user.dart` 创建完成
-  - [ ] DiscourseUser 模型定义正确
-  - [ ] DiscourseUserSummary 模型定义正确
-- [ ] `lib/data/models/discourse/discourse_search_result.dart` 创建完成
-- [ ] 运行 `build_runner` 生成 .g.dart 文件成功
-- [ ] JSON 序列化/反序列化测试通过
+## 1. 数据与接口
 
-### Task 2: 创建数据适配器
-- [ ] `lib/data/adapters/discourse_adapter.dart` 创建完成
-  - [ ] 定义适配器接口
-- [ ] `lib/data/adapters/topic_adapter.dart` 创建完成
-  - [ ] `adaptTopicToFeed()` 方法实现正确
-  - [ ] posters 到 userInfo 映射正确
-  - [ ] 时间格式转换正确（ISO 8601 → Unix 时间戳）
-  - [ ] 标签映射正确
-  - [ ] 边界情况处理（null 值、空字段）
-- [ ] `lib/data/adapters/post_adapter.dart` 创建完成
-  - [ ] `adaptPostToReply()` 方法实现正确
-  - [ ] HTML 内容处理正确
-  - [ ] 楼层信息映射正确
-  - [ ] 回复关系映射正确
-- [ ] `lib/data/adapters/category_adapter.dart` 创建完成
-  - [ ] `adaptCategory()` 方法实现正确
-  - [ ] 颜色值映射正确
-  - [ ] 父分类关系处理正确
-- [ ] `lib/data/adapters/user_adapter.dart` 创建完成
-  - [ ] `adaptUser()` 方法实现正确
-  - [ ] 头像 URL 模板解析正确
-  - [ ] 用户等级映射正确
+### 真实数据硬性验收
 
-### Task 3: 更新 API 配置
-- [ ] `lib/config/constants.dart` 修改完成
-  - [ ] `baseUrl` 更新为 `https://forum.trae.cn`
-  - [ ] `cdnUrl` 配置添加正确
-  - [ ] Discourse API 路径常量定义正确
-- [ ] Dio 配置验证通过
-  - [ ] 基础 URL 配置正确
-  - [ ] 超时配置合理
-  - [ ] 拦截器工作正常
+- [ ] 首页主体内容来自真实 `https://forum.trae.cn/latest.json`、`/top.json` 或 `/c/{category_id}.json`
+- [ ] 详情页主体内容来自真实 `https://forum.trae.cn/t/{topic_id}.json`
+- [ ] 详情页回复来自真实 Discourse `post_stream.posts`
+- [ ] 搜索结果来自真实 `https://forum.trae.cn/search.json?q={query}`
+- [ ] 用户主页主体内容来自真实 `https://forum.trae.cn/u/{username}.json`
+- [ ] 首页没有用 mock、硬编码示例、静态 JSON 作为成功态数据
+- [ ] 详情页没有用 mock、硬编码示例、静态 JSON 作为成功态数据
+- [ ] 搜索页没有用 mock、硬编码示例、静态 JSON 作为成功态数据
+- [ ] 用户主页没有用 mock、硬编码示例、静态 JSON 作为成功态数据
+- [ ] API 失败时展示错误态、空态或重试入口，不用假数据伪装成功
+- [ ] 首页、详情、搜索、用户主页任一项不满足真实数据要求时，MVP 不得标记完成
 
----
+### Discourse API
 
-## 第二阶段：API Service 重构
+- [ ] `GET /latest.json` 可获取推荐/最新话题
+- [ ] `GET /top.json` 可获取热门话题，或有本地排序兜底
+- [ ] `GET /categories.json` 可获取分类
+- [ ] `GET /c/{category_id}.json` 可按分类获取话题
+- [ ] `GET /t/{topic_id}.json` 可获取详情
+- [ ] `GET /t/{topic_id}/posts.json` 可获取回复流
+- [ ] `GET /search.json?q={query}` 可搜索话题
+- [ ] `GET /u/{username}.json` 可获取用户资料
 
-### Task 4: 实现 Discourse API 服务
-- [ ] `lib/core/network/discourse_api_service.dart` 创建完成
-  - [ ] `getLatestTopics()` 方法实现正确
-    - [ ] 调用 `/latest.json` 端点
-    - [ ] 分页参数处理正确
-    - [ ] 返回数据解析正确
-  - [ ] `getTopicsByCategory()` 方法实现正确
-    - [ ] 调用 `/c/{category_id}.json` 端点
-    - [ ] 分类 ID 参数传递正确
-  - [ ] `getTopicDetail()` 方法实现正确
-    - [ ] 调用 `/t/{topic_id}.json` 端点
-    - [ ] 话题 ID 参数传递正确
-  - [ ] `getTopicPosts()` 方法实现正确
-    - [ ] 调用 `/t/{topic_id}/posts.json` 端点
-    - [ ] 分页参数处理正确
-  - [ ] `getCategories()` 方法实现正确
-    - [ ] 调用 `/categories.json` 端点
-    - [ ] 返回分类列表正确
-  - [ ] `searchTopics()` 方法实现正确
-    - [ ] 调用 `/search.json?q={query}` 端点
-    - [ ] 搜索关键词编码正确
-  - [ ] `getUserInfo()` 方法实现正确
-    - [ ] 调用 `/u/{username}.json` 端点
-    - [ ] 用户名参数传递正确
-- [ ] API 错误处理完善
-  - [ ] 网络错误处理
-  - [ ] HTTP 错误码处理
-  - [ ] 超时处理
+### 模型与适配器
 
-### Task 5: 适配现有 ApiService
-- [ ] `lib/core/network/api_service.dart` 修改完成
-  - [ ] DiscourseApiService 注入正确
-  - [ ] `getHomeFeed()` 重写完成
-    - [ ] 调用 Discourse API
-    - [ ] 使用适配器转换数据
-    - [ ] 返回 HomeFeedResponse
-  - [ ] `getFeedContent()` 重写完成
-    - [ ] 调用 Discourse API
-    - [ ] 使用适配器转换数据
-    - [ ] 返回 FeedContentResponse
-  - [ ] `getFeedContentReply()` 重写完成
-    - [ ] 调用 Discourse API
-    - [ ] 使用适配器转换数据
-    - [ ] 返回 TotalReplyResponse
-  - [ ] `getSearch()` 重写完成
-    - [ ] 调用 Discourse API
-    - [ ] 使用适配器转换数据
-  - [ ] `getUserSpace()` 重写完成
-    - [ ] 调用 Discourse API
-    - [ ] 使用适配器转换数据
-  - [ ] 数据格式转换正确
-  - [ ] 错误处理完善
+- [ ] Discourse Topic 模型与真实响应字段匹配
+- [ ] Discourse Post 模型与真实响应字段匹配
+- [ ] Discourse Category 模型与真实响应字段匹配
+- [ ] Discourse User 模型与真实响应字段匹配
+- [ ] Topic 可正确映射为 Feed 卡片数据
+- [ ] 首楼 Post 可正确映射为话题正文
+- [ ] 后续 Posts 可正确映射为回复数据
+- [ ] Category 可正确映射为频道/分类数据
+- [ ] User 可正确映射为用户资料
+- [ ] `avatar_template` 可正确转为完整头像 URL
+- [ ] ISO 8601 时间可正确转为 App 显示时间
+- [ ] HTML 内容不会被错误丢弃
+- [ ] null、空字段、相对路径、缺失 users/posters 均有兜底
 
----
+## 2. 首页社区体验
 
-## 第三阶段：数据仓库更新
+### 主结构
 
-### Task 6: 更新 FeedRepository
-- [ ] `lib/data/repositories/feed_repository.dart` 修改完成
-  - [ ] `getHomeFeed()` 更新完成
-    - [ ] 调用新 API 服务
-    - [ ] 错误处理完善
-    - [ ] 缓存策略合理
-  - [ ] `getFeedContent()` 更新完成
-  - [ ] `getFeedContentReply()` 更新完成
-  - [ ] `getTopicsByCategory()` 添加完成
-  - [ ] 单元测试通过
+- [ ] App 启动后默认进入原生首页
+- [ ] 底部导航包含：首页、发现、消息、我的
+- [ ] 首页不是整页 WebView
+- [ ] 首页频道包含：推荐、热门、官方、求助、建议、技巧、作品、交流、活动
+- [ ] 频道可横向滑动
+- [ ] 频道切换保留滚动位置
+- [ ] 频道切换保留分页状态
 
-### Task 7: 更新 UserRepository
-- [ ] `lib/data/repositories/user_repository.dart` 修改完成
-  - [ ] `getUserSpace()` 更新完成
-  - [ ] `getProfile()` 更新完成
-  - [ ] 登录相关方法更新（如需要）
-  - [ ] 单元测试通过
+### Feed 列表
 
-### Task 8: 更新 SearchRepository
-- [ ] `lib/data/repositories/search_repository.dart` 修改完成
-  - [ ] `getSearch()` 更新完成
-  - [ ] `getSearchTag()` 更新完成
-  - [ ] 单元测试通过
+- [ ] 首页 Feed 来自真实 `forum.trae.cn`
+- [ ] 首页 Feed 可在调试日志或网络层观察到真实接口请求
+- [ ] 首页每条卡片可追溯到真实 Topic ID
+- [ ] 支持下拉刷新
+- [ ] 支持上拉加载更多
+- [ ] 首屏加载有骨架屏或明确加载态
+- [ ] 空结果有空态
+- [ ] 网络失败有错误态和重试
+- [ ] 列表快速滑动无明显卡顿
 
-### Task 9: 更新其他 Repository
-- [ ] `lib/data/repositories/topic_repository.dart` 修改完成
-- [ ] `lib/data/repositories/message_repository.dart` 修改完成
-- [ ] `lib/data/repositories/comment_repository.dart` 修改完成
+### Feed 卡片
 
----
+- [ ] 展示作者头像
+- [ ] 展示作者昵称
+- [ ] 展示发布时间或最后活跃时间
+- [ ] 展示分类
+- [ ] 展示标签
+- [ ] 展示标题
+- [ ] 展示摘要或正文预览
+- [ ] 展示图片/封面
+- [ ] 展示回复数
+- [ ] 展示浏览数
+- [ ] 展示点赞数
+- [ ] 展示置顶/官方/精选标记
+- [ ] 点击卡片进入原生详情页
+- [ ] 点击作者进入原生用户主页
+- [ ] 点击分类/标签进入对应列表页
 
-## 第四阶段：验证与测试
+## 3. 话题详情
 
-### Task 10: 单元测试 - 适配器
-- [ ] `test/adapters/topic_adapter_test.dart` 创建完成
-  - [ ] Topic 到 Feed 映射测试通过
-  - [ ] 边界情况测试通过
-- [ ] `test/adapters/post_adapter_test.dart` 创建完成
-  - [ ] Post 到 Reply 映射测试通过
-- [ ] `test/adapters/category_adapter_test.dart` 创建完成
-- [ ] `test/adapters/user_adapter_test.dart` 创建完成
-- [ ] 所有适配器测试通过率 100%
+- [ ] 详情页调用真实 `/t/{topic_id}.json`
+- [ ] 当前详情页 Topic ID 来自首页真实 Topic ID
+- [ ] 详情页不是整页 WebView
+- [ ] 展示标题
+- [ ] 展示作者头像、昵称、发布时间
+- [ ] 展示分类和标签
+- [ ] 首楼正文使用富文本渲染
+- [ ] HTML 段落、链接、图片、代码块可读
+- [ ] 图片可点击预览
+- [ ] 外部链接可打开
+- [ ] 首楼 `cooked` HTML 被解析为原生内容块，而不是直接简单线性堆叠
+- [ ] 正文支持 paragraph、heading、image、imageGroup、quote、code、list、link 等内容块
+- [ ] 详情页具备杂志期刊式图文排版效果
+- [ ] 详情页不得只是“文字一段 + 图片一张 + 文字一段”的简单布局
+- [ ] 首图或重要图片有更强的视觉层级
+- [ ] 单图可全宽或图注式展示
+- [ ] 2 张图片可并排或错落展示
+- [ ] 3-4 张图片可主次网格展示
+- [ ] 5 张以上图片可精选预览网格展示并进入图片预览
+- [ ] 引用块有独立视觉样式
+- [ ] 代码块有独立视觉样式并可横向滚动或自适应
+- [ ] 长文段落有合适行高、留白、分节和标题层级
+- [ ] 深色/浅色主题下正文、引用、代码、图片说明均可读
+- [ ] 小屏设备上图片和文本无横向溢出
+- [ ] 图文排版不改变原帖语义顺序
+- [ ] 图文排版不遗漏原帖文字、图片、链接或代码
+- [ ] 回复列表来自真实帖子流
+- [ ] 首楼正文和回复列表不会使用占位文案作为成功态
+- [ ] 回复展示楼层号
+- [ ] 回复展示头像、昵称、时间、点赞数
+- [ ] 回复关系可识别
+- [ ] 回复列表支持分页或足够明确的加载更多
+- [ ] 评论排序入口存在
+- [ ] 未登录时底部回复栏展示登录/暂未支持提示
+- [ ] 话题关闭、删除、空内容有兜底状态
 
-### Task 11: 单元测试 - API Service
-- [ ] `test/network/discourse_api_service_test.dart` 创建完成
-  - [ ] API 调用测试通过
-  - [ ] 错误处理测试通过
-  - [ ] Mock 数据测试通过
-- [ ] 所有 API Service 测试通过率 100%
+## 4. 发现与搜索
 
-### Task 12: 集成测试
-- [ ] `integration_test/app_test.dart` 更新完成
-  - [ ] 首页加载话题列表测试通过
-  - [ ] 话题详情页加载测试通过
-  - [ ] 分类筛选测试通过
-  - [ ] 搜索功能测试通过
-- [ ] 所有集成测试通过率 100%
+### 发现页
 
-### Task 13: 手动验证
-- [ ] 首页话题列表从 Discourse API 加载正常
-  - [ ] 列表展示正确
-  - [ ] 分页加载正常
-  - [ ] 下拉刷新正常
-  - [ ] 上拉加载更多正常
-- [ ] 话题详情页展示正确
-  - [ ] 标题显示正确
-  - [ ] 内容显示正确
-  - [ ] 作者信息显示正确
-  - [ ] 标签显示正确
-- [ ] 评论/回复列表加载正常
-  - [ ] 回复列表展示正确
-  - [ ] 楼层信息显示正确
-  - [ ] 点赞数显示正确
-- [ ] 分类列表和筛选正常
-  - [ ] 分类列表加载正确
-  - [ ] 分类筛选功能正常
-  - [ ] 分类颜色显示正确
-- [ ] 搜索功能正常
-  - [ ] 搜索结果加载正确
-  - [ ] 搜索关键词匹配正确
-- [ ] 用户信息加载正常
-  - [ ] 用户资料加载正确
-  - [ ] 用户头像加载正确
-- [ ] 图片加载正常
-  - [ ] 头像图片加载正确
-  - [ ] 封面图片加载正确
-  - [ ] 图片缓存正常工作
+- [ ] 展示分类网格
+- [ ] 展示热门标签
+- [ ] 展示热门/精选话题
+- [ ] 展示 SOLO / 活动专区入口
+- [ ] 分类入口跳转对应话题列表
+- [ ] 标签入口跳转对应话题列表或搜索结果
 
----
+### 搜索
 
-## 最终验收标准
+- [ ] 搜索框可输入关键词
+- [ ] 搜索调用真实 Discourse 搜索接口
+- [ ] 搜索请求包含用户输入的真实关键词
+- [ ] 搜索结果展示为原生 Feed 列表
+- [ ] 搜索结果每条可追溯到真实 Topic ID 或 User ID
+- [ ] 搜索历史本地保存
+- [ ] 可清空搜索历史
+- [ ] 无结果展示空态
+- [ ] 搜索失败展示错误重试
 
-### 功能完整性
-- [ ] 首页 Feed 列表从 Discourse API 加载正常
-- [ ] 话题详情页从 Discourse API 加载正常
-- [ ] 评论/回复列表从 Discourse API 加载正常
-- [ ] 分类列表从 Discourse API 加载正常
-- [ ] 搜索功能调用 Discourse API 正常
-- [ ] 用户信息从 Discourse API 加载正常
+## 5. 用户与我的
 
-### 数据映射正确性
-- [ ] Discourse Topic 正确映射到 HomeFeedData
-- [ ] Discourse Post 正确映射到 ReplyData
-- [ ] Discourse Category 正确映射到分类模型
-- [ ] Discourse User 正确映射到 UserInfo
+### 用户主页
 
-### 性能要求
-- [ ] API 响应时间 < 2 秒
-- [ ] 列表滑动流畅（帧率 > 50fps）
-- [ ] 图片加载流畅，无闪烁
-- [ ] 应用启动时间 < 3 秒
+- [ ] 点击作者可进入用户主页
+- [ ] 用户主页调用真实 `/u/{username}.json`
+- [ ] 用户名参数来自真实 Topic/Post/User 数据
+- [ ] 展示头像、用户名、简介/资料
+- [ ] 展示用户统计
+- [ ] 展示用户近期话题或回复
+- [ ] 关注、私信等需登录操作有明确提示
 
-### 兼容性
-- [ ] 保留所有现有 UI 组件功能
-- [ ] 保留所有现有页面功能
-- [ ] 保留所有现有状态管理功能
-- [ ] 现有测试用例通过
+### 我的页面
 
-### 代码质量
-- [ ] 代码结构清晰
-- [ ] 函数级注释完整
-- [ ] 无严重代码警告
-- [ ] 测试覆盖率 > 60%
+- [ ] 未登录状态不阻塞浏览
+- [ ] 展示登录入口
+- [ ] 展示本地收藏
+- [ ] 展示浏览历史
+- [ ] 展示搜索历史管理
+- [ ] 展示主题设置
+- [ ] 展示字体大小设置
+- [ ] 展示缓存清理
+- [ ] 展示关于和版本信息
 
----
+## 6. WebView 使用边界
 
-## 当前项目状态总结
+- [ ] 首页主 Feed 不使用整页 WebView
+- [ ] 话题详情主内容不使用整页 WebView
+- [ ] 用户主页主内容不使用整页 WebView
+- [ ] WebView 仅用于外部链接、登录兜底或暂未原生化页面
+- [ ] WebView 入口有返回、刷新、加载错误处理
 
-### 已完成 ✅
-- 项目基础框架搭建
-- UI 组件开发
-- 页面结构实现
-- 状态管理配置
+## 7. 登录与互动
 
-### 进行中 🔄
-- Discourse API 对接规格制定
+### MVP 阶段
 
-### 待开始 ⏳
-- Discourse 数据模型创建
-- 数据适配器实现
-- API Service 重构
-- Repository 更新
-- 测试验证
+- [ ] 未登录时可浏览首页
+- [ ] 未登录时可查看详情
+- [ ] 未登录时可搜索
+- [ ] 未登录时可查看用户主页
+- [ ] 发帖入口不会崩溃
+- [ ] 回复入口不会崩溃
+- [ ] 点赞入口不会崩溃
+- [ ] 关注入口不会崩溃
+- [ ] 需要登录的操作有明确提示
 
-### 重要提醒 ⚠️
-1. **API 配置**: 需要将 `baseUrl` 从酷安 API 改为 Discourse API
-2. **数据映射**: Discourse 数据格式与现有模型差异较大，需要仔细设计适配器
-3. **用户系统**: Discourse 认证方式可能与现有不同，需要重新设计
-4. **图片加载**: Discourse 头像使用 URL 模板，需要特殊处理
+### 后续认证阶段
 
-### 实际进度估算
-- **第一阶段**: 0% 完成
-- **第二阶段**: 0% 完成
-- **第三阶段**: 0% 完成
-- **第四阶段**: 0% 完成
+- [ ] Discourse 认证方案已书面确认
+- [ ] 会话安全保存
+- [ ] 会话过期可恢复或重新登录
+- [ ] 发帖成功
+- [ ] 回复成功
+- [ ] 点赞/取消点赞成功
+- [ ] 收藏/取消收藏成功
+- [ ] 通知消息加载成功
 
-**总体完成度**: ~5% (规格制定阶段)
+## 8. 质量与性能
+
+- [ ] `flutter analyze` 无阻塞错误
+- [ ] `flutter test` 通过
+- [ ] 核心适配器有单元测试
+- [ ] 首页首屏正常网络目标 < 2 秒
+- [ ] 列表滑动目标 > 50fps
+- [ ] 图片加载有缓存和尺寸约束
+- [ ] 弱网下不会白屏
+- [ ] 深色模式可读
+- [ ] 小屏设备文本不溢出
+- [ ] Android Release APK 可构建
+
+## 9. 最终验收
+
+- [ ] 安装 APK 后可直接浏览 TRAE 社区内容
+- [ ] 主要体验符合 CoolApk 风格的信息流社区 App，而不是网页壳
+- [ ] 首页、详情、搜索、用户主页全部来自真实 `forum.trae.cn` 数据
+- [ ] 首页、详情、搜索、用户主页任一仍使用 mock/静态数据/整页 WebView 主体内容时，最终验收失败
+- [ ] 帖子详情页正文达到杂志期刊式图文排布效果，不能只是普通富文本线性渲染
+- [ ] 只读 MVP 全路径可用
+- [ ] 未实现的互动能力有清晰提示和后续任务
+- [ ] 发布包无明显崩溃、白屏、死路由

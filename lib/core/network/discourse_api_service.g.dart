@@ -7,20 +7,13 @@ part of 'discourse_api_service.dart';
 // **************************************************************************
 
 String _$discourseApiServiceHash() =>
-    r'4c59ecd6725be3e9c0b365af82f5ba747826e9ff';
+    r'de0b374f5429f70ead5a40a41ea22570ec562be9';
 
-/// Discourse API 服务
-///
-/// 负责调用 Discourse 论坛 API 端点
-///
-/// Copied from [DiscourseApiService].
-@ProviderFor(DiscourseApiService)
+/// See also [discourseApiService].
+@ProviderFor(discourseApiService)
 final discourseApiServiceProvider =
-    AutoDisposeNotifierProvider<
-      DiscourseApiService,
-      DiscourseApiService
-    >.internal(
-      DiscourseApiService.new,
+    AutoDisposeProvider<DiscourseApiService>.internal(
+      discourseApiService,
       name: r'discourseApiServiceProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
           ? null
@@ -29,6 +22,8 @@ final discourseApiServiceProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$DiscourseApiService = AutoDisposeNotifier<DiscourseApiService>;
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef DiscourseApiServiceRef = AutoDisposeProviderRef<DiscourseApiService>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

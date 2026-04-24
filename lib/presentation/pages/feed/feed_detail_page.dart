@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../config/theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-/// 动态详情页
-///
-/// 展示单个动态的详细内容和评论列表
-/// 包含：动态内容、图片、互动操作、评论列表
+import '../../../config/constants.dart';
+import '../../../core/utils/date_util.dart';
+import '../../../core/utils/discourse_image_url_resolver.dart';
+import '../../../data/models/comment.dart';
+import '../../../data/models/feed.dart';
+import '../../../data/repositories/comment_repository.dart';
+import '../../../data/repositories/feed_repository.dart';
+import '../../pages/common/image_preview_page.dart';
+import '../../widgets/common/cached_image.dart';
+import '../../widgets/common/rich_text_view.dart';
+import '../../widgets/detail/topic_magazine_renderer.dart';
+
 class FeedDetailPage extends ConsumerStatefulWidget {
-  /// 动态 ID
   final String feedId;
 
-  /// 构造函数
   const FeedDetailPage({
     super.key,
     required this.feedId,
@@ -21,29 +27,282 @@ class FeedDetailPage extends ConsumerStatefulWidget {
   ConsumerState<FeedDetailPage> createState() => _FeedDetailPageState();
 }
 
-/// 动态详情页状态
 class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
-  /// 评论输入控制器
   final TextEditingController _commentController = TextEditingController();
-
-  /// 滚动控制器
   final ScrollController _scrollController = ScrollController();
+
+  FeedContentData? _topicDetail;
+  List<TopicContentBlock> _topicBlocks = const [];
+  List<ReplyData> _comments = const [];
+
+  bool _isTopicLoading = true;
+  bool _isCommentsLoading = true;
+  bool _isLoadingMoreComments = false;
+  bool _hasMoreComments = true;
+
+  int _commentsPage = 1;
+  String _commentSortType = '';
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_handleScroll);
+    _loadInitialData();
+  }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
   }
 
+  void _handleScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    final threshold = _scrollController.position.maxScrollExtent - 220;
+    if (_scrollController.position.pixels >= threshold) {
+      _loadMoreComments();
+    }
+  }
+
+  Future<void> _loadInitialData({bool showLoading = true}) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _isTopicLoading = true;
+        _isCommentsLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    final feedRepository = ref.read(feedRepositoryProvider);
+    final commentRepository = ref.read(commentRepositoryProvider);
+
+    try {
+      final responses = await Future.wait<dynamic>([
+        feedRepository.getFeedDetail(id: widget.feedId),
+        commentRepository.getCommentList(
+          id: widget.feedId,
+          page: 1,
+          listType: _commentSortType,
+        ),
+      ]);
+
+      final detailResponse = responses[0] as FeedContentResponse;
+      final commentResponse = responses[1] as TotalReplyResponse;
+
+      if (!_isSuccessStatus(detailResponse.status) || detailResponse.data == null) {
+        throw Exception(
+          detailResponse.message.isNotEmpty ? detailResponse.message : '加载话题详情失败',
+        );
+      }
+
+      final topicDetail = detailResponse.data!;
+      final topicBlocks = TopicCookedParser.parse(topicDetail.message);
+
+      final rawComments = _isSuccessStatus(commentResponse.status)
+          ? commentResponse.data
+          : const <ReplyData>[];
+      final comments = _stripFirstPostIfNeeded(topicDetail, rawComments);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _topicDetail = topicDetail;
+        _topicBlocks = topicBlocks;
+        _comments = comments;
+        _commentsPage = 1;
+        _hasMoreComments = rawComments.length >= AppConstants.pageSize;
+        _isTopicLoading = false;
+        _isCommentsLoading = false;
+        _errorMessage = _isSuccessStatus(commentResponse.status)
+            ? null
+            : (commentResponse.message.isNotEmpty ? commentResponse.message : '回复加载失败');
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isTopicLoading = false;
+        _isCommentsLoading = false;
+        _errorMessage = '加载失败: $error';
+      });
+    }
+  }
+
+  Future<void> _reloadComments({String? listType}) async {
+    if (_isCommentsLoading) {
+      return;
+    }
+
+    if (listType != null) {
+      _commentSortType = listType;
+    }
+
+    setState(() {
+      _isCommentsLoading = true;
+      _errorMessage = null;
+    });
+
+    final commentRepository = ref.read(commentRepositoryProvider);
+
+    try {
+      final response = await commentRepository.getCommentList(
+        id: widget.feedId,
+        page: 1,
+        listType: _commentSortType,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (_isSuccessStatus(response.status)) {
+        final topic = _topicDetail;
+        final normalized = topic == null
+            ? response.data
+            : _stripFirstPostIfNeeded(topic, response.data);
+
+        setState(() {
+          _comments = normalized;
+          _commentsPage = 1;
+          _hasMoreComments = response.data.length >= AppConstants.pageSize;
+          _isCommentsLoading = false;
+        });
+      } else {
+        setState(() {
+          _isCommentsLoading = false;
+          _errorMessage = response.message.isNotEmpty ? response.message : '回复加载失败';
+        });
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isCommentsLoading = false;
+        _errorMessage = '回复加载失败: $error';
+      });
+    }
+  }
+
+  Future<void> _loadMoreComments() async {
+    if (_isLoadingMoreComments || _isCommentsLoading || !_hasMoreComments) {
+      return;
+    }
+
+    setState(() {
+      _isLoadingMoreComments = true;
+    });
+
+    final commentRepository = ref.read(commentRepositoryProvider);
+
+    try {
+      final nextPage = _commentsPage + 1;
+      final response = await commentRepository.getCommentList(
+        id: widget.feedId,
+        page: nextPage,
+        listType: _commentSortType,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (_isSuccessStatus(response.status)) {
+        final existingIds = _comments.map((reply) => reply.id).toSet();
+        final newItems = response.data
+            .where((reply) => !existingIds.contains(reply.id))
+            .toList();
+
+        setState(() {
+          _comments = [..._comments, ...newItems];
+          _commentsPage = nextPage;
+          _hasMoreComments = response.data.length >= AppConstants.pageSize;
+          _isLoadingMoreComments = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingMoreComments = false;
+          _hasMoreComments = false;
+          _errorMessage = response.message.isNotEmpty ? response.message : '加载更多回复失败';
+        });
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isLoadingMoreComments = false;
+        _errorMessage = '加载更多回复失败: $error';
+      });
+    }
+  }
+
+  List<ReplyData> _stripFirstPostIfNeeded(
+    FeedContentData topicDetail,
+    List<ReplyData> replies,
+  ) {
+    if (replies.isEmpty) {
+      return replies;
+    }
+
+    final first = replies.first;
+    final topicAuthorId = topicDetail.userInfo?.uid;
+    final sameAuthor = topicAuthorId != null && topicAuthorId.isNotEmpty && first.uid == topicAuthorId;
+
+    if (!sameAuthor) {
+      return replies;
+    }
+
+    final bodyMessage = _normalizeHtml(topicDetail.message);
+    final firstMessage = _normalizeHtml(first.message);
+
+    if (bodyMessage.isNotEmpty && bodyMessage == firstMessage) {
+      return replies.skip(1).toList();
+    }
+
+    return replies;
+  }
+
+  bool _isSuccessStatus(int status) {
+    return status == 200 || status == 1;
+  }
+
+  String _normalizeHtml(String html) {
+    return html
+        .replaceAll(RegExp(r'\s+'), '')
+        .replaceAll('&nbsp;', '')
+        .trim();
+  }
+
+  Future<void> _openExternalLink(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      return;
+    }
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      context.push(
+        '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent('外部链接')}',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final detail = _topicDetail;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('动态详情'),
+        title: Text(detail?.title?.trim().isNotEmpty == true ? detail!.title!.trim() : '话题详情'),
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert),
@@ -53,60 +312,18 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       ),
       body: Column(
         children: [
-          // 内容区域
           Expanded(
-            child: CustomScrollView(
-              controller: _scrollController,
-              slivers: [
-                // 动态内容
-                SliverToBoxAdapter(
-                  child: _FeedContent(feedId: widget.feedId),
-                ),
-                // 评论标题
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Text(
-                          '评论',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '12',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const Spacer(),
-                        _CommentSortButton(
-                          onSortChanged: (sort) {
-                            // TODO: 切换排序方式
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // 评论列表
-                SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _CommentItem(index: index),
-                    childCount: 10,
-                  ),
-                ),
-              ],
+            child: RefreshIndicator(
+              onRefresh: () => _loadInitialData(showLoading: false),
+              child: _buildContent(context),
             ),
           ),
-          // 底部评论输入栏
           _BottomCommentBar(
             controller: _commentController,
             onSend: () {
-              // TODO: 发送评论
-              _commentController.clear();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('当前为只读模式，回复功能暂未开放')),
+              );
             },
           ),
         ],
@@ -114,38 +331,186 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     );
   }
 
-  /// 显示更多选项菜单
-  ///
-  /// [context] 构建上下文
+  Widget _buildContent(BuildContext context) {
+    if (_isTopicLoading && _topicDetail == null) {
+      return ListView(
+        children: const [
+          SizedBox(height: 280),
+          Center(child: CircularProgressIndicator()),
+        ],
+      );
+    }
+
+    if (_topicDetail == null) {
+      return ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+        children: [
+          Icon(
+            Icons.error_outline,
+            size: 54,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _errorMessage ?? '话题加载失败',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          FilledButton(
+            onPressed: _loadInitialData,
+            child: const Text('重试'),
+          ),
+        ],
+      );
+    }
+
+    final detail = _topicDetail!;
+
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverToBoxAdapter(
+          child: _TopicHeaderSection(
+            detail: detail,
+            blocks: _topicBlocks,
+            onLinkTap: _openExternalLink,
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
+            child: Row(
+              children: [
+                Text(
+                  '回复',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${detail.replyNum}',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const Spacer(),
+                _CommentSortButton(
+                  currentSort: _commentSortType,
+                  onSortChanged: (sort) => _reloadComments(listType: sort),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_errorMessage != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onErrorContainer,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        if (_isCommentsLoading && _comments.isEmpty)
+          const SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_comments.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                '暂无回复',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          )
+        else
+          SliverList.builder(
+            itemCount: _comments.length,
+            itemBuilder: (context, index) {
+              final reply = _comments[index];
+              return _ReplyItem(
+                reply: reply,
+                floor: index + 1,
+                topicAuthorUid: detail.userInfo?.uid,
+                onLinkTap: _openExternalLink,
+              );
+            },
+          ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Center(
+              child: _isLoadingMoreComments
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : (!_hasMoreComments && _comments.isNotEmpty)
+                      ? Text(
+                          '没有更多回复了',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
+                      : const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   void _showMoreOptions(BuildContext context) {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('分享'),
+              leading: const Icon(Icons.share_outlined),
+              title: const Text('分享话题链接'),
               onTap: () {
                 Navigator.of(context).pop();
-                // TODO: 分享
+                final topicUrl = 'https://forum.trae.cn/t/${widget.feedId}';
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(content: Text('链接: $topicUrl')),
+                );
               },
             ),
             ListTile(
-              leading: const Icon(Icons.report),
-              title: const Text('举报'),
+              leading: const Icon(Icons.open_in_browser_outlined),
+              title: const Text('在浏览器中打开'),
               onTap: () {
                 Navigator.of(context).pop();
-                // TODO: 举报
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.block),
-              title: const Text('屏蔽'),
-              onTap: () {
-                Navigator.of(context).pop();
-                // TODO: 屏蔽
+                _openExternalLink('https://forum.trae.cn/t/${widget.feedId}');
               },
             ),
           ],
@@ -155,142 +520,114 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   }
 }
 
-/// 动态内容组件
-///
-/// 展示动态的详细内容，包括用户信息、内容、图片、互动数据
-class _FeedContent extends StatelessWidget {
-  /// 动态 ID
-  final String feedId;
+class _TopicHeaderSection extends StatelessWidget {
+  final FeedContentData detail;
+  final List<TopicContentBlock> blocks;
+  final ValueChanged<String> onLinkTap;
 
-  /// 构造函数
-  const _FeedContent({required this.feedId});
+  const _TopicHeaderSection({
+    required this.detail,
+    required this.blocks,
+    required this.onLinkTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final username = detail.userInfo?.username ?? '匿名用户';
+    final avatar = detail.userInfo?.avatar;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-            color: colorScheme.outline.withOpacity(0.2),
+            color: colorScheme.outline.withValues(alpha: 0.12),
           ),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 用户信息
+          if (detail.title?.trim().isNotEmpty == true)
+            Text(
+              detail.title!.trim(),
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+            ),
+          if (detail.title?.trim().isNotEmpty == true) const SizedBox(height: 16),
           Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: colorScheme.primaryContainer,
-                child: Text(
-                  'U',
-                  style: TextStyle(
-                    color: colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+              _AuthorAvatar(avatar: avatar, username: username),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '用户名',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            username,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ),
+                        if (detail.isTop) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '置顶',
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                    color: colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      '2小时前 · 来自 iPhone',
-                      style: theme.textTheme.bodySmall,
+                      _formatTimestamp(detail.dateline),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ],
                 ),
               ),
-              FilledButton.tonal(
-                onPressed: () {},
-                child: const Text('关注'),
-              ),
             ],
           ),
-          const SizedBox(height: 16),
-          // 内容
-          Text(
-            '这是动态 #$feedId 的详细内容。这里展示了完整的内容文本，可以包含多行文字。',
-            style: theme.textTheme.bodyLarge,
+          TopicMagazineRenderer(
+            blocks: blocks,
+            onLinkTap: onLinkTap,
           ),
-          const SizedBox(height: 16),
-          // 图片网格
-          _ImageGrid(imageCount: 3),
-          const SizedBox(height: 16),
-          // 话题标签
-          Wrap(
-            spacing: 8,
-            children: [
-              ActionChip(
-                avatar: const Icon(Icons.tag, size: 16),
-                label: const Text('Flutter'),
-                onPressed: () {},
-              ),
-              ActionChip(
-                avatar: const Icon(Icons.tag, size: 16),
-                label: const Text('移动开发'),
-                onPressed: () {},
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // 互动数据
+          const SizedBox(height: 14),
           Row(
             children: [
               Icon(
-                Icons.remove_red_eye_outlined,
+                Icons.chat_bubble_outline_rounded,
                 size: 16,
                 color: colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
               Text(
-                '1.2k 浏览',
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // 操作栏
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _ActionButton(
-                icon: Icons.thumb_up_outlined,
-                activeIcon: Icons.thumb_up,
-                label: '128',
-                isActive: false,
-                onTap: () {},
-              ),
-              _ActionButton(
-                icon: Icons.comment_outlined,
-                label: '12',
-                onTap: () {},
-              ),
-              _ActionButton(
-                icon: Icons.star_border,
-                activeIcon: Icons.star,
-                label: '收藏',
-                isActive: false,
-                onTap: () {},
-              ),
-              _ActionButton(
-                icon: Icons.share_outlined,
-                label: '分享',
-                onTap: () {},
+                '${detail.replyNum} 条回复',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
               ),
             ],
           ),
@@ -298,131 +635,69 @@ class _FeedContent extends StatelessWidget {
       ),
     );
   }
-}
 
-/// 图片网格组件
-///
-/// 展示动态的图片列表
-class _ImageGrid extends StatelessWidget {
-  /// 图片数量
-  final int imageCount;
-
-  /// 构造函数
-  const _ImageGrid({required this.imageCount});
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 4,
-        mainAxisSpacing: 4,
-      ),
-      itemCount: imageCount,
-      itemBuilder: (context, index) {
-        return Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceVariant,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.image,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        );
-      },
-    );
+  static String _formatTimestamp(String dateline) {
+    final seconds = int.tryParse(dateline) ?? 0;
+    if (seconds <= 0) {
+      return '未知时间';
+    }
+    return DateUtil.getRelativeTimeFromTimestampSeconds(seconds);
   }
 }
 
-/// 操作按钮组件
-///
-/// 用于点赞、评论、收藏、分享等操作
-class _ActionButton extends StatelessWidget {
-  /// 未激活图标
-  final IconData icon;
+class _AuthorAvatar extends StatelessWidget {
+  final String? avatar;
+  final String username;
 
-  /// 激活图标
-  final IconData? activeIcon;
-
-  /// 标签
-  final String label;
-
-  /// 是否激活
-  final bool isActive;
-
-  /// 点击回调
-  final VoidCallback onTap;
-
-  /// 构造函数
-  const _ActionButton({
-    required this.icon,
-    this.activeIcon,
-    required this.label,
-    this.isActive = false,
-    required this.onTap,
+  const _AuthorAvatar({
+    required this.avatar,
+    required this.username,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final activeColor = AppTheme.likeColor;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isActive ? (activeIcon ?? icon) : icon,
-              size: 20,
-              color: isActive ? activeColor : colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: isActive ? activeColor : colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+    final imageUrl = avatar;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return ClipOval(
+        child: CachedImage(
+          imageUrl: imageUrl,
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
         ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 22,
+      child: Text(
+        username.isNotEmpty ? username[0].toUpperCase() : '?',
       ),
     );
   }
 }
 
-/// 评论排序按钮
-///
-/// 用于切换评论排序方式
 class _CommentSortButton extends StatelessWidget {
-  /// 排序变更回调
+  final String currentSort;
   final ValueChanged<String> onSortChanged;
 
-  /// 构造函数
-  const _CommentSortButton({required this.onSortChanged});
+  const _CommentSortButton({
+    required this.currentSort,
+    required this.onSortChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isHot = currentSort == 'hot';
     return PopupMenuButton<String>(
-      initialValue: 'time',
+      initialValue: currentSort,
       onSelected: onSortChanged,
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'time',
+      itemBuilder: (context) => const [
+        PopupMenuItem(
+          value: '',
           child: Text('时间排序'),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'hot',
           child: Text('热度排序'),
         ),
@@ -431,127 +706,126 @@ class _CommentSortButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '时间排序',
+            isHot ? '热度排序' : '时间排序',
             style: Theme.of(context).textTheme.bodySmall,
           ),
-          const Icon(Icons.arrow_drop_down, size: 18),
+          const Icon(Icons.arrow_drop_down_rounded, size: 18),
         ],
       ),
     );
   }
 }
 
-/// 评论项组件
-///
-/// 单个评论的展示
-class _CommentItem extends StatelessWidget {
-  /// 索引
-  final int index;
+class _ReplyItem extends StatelessWidget {
+  final ReplyData reply;
+  final int floor;
+  final String? topicAuthorUid;
+  final ValueChanged<String> onLinkTap;
 
-  /// 构造函数
-  const _CommentItem({required this.index});
+  const _ReplyItem({
+    required this.reply,
+    required this.floor,
+    required this.topicAuthorUid,
+    required this.onLinkTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final isReply = index % 3 == 0;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isTopicAuthor = topicAuthorUid != null && topicAuthorUid == reply.uid;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: colorScheme.outline.withOpacity(0.2),
+            color: colorScheme.outline.withValues(alpha: 0.12),
           ),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: colorScheme.primaryContainer,
-            child: Text(
-              'C$index',
-              style: TextStyle(
-                fontSize: 10,
-                color: colorScheme.onPrimaryContainer,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
+          _CommentAvatar(avatar: reply.avatar, username: reply.username),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(
-                      '评论用户 $index',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        reply.username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
                     ),
-                    if (isReply) ...[
-                      const SizedBox(width: 8),
+                    if (isTopicAuthor) ...[
+                      const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '楼主',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: colorScheme.onPrimaryContainer,
-                          ),
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: colorScheme.onPrimaryContainer,
+                              ),
                         ),
                       ),
                     ],
+                    const Spacer(),
+                    Text(
+                      '#$floor',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                if (isReply && index > 0)
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '回复 @用户 ${index - 1}: 这是被回复的内容',
-                      style: theme.textTheme.bodySmall?.copyWith(
+                const SizedBox(height: 2),
+                Text(
+                  _formatTimestamp(reply.dateline),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
+                ),
+                const SizedBox(height: 8),
+                if (reply.replyTo != null && reply.replyTo!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '回复 @${reply.replyTo}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
                     ),
                   ),
-                Text(
-                  '这是第 $index 条评论的内容，展示评论的样式和布局效果。',
-                  style: theme.textTheme.bodyMedium,
+                _ReplyMessage(
+                  htmlContent: reply.message,
+                  onLinkTap: onLinkTap,
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
+                    Icon(
+                      Icons.thumb_up_alt_outlined,
+                      size: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
                     Text(
-                      '${index + 1}小时前',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const Spacer(),
-                    _CommentActionButton(
-                      icon: Icons.thumb_up_outlined,
-                      label: '${index * 2 + 1}',
-                      onTap: () {},
-                    ),
-                    _CommentActionButton(
-                      icon: Icons.comment_outlined,
-                      label: '回复',
-                      onTap: () {},
+                      '${reply.likeNum}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                     ),
                   ],
                 ),
@@ -562,64 +836,84 @@ class _CommentItem extends StatelessWidget {
       ),
     );
   }
+
+  static String _formatTimestamp(String dateline) {
+    final seconds = int.tryParse(dateline) ?? 0;
+    if (seconds <= 0) {
+      return '未知时间';
+    }
+    return DateUtil.getRelativeTimeFromTimestampSeconds(seconds);
+  }
 }
 
-/// 评论操作按钮
-///
-/// 评论项内的操作按钮（点赞、回复）
-class _CommentActionButton extends StatelessWidget {
-  /// 图标
-  final IconData icon;
+class _ReplyMessage extends StatelessWidget {
+  final String htmlContent;
+  final ValueChanged<String> onLinkTap;
 
-  /// 标签
-  final String label;
-
-  /// 点击回调
-  final VoidCallback onTap;
-
-  /// 构造函数
-  const _CommentActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
+  const _ReplyMessage({
+    required this.htmlContent,
+    required this.onLinkTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final imageUrls = TopicCookedParser.extractImages(htmlContent)
+        .map(DiscourseImageUrlResolver.toOriginalUrl)
+        .whereType<String>()
+        .toList();
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(width: 2),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
+    return RichTextView(
+      htmlContent: htmlContent,
+      onLinkTap: onLinkTap,
+      onImageTap: (url) {
+        final images = imageUrls.isEmpty ? <String>[url] : imageUrls;
+        final index = images.indexOf(url);
+        ImagePreviewPage.show(
+          context,
+          imageUrls: images,
+          initialIndex: index < 0 ? 0 : index,
+        );
+      },
+    );
+  }
+}
+
+class _CommentAvatar extends StatelessWidget {
+  final String? avatar;
+  final String username;
+
+  const _CommentAvatar({
+    required this.avatar,
+    required this.username,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (avatar != null && avatar!.isNotEmpty) {
+      return ClipOval(
+        child: CachedImage(
+          imageUrl: avatar!,
+          width: 36,
+          height: 36,
+          fit: BoxFit.cover,
         ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: 18,
+      child: Text(
+        username.isNotEmpty ? username[0].toUpperCase() : '?',
+        style: Theme.of(context).textTheme.labelMedium,
       ),
     );
   }
 }
 
-/// 底部评论输入栏
-///
-/// 固定在底部的评论输入区域
 class _BottomCommentBar extends StatelessWidget {
-  /// 输入控制器
   final TextEditingController controller;
-
-  /// 发送回调
   final VoidCallback onSend;
 
-  /// 构造函数
   const _BottomCommentBar({
     required this.controller,
     required this.onSend,
@@ -627,15 +921,14 @@ class _BottomCommentBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(
-          top: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
+          top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
         ),
       ),
       child: SafeArea(
@@ -644,28 +937,23 @@ class _BottomCommentBar extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                enabled: false,
                 decoration: InputDecoration(
-                  hintText: '写评论...',
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                  hintText: '登录后可回复（暂未开放）',
                   filled: true,
-                  fillColor: colorScheme.surfaceVariant,
+                  fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(18),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             IconButton(
               onPressed: onSend,
-              icon: const Icon(Icons.send),
+              icon: const Icon(Icons.info_outline),
               color: colorScheme.primary,
             ),
           ],

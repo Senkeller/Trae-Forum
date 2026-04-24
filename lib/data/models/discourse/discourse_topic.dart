@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'discourse_post.dart';
 
 part 'discourse_topic.freezed.dart';
 part 'discourse_topic.g.dart';
@@ -289,83 +290,6 @@ class DiscourseTopicDetailResponse with _$DiscourseTopicDetailResponse {
 
   factory DiscourseTopicDetailResponse.fromJson(Map<String, dynamic> json) =>
       _$DiscourseTopicDetailResponseFromJson(json);
-}
-
-/// Discourse 帖子流模型
-@freezed
-class DiscoursePostStream with _$DiscoursePostStream {
-  const factory DiscoursePostStream({
-    @JsonKey(name: 'posts') @Default([]) List<DiscoursePost> posts,
-    @JsonKey(name: 'stream') @Default([]) List<int> stream,
-  }) = _DiscoursePostStream;
-
-  factory DiscoursePostStream.fromJson(Map<String, dynamic> json) =>
-      _$DiscoursePostStreamFromJson(json);
-}
-
-/// Discourse 帖子模型
-@freezed
-class DiscoursePost with _$DiscoursePost {
-  const factory DiscoursePost({
-    @JsonKey(name: 'id') required int id,
-    @JsonKey(name: 'name') String? name,
-    @JsonKey(name: 'username') required String username,
-    @JsonKey(name: 'avatar_template') required String avatarTemplate,
-    @JsonKey(name: 'created_at') required String createdAt,
-    @JsonKey(name: 'cooked') String? cooked,
-    @JsonKey(name: 'raw') String? raw,
-    @JsonKey(name: 'post_number') required int postNumber,
-    @JsonKey(name: 'post_type') @Default(1) int postType,
-    @JsonKey(name: 'updated_at') String? updatedAt,
-    @JsonKey(name: 'reply_count') @Default(0) int replyCount,
-    @JsonKey(name: 'reply_to_post_number') int? replyToPostNumber,
-    @JsonKey(name: 'quote_count') @Default(0) int quoteCount,
-    @JsonKey(name: 'incoming_link_count') @Default(0) int incomingLinkCount,
-    @JsonKey(name: 'reads') @Default(0) int reads,
-    @JsonKey(name: 'like_count') @Default(0) int likeCount,
-    @JsonKey(name: 'readers_count') @Default(0) int readersCount,
-    @JsonKey(name: 'score') double? score,
-    @JsonKey(name: 'yours') @Default(false) bool yours,
-    @JsonKey(name: 'topic_id') required int topicId,
-    @JsonKey(name: 'topic_slug') String? topicSlug,
-    @JsonKey(name: 'display_username') String? displayUsername,
-    @JsonKey(name: 'primary_group_name') String? primaryGroupName,
-    @JsonKey(name: 'flair_name') String? flairName,
-    @JsonKey(name: 'flair_url') String? flairUrl,
-    @JsonKey(name: 'flair_bg_color') String? flairBgColor,
-    @JsonKey(name: 'flair_color') String? flairColor,
-    @JsonKey(name: 'version') @Default(1) int version,
-    @JsonKey(name: 'can_edit') @Default(false) bool canEdit,
-    @JsonKey(name: 'can_delete') @Default(false) bool canDelete,
-    @JsonKey(name: 'can_recover') @Default(false) bool canRecover,
-    @JsonKey(name: 'can_see_hidden_post') @Default(false) bool canSeeHiddenPost,
-    @JsonKey(name: 'can_wiki') @Default(false) bool canWiki,
-    @JsonKey(name: 'link_counts') @Default([]) List<Map<String, dynamic>> linkCounts,
-    @JsonKey(name: 'actions_summary') @Default([]) List<Map<String, dynamic>> actionsSummary,
-    @JsonKey(name: 'moderator') @Default(false) bool moderator,
-    @JsonKey(name: 'admin') @Default(false) bool admin,
-    @JsonKey(name: 'staff') @Default(false) bool staff,
-    @JsonKey(name: 'user_id') int? userId,
-    @JsonKey(name: 'hidden') @Default(false) bool hidden,
-    @JsonKey(name: 'trust_level') @Default(0) int trustLevel,
-    @JsonKey(name: 'deleted_at') String? deletedAt,
-    @JsonKey(name: 'user_deleted') @Default(false) bool userDeleted,
-    @JsonKey(name: 'edit_reason') String? editReason,
-    @JsonKey(name: 'can_view_edit_history') @Default(false) bool canViewEditHistory,
-    @JsonKey(name: 'wiki') @Default(false) bool wiki,
-    @JsonKey(name: 'reviewable_id') int? reviewableId,
-    @JsonKey(name: 'reviewable_score_count') int? reviewableScoreCount,
-    @JsonKey(name: 'reviewable_score_pending_count') int? reviewableScorePendingCount,
-    @JsonKey(name: 'mentioned_users') @Default([]) List<Map<String, dynamic>> mentionedUsers,
-    @JsonKey(name: 'reactions') @Default([]) List<Map<String, dynamic>> reactions,
-    @JsonKey(name: 'current_user_reaction') Map<String, dynamic>? currentUserReaction,
-    @JsonKey(name: 'reaction_users_count') int? reactionUsersCount,
-    @JsonKey(name: 'bookmarked') @Default(false) bool bookmarked,
-    @JsonKey(name: 'bookmarked_at') String? bookmarkedAt,
-  }) = _DiscoursePost;
-
-  factory DiscoursePost.fromJson(Map<String, dynamic> json) =>
-      _$DiscoursePostFromJson(json);
 }
 
 /// Discourse 话题详情模型

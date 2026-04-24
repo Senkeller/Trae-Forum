@@ -6,14 +6,9 @@ part of 'api_service.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$apiServiceHash() => r'fed2f9670cafc3a33aa315d98668a810e21ba4c2';
+String _$apiServiceHash() => r'2385a8f1e3d4c9b4307bd1c46e4caa8d9d26904b';
 
-/// API 服务类
-///
-/// 负责调用后端 API，支持酷安 API 和 Discourse API
-/// 通过适配器层统一数据格式
-///
-/// Copied from [ApiService].
+/// See also [ApiService].
 @ProviderFor(ApiService)
 final apiServiceProvider =
     AutoDisposeNotifierProvider<ApiService, ApiService>.internal(

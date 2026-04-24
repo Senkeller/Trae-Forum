@@ -1,48 +1,128 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../core/network/api_service.dart';
+
+import '../../config/constants.dart';
+import '../../core/network/discourse_api_service.dart';
 
 part 'home_provider.g.dart';
+
+enum FeedType {
+  recommended,
+  hot,
+  official,
+  help,
+  suggestions,
+  tips,
+  showcase,
+  discussion,
+  events,
+}
+
+const List<FeedType> homeFeedTabs = [
+  FeedType.recommended,
+  FeedType.hot,
+  FeedType.official,
+  FeedType.help,
+  FeedType.suggestions,
+  FeedType.tips,
+  FeedType.showcase,
+  FeedType.discussion,
+  FeedType.events,
+];
+
+const Map<FeedType, String> homeFeedTabLabels = {
+  FeedType.recommended: '推荐',
+  FeedType.hot: '热门',
+  FeedType.official: '官方',
+  FeedType.help: '求助',
+  FeedType.suggestions: '建议',
+  FeedType.tips: '技巧',
+  FeedType.showcase: '作品',
+  FeedType.discussion: '交流',
+  FeedType.events: '活动',
+};
+
+const Map<int, String> _categoryLabelById = {
+  4: 'Official',
+  7: 'Help',
+  8: 'Suggestions',
+  9: 'Tips',
+  10: 'Showcase',
+  11: 'Discussion',
+  29: 'Events',
+  35: 'Events',
+};
 
 /// Feed 项数据模型
 class FeedItem {
   /// 动态ID
   final String id;
+
   /// 作者UID
   final String uid;
+
   /// 作者用户名
   final String username;
+
   /// 作者头像
   final String avatarUrl;
-  /// 动态内容
+
+  /// 标题
+  final String title;
+
+  /// 摘要内容
   final String content;
+
+  /// 分类文案
+  final String category;
+
+  /// 分类ID
+  final int categoryId;
+
   /// 发布时间
   final String createTime;
+
   /// 点赞数
   final int likeCount;
+
   /// 评论数
   final int replyCount;
+
+  /// 浏览数
+  final int viewCount;
+
   /// 是否已点赞
   final bool isLiked;
+
   /// 图片列表
   final List<String> images;
+
   /// 动态类型
   final String type;
+
   /// 标签
   final List<String> tags;
+
+  /// 是否置顶
+  final bool isPinned;
 
   const FeedItem({
     required this.id,
     required this.uid,
     required this.username,
     required this.avatarUrl,
+    required this.title,
     required this.content,
+    required this.category,
+    required this.categoryId,
     required this.createTime,
     this.likeCount = 0,
     this.replyCount = 0,
+    this.viewCount = 0,
     this.isLiked = false,
     this.images = const [],
-    this.type = 'feed',
+    this.type = 'topic',
     this.tags = const [],
+    this.isPinned = false,
   });
 
   /// 从 JSON 创建
@@ -50,22 +130,27 @@ class FeedItem {
     return FeedItem(
       id: json['id']?.toString() ?? '',
       uid: json['uid']?.toString() ?? '',
-      username: json['username'] ?? json['userInfo']?['username'] ?? '',
-      avatarUrl: json['userAvatar'] ?? json['userInfo']?['userAvatar'] ?? '',
-      content: json['message'] ?? json['content'] ?? '',
-      createTime: json['dateline'] ?? json['createTime'] ?? '',
-      likeCount: json['likenum'] ?? json['likeCount'] ?? 0,
-      replyCount: json['replynum'] ?? json['replyCount'] ?? 0,
-      isLiked: json['userAction']?['like'] == 1,
-      images: (json['pic'] as List<dynamic>?)
+      username: json['username']?.toString() ?? '',
+      avatarUrl: json['avatarUrl']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      content: json['content']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
+      categoryId: _parseInt(json['categoryId']),
+      createTime: json['createTime']?.toString() ?? '',
+      likeCount: _parseInt(json['likeCount']),
+      replyCount: _parseInt(json['replyCount']),
+      viewCount: _parseInt(json['viewCount']),
+      isLiked: json['isLiked'] == true,
+      images: (json['images'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          [],
-      type: json['entityType'] ?? json['type'] ?? 'feed',
+          const [],
+      type: json['type']?.toString() ?? 'topic',
       tags: (json['tags'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
-          [],
+          const [],
+      isPinned: json['isPinned'] == true,
     );
   }
 
@@ -75,28 +160,75 @@ class FeedItem {
     String? uid,
     String? username,
     String? avatarUrl,
+    String? title,
     String? content,
+    String? category,
+    int? categoryId,
     String? createTime,
     int? likeCount,
     int? replyCount,
+    int? viewCount,
     bool? isLiked,
     List<String>? images,
     String? type,
     List<String>? tags,
+    bool? isPinned,
   }) {
     return FeedItem(
       id: id ?? this.id,
       uid: uid ?? this.uid,
       username: username ?? this.username,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      title: title ?? this.title,
       content: content ?? this.content,
+      category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       createTime: createTime ?? this.createTime,
       likeCount: likeCount ?? this.likeCount,
       replyCount: replyCount ?? this.replyCount,
+      viewCount: viewCount ?? this.viewCount,
       isLiked: isLiked ?? this.isLiked,
       images: images ?? this.images,
       type: type ?? this.type,
       tags: tags ?? this.tags,
+      isPinned: isPinned ?? this.isPinned,
+    );
+  }
+}
+
+/// Tab Feed 列表状态
+class TabFeedState {
+  final List<FeedItem> feedList;
+  final bool isRefreshing;
+  final bool isLoadingMore;
+  final int currentPage;
+  final bool hasMore;
+  final String? errorMessage;
+
+  const TabFeedState({
+    this.feedList = const [],
+    this.isRefreshing = false,
+    this.isLoadingMore = false,
+    this.currentPage = 1,
+    this.hasMore = true,
+    this.errorMessage,
+  });
+
+  TabFeedState copyWith({
+    List<FeedItem>? feedList,
+    bool? isRefreshing,
+    bool? isLoadingMore,
+    int? currentPage,
+    bool? hasMore,
+    String? errorMessage,
+  }) {
+    return TabFeedState(
+      feedList: feedList ?? this.feedList,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      currentPage: currentPage ?? this.currentPage,
+      hasMore: hasMore ?? this.hasMore,
+      errorMessage: errorMessage,
     );
   }
 }
@@ -105,57 +237,38 @@ class FeedItem {
 class HomeState {
   /// 当前 Tab 索引
   final int currentTabIndex;
-  /// Feed 列表
-  final List<FeedItem> feedList;
-  /// 是否正在刷新
-  final bool isRefreshing;
-  /// 是否正在加载更多
-  final bool isLoadingMore;
-  /// 当前页码
-  final int currentPage;
-  /// 是否还有更多数据
-  final bool hasMore;
-  /// 错误信息
-  final String? errorMessage;
-  /// 首次加载标识
-  final String? firstItem;
-  /// 最后加载标识
-  final String? lastItem;
+
+  /// 各 Tab 的 Feed 列表
+  final Map<FeedType, TabFeedState> tabStates;
 
   const HomeState({
     this.currentTabIndex = 0,
-    this.feedList = const [],
-    this.isRefreshing = false,
-    this.isLoadingMore = false,
-    this.currentPage = 1,
-    this.hasMore = true,
-    this.errorMessage,
-    this.firstItem,
-    this.lastItem,
+    this.tabStates = const {},
   });
 
-  /// 复制并修改
+  FeedType get currentFeedType {
+    final index = currentTabIndex.clamp(0, homeFeedTabs.length - 1);
+    return homeFeedTabs[index];
+  }
+
+  TabFeedState get currentTabState {
+    return tabStates[currentFeedType] ?? const TabFeedState();
+  }
+
+  List<FeedItem> get feedList => currentTabState.feedList;
+  bool get isRefreshing => currentTabState.isRefreshing;
+  bool get isLoadingMore => currentTabState.isLoadingMore;
+  int get currentPage => currentTabState.currentPage;
+  bool get hasMore => currentTabState.hasMore;
+  String? get errorMessage => currentTabState.errorMessage;
+
   HomeState copyWith({
     int? currentTabIndex,
-    List<FeedItem>? feedList,
-    bool? isRefreshing,
-    bool? isLoadingMore,
-    int? currentPage,
-    bool? hasMore,
-    String? errorMessage,
-    String? firstItem,
-    String? lastItem,
+    Map<FeedType, TabFeedState>? tabStates,
   }) {
     return HomeState(
       currentTabIndex: currentTabIndex ?? this.currentTabIndex,
-      feedList: feedList ?? this.feedList,
-      isRefreshing: isRefreshing ?? this.isRefreshing,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
-      currentPage: currentPage ?? this.currentPage,
-      hasMore: hasMore ?? this.hasMore,
-      errorMessage: errorMessage,
-      firstItem: firstItem ?? this.firstItem,
-      lastItem: lastItem ?? this.lastItem,
+      tabStates: tabStates ?? this.tabStates,
     );
   }
 }
@@ -163,80 +276,87 @@ class HomeState {
 /// 首页状态 Notifier
 @riverpod
 class HomeNotifier extends _$HomeNotifier {
-  late ApiService _apiService;
+  late DiscourseApiService _discourseApiService;
 
-  /// 构建首页状态
   @override
   HomeState build() {
-    _apiService = ref.read(apiServiceProvider);
+    _discourseApiService = ref.read(discourseApiServiceProvider);
     return const HomeState();
+  }
+
+  FeedType _indexToFeedType(int index) {
+    final safeIndex = index.clamp(0, homeFeedTabs.length - 1);
+    return homeFeedTabs[safeIndex];
+  }
+
+  TabFeedState _getTabState(FeedType type) {
+    return state.tabStates[type] ?? const TabFeedState();
+  }
+
+  void _updateTabState(FeedType type, TabFeedState newState) {
+    final updatedTabStates = Map<FeedType, TabFeedState>.from(state.tabStates);
+    updatedTabStates[type] = newState;
+    state = state.copyWith(tabStates: updatedTabStates);
+  }
+
+  TabFeedState getTabStateByIndex(int index) {
+    return _getTabState(_indexToFeedType(index));
   }
 
   /// 切换 Tab
   ///
   /// [index] 要切换到的 Tab 索引
   void switchTab(int index) {
+    if (index == state.currentTabIndex) return;
     state = state.copyWith(currentTabIndex: index);
+
+    final feedType = _indexToFeedType(index);
+    final tabState = _getTabState(feedType);
+    if (tabState.feedList.isEmpty && !tabState.isRefreshing) {
+      refreshFeeds();
+    }
   }
 
   /// 刷新 Feed 列表
   ///
   /// 清空当前列表并重新加载第一页数据
   Future<void> refreshFeeds() async {
-    if (state.isRefreshing) return;
+    final feedType = _indexToFeedType(state.currentTabIndex);
+    final currentTabState = _getTabState(feedType);
+    if (currentTabState.isRefreshing) return;
 
-    state = state.copyWith(
-      isRefreshing: true,
-      errorMessage: null,
-      currentPage: 1,
-      firstItem: null,
-      lastItem: null,
+    _updateTabState(
+      feedType,
+      currentTabState.copyWith(
+        isRefreshing: true,
+        errorMessage: null,
+        currentPage: 1,
+        hasMore: true,
+      ),
     );
 
     try {
-      final response = await _apiService.getHomeFeed(
-        page: 1,
-        firstLaunch: 0,
-        installTime: DateTime.now().millisecondsSinceEpoch.toString(),
-      );
+      final feeds = await _fetchFeedItems(feedType, 1);
+      final latestState = _getTabState(feedType);
 
-      if (response.status == 1 && response.data != null) {
-        // 将 HomeFeedData 转换为 FeedItem
-        final feeds = response.data.map((feedData) {
-          return FeedItem(
-            id: feedData.id,
-            uid: feedData.userInfo?.uid ?? '',
-            username: feedData.userInfo?.username ?? '',
-            avatarUrl: feedData.userInfo?.avatar ?? '',
-            content: feedData.message ?? feedData.title ?? '',
-            createTime: feedData.dateline ?? '',
-            likeCount: feedData.action.likeNum,
-            replyCount: feedData.replyNum,
-            isLiked: feedData.action.isLike,
-            images: feedData.picArr,
-            type: feedData.entityType,
-            tags: [],
-          );
-        }).toList();
-
-        state = state.copyWith(
+      _updateTabState(
+        feedType,
+        latestState.copyWith(
           feedList: feeds,
           isRefreshing: false,
-          hasMore: feeds.length >= 20,
+          hasMore: feeds.length >= AppConstants.pageSize,
           currentPage: 1,
-          firstItem: feeds.isNotEmpty ? feeds.first.id : null,
-          lastItem: feeds.isNotEmpty ? feeds.last.id : null,
-        );
-      } else {
-        state = state.copyWith(
-          isRefreshing: false,
-          errorMessage: response.message ?? '加载失败',
-        );
-      }
+          errorMessage: null,
+        ),
+      );
     } catch (e) {
-      state = state.copyWith(
-        isRefreshing: false,
-        errorMessage: '网络错误: $e',
+      final latestState = _getTabState(feedType);
+      _updateTabState(
+        feedType,
+        latestState.copyWith(
+          isRefreshing: false,
+          errorMessage: '网络错误: $e',
+        ),
       );
     }
   }
@@ -245,68 +365,270 @@ class HomeNotifier extends _$HomeNotifier {
   ///
   /// 加载下一页数据并追加到列表
   Future<void> loadMoreFeeds() async {
-    if (state.isLoadingMore || !state.hasMore) return;
+    final feedType = _indexToFeedType(state.currentTabIndex);
+    final currentTabState = _getTabState(feedType);
+    if (currentTabState.isLoadingMore || !currentTabState.hasMore) return;
 
-    state = state.copyWith(
-      isLoadingMore: true,
-      errorMessage: null,
+    _updateTabState(
+      feedType,
+      currentTabState.copyWith(
+        isLoadingMore: true,
+        errorMessage: null,
+      ),
     );
 
+    final nextPage = currentTabState.currentPage + 1;
+
     try {
-      final nextPage = state.currentPage + 1;
-      final response = await _apiService.getHomeFeed(
-        page: nextPage,
-        firstLaunch: 0,
-        installTime: DateTime.now().millisecondsSinceEpoch.toString(),
-        firstItem: state.firstItem,
-        lastItem: state.lastItem,
-      );
+      final newFeeds = await _fetchFeedItems(feedType, nextPage);
+      final latestState = _getTabState(feedType);
 
-      if (response.status == 1 && response.data != null) {
-        // 将 HomeFeedData 转换为 FeedItem
-        final newFeeds = response.data.map((feedData) {
-          return FeedItem(
-            id: feedData.id,
-            uid: feedData.userInfo?.uid ?? '',
-            username: feedData.userInfo?.username ?? '',
-            avatarUrl: feedData.userInfo?.avatar ?? '',
-            content: feedData.message ?? feedData.title ?? '',
-            createTime: feedData.dateline ?? '',
-            likeCount: feedData.action.likeNum,
-            replyCount: feedData.replyNum,
-            isLiked: feedData.action.isLike,
-            images: feedData.picArr,
-            type: feedData.entityType,
-            tags: [],
-          );
-        }).toList();
-
-        if (newFeeds.isEmpty) {
-          state = state.copyWith(
+      if (newFeeds.isEmpty) {
+        _updateTabState(
+          feedType,
+          latestState.copyWith(
             isLoadingMore: false,
             hasMore: false,
-          );
-        } else {
-          state = state.copyWith(
-            feedList: [...state.feedList, ...newFeeds],
-            isLoadingMore: false,
-            currentPage: nextPage,
-            hasMore: newFeeds.length >= 20,
-            lastItem: newFeeds.last.id,
-          );
-        }
-      } else {
-        state = state.copyWith(
-          isLoadingMore: false,
-          errorMessage: response.message ?? '加载失败',
+          ),
         );
+        return;
       }
+
+      final existingIds = latestState.feedList.map((e) => e.id).toSet();
+      final dedupedNewFeeds = newFeeds.where((e) => !existingIds.contains(e.id)).toList();
+
+      _updateTabState(
+        feedType,
+        latestState.copyWith(
+          feedList: [...latestState.feedList, ...dedupedNewFeeds],
+          isLoadingMore: false,
+          currentPage: nextPage,
+          hasMore: newFeeds.length >= AppConstants.pageSize,
+          errorMessage: null,
+        ),
+      );
     } catch (e) {
-      state = state.copyWith(
-        isLoadingMore: false,
-        errorMessage: '网络错误: $e',
+      final latestState = _getTabState(feedType);
+      _updateTabState(
+        feedType,
+        latestState.copyWith(
+          isLoadingMore: false,
+          errorMessage: '网络错误: $e',
+        ),
       );
     }
+  }
+
+  Future<List<FeedItem>> _fetchFeedItems(FeedType type, int page) async {
+    switch (type) {
+      case FeedType.recommended:
+        return _fetchFromResponse(
+          await _discourseApiService.getLatestTopics(page: page),
+        );
+      case FeedType.hot:
+        try {
+          return _fetchFromResponse(
+            await _discourseApiService.getHotTopics(page: page),
+          );
+        } catch (_) {
+          return _fetchFromResponse(
+            await _discourseApiService.getTopTopics(page: page),
+          );
+        }
+      case FeedType.official:
+        return _fetchFromResponse(
+          await _discourseApiService.getTopicsByCategory(
+            AppConstants.forumCategoryIds['official']!,
+            page: page,
+          ),
+        );
+      case FeedType.help:
+        return _fetchFromResponse(
+          await _discourseApiService.getTopicsByCategory(
+            AppConstants.forumCategoryIds['help']!,
+            page: page,
+          ),
+        );
+      case FeedType.suggestions:
+        return _fetchFromResponse(
+          await _discourseApiService.getTopicsByCategory(
+            AppConstants.forumCategoryIds['suggestions']!,
+            page: page,
+          ),
+        );
+      case FeedType.tips:
+        return _fetchFromResponse(
+          await _discourseApiService.getTopicsByCategory(
+            AppConstants.forumCategoryIds['tips']!,
+            page: page,
+          ),
+        );
+      case FeedType.showcase:
+        return _fetchFromResponse(
+          await _discourseApiService.getTopicsByCategory(
+            AppConstants.forumCategoryIds['showcase']!,
+            page: page,
+          ),
+        );
+      case FeedType.discussion:
+        return _fetchFromResponse(
+          await _discourseApiService.getTopicsByCategory(
+            AppConstants.forumCategoryIds['discussion']!,
+            page: page,
+          ),
+        );
+      case FeedType.events:
+        return _fetchEvents(page);
+    }
+  }
+
+  Future<List<FeedItem>> _fetchEvents(int page) async {
+    final primary = AppConstants.forumCategoryIds['events']!;
+    final secondary = AppConstants.forumCategoryIds['solo']!;
+
+    final responses = await Future.wait([
+      _discourseApiService.getTopicsByCategory(primary, page: page),
+      _discourseApiService.getTopicsByCategory(secondary, page: page),
+    ]);
+
+    final merged = <FeedItem>[];
+    final seen = <String>{};
+
+    for (final response in responses) {
+      for (final item in _fetchFromResponse(response)) {
+        if (seen.add(item.id)) {
+          merged.add(item);
+        }
+      }
+    }
+
+    merged.sort((a, b) => int.tryParse(b.createTime)?.compareTo(int.tryParse(a.createTime) ?? 0) ?? 0);
+    return merged;
+  }
+
+  List<FeedItem> _fetchFromResponse(dynamic response) {
+    final raw = response.data;
+    final data = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+
+    final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+    final topics = (topicListMap?['topics'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    final users = (data['users'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final userMap = <int, Map<String, dynamic>>{};
+    for (final user in users) {
+      final id = _parseInt(user['id']);
+      if (id > 0) {
+        userMap[id] = user;
+      }
+    }
+
+    return topics.map((topic) => _adaptTopicToFeedItem(topic, userMap)).toList();
+  }
+
+  FeedItem _adaptTopicToFeedItem(
+    Map<String, dynamic> topic,
+    Map<int, Map<String, dynamic>> userMap,
+  ) {
+    final posterList = (topic['posters'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final firstPosterUserId = posterList.isNotEmpty ? _parseInt(posterList.first['user_id']) : 0;
+    final author = userMap[firstPosterUserId] ?? const <String, dynamic>{};
+
+    final username = (author['username'] ?? topic['last_poster_username'] ?? '').toString();
+    final categoryId = _parseInt(topic['category_id']);
+    final title = (topic['title'] ?? '').toString();
+    final excerpt = _normalizeExcerpt(topic['excerpt']);
+    final postsCount = _parseInt(topic['posts_count']);
+    final replyCount = _parseInt(topic['reply_count']) > 0
+        ? _parseInt(topic['reply_count'])
+        : (postsCount > 0 ? postsCount - 1 : 0);
+
+    final imageUrl = (topic['image_url'] ?? '').toString();
+
+    return FeedItem(
+      id: (topic['id'] ?? '').toString(),
+      uid: firstPosterUserId > 0 ? firstPosterUserId.toString() : '',
+      username: username.isNotEmpty ? username : 'unknown',
+      avatarUrl: _formatAvatarUrl(
+        (author['avatar_template'] ?? '').toString(),
+        username,
+      ),
+      title: title,
+      content: excerpt.isNotEmpty ? excerpt : title,
+      category: _categoryLabelById[categoryId] ?? 'Category $categoryId',
+      categoryId: categoryId,
+      createTime: _toUnixTimestamp(topic['last_posted_at'] ?? topic['created_at']),
+      likeCount: _parseInt(topic['like_count']),
+      replyCount: replyCount,
+      viewCount: _parseInt(topic['views']),
+      isLiked: false,
+      images: imageUrl.isNotEmpty ? [imageUrl] : const [],
+      type: 'topic',
+      tags: (topic['tags'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      isPinned: topic['pinned'] == true,
+    );
+  }
+
+  String _normalizeExcerpt(dynamic raw) {
+    if (raw == null) return '';
+    final text = raw.toString();
+    final noTag = text
+        .replaceAll(RegExp(r'<[^>]+>'), ' ')
+        .replaceAll('&hellip;', '...')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"');
+    return noTag.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  String _toUnixTimestamp(dynamic value) {
+    if (value == null) return '';
+    final source = value.toString();
+    if (source.isEmpty) return '';
+
+    final numeric = int.tryParse(source);
+    if (numeric != null) {
+      return numeric.toString();
+    }
+
+    final date = DateTime.tryParse(source);
+    if (date == null) {
+      return source;
+    }
+    return (date.toUtc().millisecondsSinceEpoch ~/ 1000).toString();
+  }
+
+  String _formatAvatarUrl(String avatarTemplate, String username) {
+    if (avatarTemplate.isNotEmpty) {
+      var url = avatarTemplate.replaceAll('{size}', '120');
+      if (url.startsWith('//')) {
+        return 'https:$url';
+      }
+      if (url.startsWith('/')) {
+        return '${AppConstants.baseUrl}$url';
+      }
+      return url;
+    }
+
+    if (username.isEmpty) {
+      return '';
+    }
+
+    return '${AppConstants.baseUrl}/user_avatar/forum.trae.cn/$username/120/0_2.png';
   }
 
   /// 更新 Feed 点赞状态
@@ -315,28 +637,41 @@ class HomeNotifier extends _$HomeNotifier {
   /// [isLiked] 新的点赞状态
   /// [likeCount] 新的点赞数
   void updateFeedLike(String feedId, bool isLiked, int likeCount) {
-    final updatedList = state.feedList.map((feed) {
+    final feedType = _indexToFeedType(state.currentTabIndex);
+    final currentTabState = _getTabState(feedType);
+    final updatedList = currentTabState.feedList.map((feed) {
       if (feed.id == feedId) {
         return feed.copyWith(isLiked: isLiked, likeCount: likeCount);
       }
       return feed;
     }).toList();
 
-    state = state.copyWith(feedList: updatedList);
+    _updateTabState(feedType, currentTabState.copyWith(feedList: updatedList));
   }
 
   /// 删除 Feed
   ///
   /// [feedId] 要删除的动态ID
   void removeFeed(String feedId) {
-    final updatedList = state.feedList.where((feed) => feed.id != feedId).toList();
-    state = state.copyWith(feedList: updatedList);
+    final feedType = _indexToFeedType(state.currentTabIndex);
+    final currentTabState = _getTabState(feedType);
+    final updatedList = currentTabState.feedList.where((feed) => feed.id != feedId).toList();
+    _updateTabState(feedType, currentTabState.copyWith(feedList: updatedList));
   }
 
   /// 清空错误信息
   void clearError() {
-    state = state.copyWith(errorMessage: null);
+    final feedType = _indexToFeedType(state.currentTabIndex);
+    final currentTabState = _getTabState(feedType);
+    _updateTabState(feedType, currentTabState.copyWith(errorMessage: null));
   }
+}
+
+int _parseInt(dynamic value) {
+  if (value == null) return 0;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString()) ?? 0;
 }
 
 /// 当前 Tab 索引 Provider

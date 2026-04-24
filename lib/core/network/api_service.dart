@@ -1,29 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../config/constants.dart';
 import '../../data/models/feed.dart';
 import '../../data/models/comment.dart';
 import '../../data/models/user.dart';
 import '../../data/adapters/discourse_adapter.dart';
 import '../../data/models/discourse/discourse_topic.dart';
-import '../../data/models/discourse/discourse_user.dart';
 import 'discourse_api_service.dart';
-import 'dio_client.dart';
 
 part 'api_service.g.dart';
 
-/// API 服务类
-/// 
-/// 负责调用后端 API，支持酷安 API 和 Discourse API
-/// 通过适配器层统一数据格式
 @riverpod
 class ApiService extends _$ApiService {
-  late final Dio _dio;
   late final DiscourseApiService _discourseApi;
 
   @override
   ApiService build() {
-    _dio = DioClient.dio;
     _discourseApi = ref.read(discourseApiServiceProvider);
     return this;
   }
@@ -43,7 +34,20 @@ class ApiService extends _$ApiService {
   }) async {
     try {
       final discourseResponse = await _discourseApi.getLatestTopics(page: page);
-      return DiscourseAdapter.adaptTopicListResponse(discourseResponse);
+      final Map<String, dynamic> data = discourseResponse.data;
+      
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = topicListMap?['topics'] as List<dynamic>? ?? [];
+      final users = data['users'] as List<dynamic>? ?? [];
+      
+      final feeds = _adaptTopicsToFeeds(topics, users);
+      
+      return HomeFeedResponse(
+        status: 200,
+        message: 'success',
+        data: feeds,
+        total: feeds.length,
+      );
     } catch (e) {
       return HomeFeedResponse(
         status: 500,
@@ -51,6 +55,148 @@ class ApiService extends _$ApiService {
         data: [],
       );
     }
+  }
+
+  /// 获取热门 Feed 列表
+  ///
+  /// 调用 Discourse /hot.json API
+  Future<HomeFeedResponse> getHotFeed({
+    required int page,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getHotTopics(page: page);
+      final Map<String, dynamic> data = discourseResponse.data;
+
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = topicListMap?['topics'] as List<dynamic>? ?? [];
+      final users = data['users'] as List<dynamic>? ?? [];
+
+      final feeds = _adaptTopicsToFeeds(topics, users);
+
+      return HomeFeedResponse(
+        status: 200,
+        message: 'success',
+        data: feeds,
+        total: feeds.length,
+      );
+    } catch (e) {
+      return HomeFeedResponse(
+        status: 500,
+        message: 'Failed to fetch hot feed: $e',
+        data: [],
+      );
+    }
+  }
+
+  /// 获取排行 Feed 列表
+  ///
+  /// 调用 Discourse /top.json API
+  Future<HomeFeedResponse> getTopFeed({
+    required int page,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getTopTopics(page: page);
+      final Map<String, dynamic> data = discourseResponse.data;
+
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = topicListMap?['topics'] as List<dynamic>? ?? [];
+      final users = data['users'] as List<dynamic>? ?? [];
+
+      final feeds = _adaptTopicsToFeeds(topics, users);
+
+      return HomeFeedResponse(
+        status: 200,
+        message: 'success',
+        data: feeds,
+        total: feeds.length,
+      );
+    } catch (e) {
+      return HomeFeedResponse(
+        status: 500,
+        message: 'Failed to fetch top feed: $e',
+        data: [],
+      );
+    }
+  }
+
+  /// 获取分类 Feed 列表
+  ///
+  /// 调用 Discourse /c/{category_id}.json API
+  Future<HomeFeedResponse> getCategoryFeed({
+    required int categoryId,
+    required int page,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getTopicsByCategory(categoryId, page: page);
+      final Map<String, dynamic> data = discourseResponse.data;
+
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = topicListMap?['topics'] as List<dynamic>? ?? [];
+      final users = data['users'] as List<dynamic>? ?? [];
+
+      final feeds = _adaptTopicsToFeeds(topics, users);
+
+      return HomeFeedResponse(
+        status: 200,
+        message: 'success',
+        data: feeds,
+        total: feeds.length,
+      );
+    } catch (e) {
+      return HomeFeedResponse(
+        status: 500,
+        message: 'Failed to fetch category feed: $e',
+        data: [],
+      );
+    }
+  }
+
+  List<HomeFeedData> _adaptTopicsToFeeds(List<dynamic> topics, List<dynamic> users) {
+    final userList = users.map((u) {
+      final map = u as Map<String, dynamic>;
+      return DiscourseUserBasic(
+        id: map['id'] ?? 0,
+        username: map['username'] ?? '',
+        name: map['name'],
+        avatarTemplate: map['avatar_template'] ?? '',
+        trustLevel: map['trust_level'],
+      );
+    }).toList();
+    
+    return topics.map((topic) {
+      final map = topic as Map<String, dynamic>;
+      final posters = map['posters'] as List<dynamic>? ?? [];
+      
+      final topicModel = DiscourseTopic(
+        id: map['id'] ?? 0,
+        title: map['title'] ?? '',
+        slug: map['slug'] ?? '',
+        categoryId: map['category_id'] ?? 0,
+        createdAt: map['created_at'] ?? '',
+        lastPostedAt: map['last_posted_at'],
+        postsCount: map['posts_count'] ?? 0,
+        replyCount: map['reply_count'] ?? 0,
+        views: map['views'] ?? 0,
+        likeCount: map['like_count'] ?? 0,
+        excerpt: map['excerpt'],
+        imageUrl: map['image_url'],
+        pinned: map['pinned'] ?? false,
+        visible: map['visible'] ?? true,
+        closed: map['closed'] ?? false,
+        archived: map['archived'] ?? false,
+        tags: (map['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+        posters: posters.map((p) {
+          final posterMap = p as Map<String, dynamic>;
+          return DiscoursePoster(
+            userId: posterMap['user_id'] ?? 0,
+            extras: posterMap['extras'],
+            description: posterMap['description'],
+          );
+        }).toList(),
+      );
+      
+      return TopicAdapter.adaptTopicToFeed(topicModel, userList);
+    }).toList();
   }
 
   // ==================== 动态详情 (Discourse) ====================
@@ -64,13 +210,58 @@ class ApiService extends _$ApiService {
   }) async {
     try {
       final discourseResponse = await _discourseApi.getTopicDetail(int.parse(id));
-      return DiscourseAdapter.adaptTopicDetailResponse(discourseResponse);
+      final Map<String, dynamic> data = discourseResponse.data;
+      
+      final postStreamMap = data['post_stream'] as Map<String, dynamic>?;
+      final posts = postStreamMap?['posts'] as List<dynamic>? ?? [];
+      
+      if (posts.isEmpty) {
+        return FeedContentResponse(
+          status: 200,
+          message: 'success',
+          data: null,
+        );
+      }
+      
+      final firstPost = posts.first as Map<String, dynamic>;
+      final userInfo = _adaptUserInfo(firstPost);
+      
+      final feedData = FeedContentData(
+        id: data['id']?.toString() ?? '0',
+        entityType: 'feed',
+        title: data['title'] ?? '',
+        message: DiscourseAdapter.processHtmlContent(firstPost['cooked'] ?? ''),
+        picArr: [],
+        userInfo: userInfo,
+        dateline: DiscourseAdapter.parseIso8601ToTimestamp(data['created_at'] ?? '').toString(),
+        replyNum: data['reply_count'] ?? 0,
+        forwardNum: 0,
+        isTop: data['pinned'] ?? false,
+      );
+      
+      return FeedContentResponse(
+        status: 200,
+        message: 'success',
+        data: feedData,
+      );
     } catch (e) {
       return FeedContentResponse(
         status: 500,
         message: 'Failed to fetch feed content: $e',
       );
     }
+  }
+  
+  UserInfo _adaptUserInfo(Map<String, dynamic> post) {
+    return UserInfo(
+      uid: post['user_id']?.toString() ?? '0',
+      username: post['username'] ?? '',
+      avatar: DiscourseAdapter.formatAvatarUrl(
+        post['avatar_template'] ?? '',
+        post['username'] ?? '',
+      ),
+      level: post['trust_level'] ?? 1,
+    );
   }
 
   // ==================== 评论列表 (Discourse) ====================
@@ -90,8 +281,18 @@ class ApiService extends _$ApiService {
     int fromFeedAuthor = 0,
   }) async {
     try {
-      final posts = await _discourseApi.getTopicPosts(int.parse(id), page: page);
-      return DiscourseAdapter.adaptPostListResponse(posts, id);
+      final discourseResponse = await _discourseApi.getTopicPosts(int.parse(id), page: page);
+      final Map<String, dynamic> data = discourseResponse.data;
+      
+      final posts = data['post_stream']?['posts'] as List<dynamic>? ?? [];
+      final replies = _adaptPostsToReplies(posts, id);
+      
+      return TotalReplyResponse(
+        status: 200,
+        message: 'success',
+        data: replies,
+        total: replies.length,
+      );
     } catch (e) {
       return TotalReplyResponse(
         status: 500,
@@ -99,6 +300,27 @@ class ApiService extends _$ApiService {
         data: [],
       );
     }
+  }
+  
+  List<ReplyData> _adaptPostsToReplies(List<dynamic> posts, String topicId) {
+    return posts.map((post) {
+      final map = post as Map<String, dynamic>;
+      return ReplyData(
+        id: map['id']?.toString() ?? '0',
+        uid: map['user_id']?.toString() ?? '0',
+        username: map['username'] ?? '',
+        avatar: DiscourseAdapter.formatAvatarUrl(
+          map['avatar_template'] ?? '',
+          map['username'] ?? '',
+        ),
+        message: DiscourseAdapter.processHtmlContent(map['cooked'] ?? ''),
+        dateline: DiscourseAdapter.parseIso8601ToTimestamp(map['created_at'] ?? '').toString(),
+        likeNum: map['like_count'] ?? 0,
+        replyNum: map['reply_count'] ?? 0,
+        replyTo: map['reply_to_user']?['username'],
+        replyUid: map['reply_to_user']?['user_id']?.toString(),
+      );
+    }).toList();
   }
 
   /// 获取楼中楼回复
@@ -128,30 +350,13 @@ class ApiService extends _$ApiService {
   }) async {
     try {
       final discourseResponse = await _discourseApi.searchTopics(keyWord);
+      final Map<String, dynamic> data = discourseResponse.data;
       
-      final feeds = discourseResponse.topics.map((topic) {
-        final DiscourseTopic topicModel = DiscourseTopic(
-          id: topic.id,
-          title: topic.title ?? '',
-          slug: topic.slug,
-          categoryId: topic.categoryId,
-          createdAt: topic.createdAt ?? DateTime.now().toIso8601String(),
-          postsCount: topic.postsCount,
-          replyCount: topic.replyCount,
-          views: topic.views,
-          likeCount: topic.likeCount,
-          tags: topic.tags ?? [],
-        );
-        
-        final DiscourseUserBasic user = DiscourseUserBasic(
-          id: 0,
-          username: topic.categoryName ?? 'unknown',
-          avatarTemplate: '',
-        );
-        
-        return DiscourseAdapter.adaptTopicToFeed(topicModel, [user]);
-      }).toList();
-
+      final topics = data['topics'] as List<dynamic>? ?? [];
+      final users = data['users'] as List<dynamic>? ?? [];
+      
+      final feeds = _adaptTopicsToFeeds(topics, users);
+      
       return HomeFeedResponse(
         status: 200,
         message: 'success',
@@ -176,8 +381,19 @@ class ApiService extends _$ApiService {
   }) async {
     try {
       final discourseResponse = await _discourseApi.getUserInfo(uid);
-      final userInfo = discourseResponse.user != null
-          ? DiscourseAdapter.adaptUserFromDetail(discourseResponse.user!)
+      final Map<String, dynamic> data = discourseResponse.data;
+      
+      final userMap = data['user'] as Map<String, dynamic>?;
+      final userInfo = userMap != null
+          ? UserInfo(
+              uid: userMap['id']?.toString() ?? '0',
+              username: userMap['username'] ?? uid,
+              avatar: DiscourseAdapter.formatAvatarUrl(
+                userMap['avatar_template'] ?? '',
+                userMap['username'] ?? '',
+              ),
+              level: userMap['trust_level'] ?? 1,
+            )
           : UserInfo(uid: '0', username: uid);
       
       return UserProfileResponse(
@@ -206,7 +422,29 @@ class ApiService extends _$ApiService {
     required int page,
     String? lastItem,
   }) async {
-    return getHomeFeed(page: page, installTime: '');
+    try {
+      final discourseResponse = await _discourseApi.getUserTopics(uid, page: page);
+      final Map<String, dynamic> data = discourseResponse.data;
+
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = topicListMap?['topics'] as List<dynamic>? ?? [];
+      final users = data['users'] as List<dynamic>? ?? [];
+
+      final feeds = _adaptTopicsToFeeds(topics, users);
+
+      return HomeFeedResponse(
+        status: 200,
+        message: 'success',
+        data: feeds,
+        total: feeds.length,
+      );
+    } catch (e) {
+      return HomeFeedResponse(
+        status: 500,
+        message: 'Failed to fetch user feed: $e',
+        data: [],
+      );
+    }
   }
 
   /// 获取关注/粉丝列表

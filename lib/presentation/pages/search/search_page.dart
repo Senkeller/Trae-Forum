@@ -1,67 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../config/constants.dart';
-import '../../../config/theme.dart';
+import '../../providers/search_provider.dart' as sp;
 
 /// 搜索页面
-///
-/// 提供搜索功能，包括搜索建议、热门搜索、搜索历史等
-/// 支持多种搜索类型：全部、动态、用户、话题、应用、数码
 class SearchPage extends ConsumerStatefulWidget {
-  /// 构造函数
   const SearchPage({super.key});
 
   @override
   ConsumerState<SearchPage> createState() => _SearchPageState();
 }
 
-/// 搜索页面状态
 class _SearchPageState extends ConsumerState<SearchPage>
     with SingleTickerProviderStateMixin {
-  /// 搜索控制器
   final TextEditingController _searchController = TextEditingController();
-
-  /// 焦点节点
   final FocusNode _focusNode = FocusNode();
-
-  /// Tab 控制器
+  final ScrollController _scrollController = ScrollController();
   late TabController _tabController;
-
-  /// 当前搜索类型
-  SearchType _currentSearchType = SearchType.all;
-
-  /// 是否正在搜索
-  bool _isSearching = false;
-
-  /// 搜索历史
-  final List<String> _searchHistory = [
-    'Flutter',
-    'Dart',
-    '移动开发',
-    'Riverpod',
-  ];
-
-  /// 热门搜索
-  final List<String> _hotSearches = [
-    'Flutter 3.0',
-    'Dart 3',
-    'Material Design 3',
-    'iOS 开发',
-    'Android 开发',
-    '跨平台开发',
-    '状态管理',
-    '性能优化',
-  ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: SearchType.values.length,
-      vsync: this,
-    );
-    // 自动聚焦搜索框
+    _tabController = TabController(length: sp.SearchType.values.length, vsync: this);
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
@@ -71,38 +34,44 @@ class _SearchPageState extends ConsumerState<SearchPage>
   void dispose() {
     _searchController.dispose();
     _focusNode.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  /// 执行搜索
-  ///
-  /// [query] 搜索关键词
-  void _performSearch(String query) {
-    if (query.isEmpty) return;
-
-    // 添加到搜索历史
-    if (!_searchHistory.contains(query)) {
-      setState(() {
-        _searchHistory.insert(0, query);
-      });
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final state = ref.read(sp.searchNotifierProvider);
+    if (state.isSearching || state.isLoadingMore || !state.hasMore || state.results.isEmpty) {
+      return;
     }
 
-    // 跳转到搜索结果页
-    context.push('${RoutePaths.searchResult}?q=$query');
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(sp.searchNotifierProvider.notifier).loadMore();
+    }
   }
 
-  /// 清除搜索历史
-  void _clearHistory() {
-    setState(() {
-      _searchHistory.clear();
-    });
+  void _performSearch(String query) {
+    final keyword = query.trim();
+    if (keyword.isEmpty) return;
+
+    _searchController.text = keyword;
+    _focusNode.unfocus();
+    ref.read(sp.searchNotifierProvider.notifier).search(keyword);
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final searchState = ref.watch(sp.searchNotifierProvider);
+
+    if (_searchController.text != searchState.keyword &&
+        searchState.keyword.isNotEmpty &&
+        !_focusNode.hasFocus) {
+      _searchController.text = searchState.keyword;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -111,268 +80,293 @@ class _SearchPageState extends ConsumerState<SearchPage>
           focusNode: _focusNode,
           textInputAction: TextInputAction.search,
           onSubmitted: _performSearch,
+          onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
-            hintText: '搜索感兴趣的内容',
-            hintStyle: theme.textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
+            hintText: '搜索 forum.trae.cn 话题',
             border: InputBorder.none,
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear),
                     onPressed: () {
                       _searchController.clear();
+                      ref.read(sp.searchNotifierProvider.notifier).clearResults();
                       setState(() {});
                     },
                   )
                 : null,
           ),
-          onChanged: (value) {
-            setState(() {});
-          },
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              _performSearch(_searchController.text);
-            },
+            onPressed: () => _performSearch(_searchController.text),
             child: const Text('搜索'),
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
-          tabs: SearchType.values
-              .map((type) => Tab(text: type.label))
+          tabs: sp.SearchType.values
+              .map((type) => Tab(text: type.displayName))
               .toList(),
           onTap: (index) {
-            setState(() {
-              _currentSearchType = SearchType.values[index];
-            });
+            final type = sp.SearchType.values[index];
+            final notifier = ref.read(sp.searchNotifierProvider.notifier);
+            notifier.setSearchType(type);
+
+            final keyword = _searchController.text.trim();
+            if (keyword.isNotEmpty) {
+              notifier.search(keyword);
+            }
           },
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: SearchType.values.map((type) {
-          return _SearchContent(
-            searchHistory: _searchHistory,
-            hotSearches: _hotSearches,
-            onHistoryTap: (query) {
-              _searchController.text = query;
-              _performSearch(query);
-            },
-            onHotSearchTap: (query) {
-              _searchController.text = query;
-              _performSearch(query);
-            },
-            onClearHistory: _clearHistory,
-          );
-        }).toList(),
+      body: _SearchBody(
+        state: searchState,
+        scrollController: _scrollController,
+        onRetry: () => _performSearch(searchState.keyword),
+        onSearch: _performSearch,
+        onHistoryTap: (keyword) {
+          _searchController.text = keyword;
+          _performSearch(keyword);
+        },
+        onDeleteHistoryItem: (keyword) {
+          ref.read(sp.searchNotifierProvider.notifier).removeFromHistory(keyword);
+        },
+        onClearHistory: () {
+          ref.read(sp.searchNotifierProvider.notifier).clearHistory();
+        },
       ),
     );
   }
 }
 
-/// 搜索内容组件
-///
-/// 展示搜索历史和热门搜索
-class _SearchContent extends StatelessWidget {
-  /// 搜索历史
-  final List<String> searchHistory;
-
-  /// 热门搜索
-  final List<String> hotSearches;
-
-  /// 历史点击回调
+class _SearchBody extends StatelessWidget {
+  final sp.SearchState state;
+  final ScrollController scrollController;
+  final VoidCallback onRetry;
+  final ValueChanged<String> onSearch;
   final ValueChanged<String> onHistoryTap;
-
-  /// 热门搜索点击回调
-  final ValueChanged<String> onHotSearchTap;
-
-  /// 清除历史回调
+  final ValueChanged<String> onDeleteHistoryItem;
   final VoidCallback onClearHistory;
 
-  /// 构造函数
-  const _SearchContent({
-    required this.searchHistory,
-    required this.hotSearches,
+  const _SearchBody({
+    required this.state,
+    required this.scrollController,
+    required this.onRetry,
+    required this.onSearch,
     required this.onHistoryTap,
-    required this.onHotSearchTap,
+    required this.onDeleteHistoryItem,
     required this.onClearHistory,
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    if (state.isSearching && state.results.isEmpty) {
+      return const _StateView(
+        icon: Icons.search,
+        title: '正在搜索',
+        message: '正在从 forum.trae.cn 拉取结果…',
+        loading: true,
+      );
+    }
+
+    if (state.errorMessage != null && state.results.isEmpty) {
+      return _StateView(
+        icon: Icons.error_outline,
+        title: '搜索失败',
+        message: state.errorMessage!,
+        actionLabel: '重试',
+        onAction: onRetry,
+      );
+    }
+
+    if (state.keyword.trim().isNotEmpty && state.results.isEmpty) {
+      return const _StateView(
+        icon: Icons.search_off,
+        title: '没有搜索结果',
+        message: '试试更短关键词或换一个分类',
+      );
+    }
+
+    if (state.results.isNotEmpty) {
+      return RefreshIndicator(
+        onRefresh: () async => onSearch(state.keyword),
+        child: ListView.builder(
+          controller: scrollController,
+          itemCount: state.results.length + 1,
+          itemBuilder: (context, index) {
+            if (index == state.results.length) {
+              if (state.isLoadingMore) {
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (!state.hasMore) {
+                return const Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: Text('没有更多结果了')),
+                );
+              }
+
+              return const SizedBox.shrink();
+            }
+
+            final result = state.results[index];
+            final topicId = (result.extra?['topicId'] ?? result.id).toString();
+            final username = (result.extra?['username'] ?? '').toString();
+            final avatarUrl = (result.extra?['avatarUrl'] ?? '').toString();
+            final replyCount = result.extra?['replyCount'];
+
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                onTap: topicId.isEmpty
+                    ? null
+                    : () {
+                        context.push(
+                          RoutePaths.feedDetail.replaceFirst(':id', topicId),
+                        );
+                      },
+                leading: CircleAvatar(
+                  backgroundImage: avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl.isEmpty ? const Icon(Icons.person) : null,
+                ),
+                title: Text(
+                  result.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if ((result.description ?? '').isNotEmpty)
+                      Text(
+                        result.description!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Topic #$topicId${username.isNotEmpty ? ' · @$username' : ''}${replyCount != null ? ' · 回复 $replyCount' : ''}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                trailing: const Icon(Icons.chevron_right),
+              ),
+            );
+          },
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 搜索历史
-          if (searchHistory.isNotEmpty) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '搜索历史',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '搜索历史',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              if (state.searchHistory.isNotEmpty)
                 TextButton.icon(
                   onPressed: onClearHistory,
                   icon: const Icon(Icons.delete_outline, size: 18),
                   label: const Text('清除'),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (state.searchHistory.isEmpty)
+            const Text('暂无搜索历史，输入关键词后会自动保存')
+          else
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: searchHistory.map((query) {
-                return ActionChip(
+              children: state.searchHistory.map((keyword) {
+                return InputChip(
                   avatar: const Icon(Icons.history, size: 16),
-                  label: Text(query),
-                  onPressed: () => onHistoryTap(query),
+                  label: Text(keyword),
+                  onPressed: () => onHistoryTap(keyword),
+                  onDeleted: () => onDeleteHistoryItem(keyword),
                 );
               }).toList(),
             ),
-            const SizedBox(height: 24),
-          ],
-
-          // 热门搜索
-          Text(
-            '热门搜索',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...hotSearches.asMap().entries.map((entry) {
-            final index = entry.key;
-            final query = entry.value;
-            return _HotSearchItem(
-              rank: index + 1,
-              query: query,
-              onTap: () => onHotSearchTap(query),
-            );
-          }),
-
-          // 推荐话题
           const SizedBox(height: 24),
           Text(
-            '推荐话题',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            '提示',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              'Flutter',
-              'Dart',
-              '移动开发',
-              'UI设计',
-              '性能优化',
-              '开源项目',
-              '技术分享',
-              '求职招聘',
-            ].map((topic) {
-              return FilterChip(
-                label: Text('#$topic'),
-                onSelected: (_) => onHotSearchTap(topic),
-              );
-            }).toList(),
-          ),
+          const SizedBox(height: 8),
+          const Text('输入关键词后将通过 forum.trae.cn 的 Discourse 搜索接口获取实时结果。'),
         ],
       ),
     );
   }
 }
 
-/// 热门搜索项
-///
-/// 单个热门搜索的展示项
-class _HotSearchItem extends StatelessWidget {
-  /// 排名
-  final int rank;
+class _StateView extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final bool loading;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
-  /// 搜索词
-  final String query;
-
-  /// 点击回调
-  final VoidCallback onTap;
-
-  /// 构造函数
-  const _HotSearchItem({
-    required this.rank,
-    required this.query,
-    required this.onTap,
+  const _StateView({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.loading = false,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
-    // 根据排名设置颜色
-    Color rankColor;
-    if (rank == 1) {
-      rankColor = AppTheme.hotSearchFirstColor;
-    } else if (rank == 2) {
-      rankColor = AppTheme.hotSearchSecondColor;
-    } else if (rank == 3) {
-      rankColor = AppTheme.hotSearchThirdColor;
-    } else {
-      rankColor = colorScheme.onSurfaceVariant;
-    }
-
-    return InkWell(
-      onTap: onTap,
+    return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 28,
-              child: Text(
-                '$rank',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: rankColor,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
+            if (loading)
+              const CircularProgressIndicator()
+            else
+              Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: theme.textTheme.titleMedium,
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                query,
-                style: theme.textTheme.bodyMedium,
-              ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
             ),
-            if (rank <= 3)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: rankColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '热',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: rankColor,
-                  ),
-                ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: onAction,
+                child: Text(actionLabel!),
               ),
+            ],
           ],
         ),
       ),

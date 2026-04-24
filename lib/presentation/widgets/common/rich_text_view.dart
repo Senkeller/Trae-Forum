@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/utils/discourse_image_url_resolver.dart';
 import 'cached_image.dart';
 
 /// 富文本展示组件
@@ -144,15 +145,21 @@ class RichTextView extends StatelessWidget {
         if (enableImageTap)
           ImageExtension(
             builder: (extensionContext) {
-              final src = extensionContext.attributes['src'];
-              if (src == null) return const SizedBox.shrink();
+              final imageUrl = DiscourseImageUrlResolver.resolveFromAttributes(
+                extensionContext.attributes,
+              );
+              final originalImageUrl =
+                  DiscourseImageUrlResolver.resolveOriginalFromAttributes(
+                extensionContext.attributes,
+              );
+              if (imageUrl == null) return const SizedBox.shrink();
 
               return GestureDetector(
-                onTap: () => _handleImageTap(src),
+                onTap: () => _handleImageTap(originalImageUrl ?? imageUrl),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: CachedImage(
-                    imageUrl: src,
+                    imageUrl: imageUrl,
                     fit: BoxFit.cover,
                   ),
                 ),

@@ -1,6 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/api_service.dart';
-import '../../core/network/dio_client.dart';
+import '../../data/models/feed.dart' as api_models;
 import 'auth_provider.dart';
 import 'home_provider.dart';
 
@@ -191,9 +191,21 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
     try {
       final response = await _apiService.getUserSpace(uid: state.uid);
 
-      if (response.status == 1 && response.data != null) {
-        final profileData = response.data as Map<String, dynamic>;
-        final profile = UserProfile.fromJson(profileData);
+      if ((response.status == 1 || response.status == 200) &&
+          response.data?.userInfo != null) {
+        final userProfile = response.data!;
+        final userInfo = userProfile.userInfo;
+        final profile = UserProfile(
+          uid: userInfo.uid,
+          username: userInfo.username.isNotEmpty ? userInfo.username : state.uid,
+          avatarUrl: userInfo.avatar ?? '',
+          bio: userInfo.bio,
+          level: userInfo.level,
+          fansCount: userInfo.fans,
+          followCount: userInfo.follow,
+          feedCount: userProfile.feedCount,
+          isFollowing: userProfile.action.isFollow,
+        );
 
         state = state.copyWith(
           profile: profile,
@@ -202,7 +214,7 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
       } else {
         state = state.copyWith(
           isLoadingProfile: false,
-          errorMessage: '加载用户资料失败',
+          errorMessage: response.message ?? '加载用户资料失败',
         );
       }
     } catch (e) {
@@ -231,10 +243,8 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
         page: 1,
       );
 
-      if (response.status == 1 && response.data != null) {
-        final feeds = (response.data as List<dynamic>)
-            .map((item) => FeedItem.fromJson(item as Map<String, dynamic>))
-            .toList();
+      if (response.status == 1 || response.status == 200) {
+        final feeds = response.data.map(_mapFeedDataToFeedItem).toList();
 
         state = state.copyWith(
           feeds: feeds,
@@ -272,10 +282,8 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
         page: 1,
       );
 
-      if (response.status == 1 && response.data != null) {
-        final feeds = (response.data as List<dynamic>)
-            .map((item) => FeedItem.fromJson(item as Map<String, dynamic>))
-            .toList();
+      if (response.status == 1 || response.status == 200) {
+        final feeds = response.data.map(_mapFeedDataToFeedItem).toList();
 
         state = state.copyWith(
           feeds: feeds,
@@ -316,10 +324,8 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
         lastItem: state.lastItem,
       );
 
-      if (response.status == 1 && response.data != null) {
-        final newFeeds = (response.data as List<dynamic>)
-            .map((item) => FeedItem.fromJson(item as Map<String, dynamic>))
-            .toList();
+      if (response.status == 1 || response.status == 200) {
+        final newFeeds = response.data.map(_mapFeedDataToFeedItem).toList();
 
         if (newFeeds.isEmpty) {
           state = state.copyWith(
@@ -373,7 +379,7 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
         uid: state.uid,
       );
 
-      if (response.status == 1) {
+      if (response.status == 1 || response.status == 200) {
         final updatedProfile = profile.copyWith(
           isFollowing: !profile.isFollowing,
           fansCount: profile.isFollowing
@@ -410,6 +416,45 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
   /// 清空错误信息
   void clearError() {
     state = state.copyWith(errorMessage: null);
+  }
+
+  FeedItem _mapFeedDataToFeedItem(dynamic item) {
+    if (item is api_models.HomeFeedData) {
+      return FeedItem(
+        id: item.id,
+        uid: item.userInfo?.uid ?? '',
+        username: item.userInfo?.username ?? '',
+        avatarUrl: item.userInfo?.avatar ?? '',
+        title: item.title ?? '',
+        content: item.message.isNotEmpty
+            ? item.message
+            : (item.title ?? ''),
+        category: '',
+        categoryId: 0,
+        createTime: item.dateline,
+        likeCount: item.action.likeNum,
+        replyCount: item.replyNum,
+        isLiked: item.action.isLike,
+        images: item.picArr,
+        type: item.entityType,
+      );
+    }
+
+    if (item is Map<String, dynamic>) {
+      return FeedItem.fromJson(item);
+    }
+
+    return const FeedItem(
+      id: '',
+      uid: '',
+      username: '',
+      avatarUrl: '',
+      title: '',
+      content: '',
+      category: '',
+      categoryId: 0,
+      createTime: '',
+    );
   }
 }
 

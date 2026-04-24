@@ -1,8 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_service.dart';
-import '../../core/network/dio_client.dart';
-import 'home_provider.dart';
+import '../../data/models/feed.dart';
 
 part 'search_provider.g.dart';
 
@@ -58,13 +57,46 @@ class SearchResult {
 
   /// 从 JSON 创建
   factory SearchResult.fromJson(Map<String, dynamic> json) {
+    final message = (json['message'] ?? json['content'] ?? '').toString();
+    final title = (json['title'] ?? '').toString();
+    final userInfo = json['userInfo'] as Map<String, dynamic>?;
     return SearchResult(
-      id: json['id']?.toString() ?? '',
-      type: json['entityType'] ?? json['type'] ?? 'feed',
-      title: json['title'] ?? json['message'] ?? '',
-      description: json['description'] ?? json['username'],
-      imageUrl: json['logo'] ?? json['pic'] ?? json['userAvatar'],
+      id: (json['id'] ?? json['topicId'])?.toString() ?? '',
+      type: (json['entityType'] ?? json['type'] ?? 'feed').toString(),
+      title: title.isNotEmpty ? title : (message.isNotEmpty ? message : '无标题话题'),
+      description: json['description']?.toString().isNotEmpty == true
+          ? json['description'].toString()
+          : message,
+      imageUrl: json['logo']?.toString() ??
+          json['userAvatar']?.toString() ??
+          userInfo?['avatar']?.toString(),
       extra: json,
+    );
+  }
+
+  /// 从 Feed 数据创建
+  factory SearchResult.fromFeedData(HomeFeedData feedData) {
+    final message = feedData.message.trim();
+    final title = (feedData.title ?? '').trim();
+    final resolvedTitle = title.isNotEmpty
+        ? title
+        : (message.isNotEmpty ? message : '无标题话题');
+
+    return SearchResult(
+      id: feedData.id,
+      type: feedData.entityType,
+      title: resolvedTitle,
+      description: message.isNotEmpty && message != resolvedTitle ? message : null,
+      imageUrl: feedData.picArr.isNotEmpty
+          ? feedData.picArr.first
+          : feedData.userInfo?.avatar,
+      extra: {
+        'topicId': feedData.id,
+        'username': feedData.userInfo?.username ?? '',
+        'avatarUrl': feedData.userInfo?.avatar ?? '',
+        'replyCount': feedData.replyNum,
+        'createTime': feedData.dateline,
+      },
     );
   }
 }
@@ -223,9 +255,9 @@ class SearchNotifier extends _$SearchNotifier {
         page: 1,
       );
 
-      if (response.status == 1 && response.data != null) {
-        final results = (response.data as List<dynamic>)
-            .map((item) => SearchResult.fromJson(item as Map<String, dynamic>))
+      if (response.status == 1 || response.status == 200) {
+        final results = response.data
+            .map((item) => SearchResult.fromFeedData(item))
             .toList();
 
         state = state.copyWith(
@@ -238,7 +270,7 @@ class SearchNotifier extends _$SearchNotifier {
       } else {
         state = state.copyWith(
           isSearching: false,
-          errorMessage: response.message ?? '搜索失败',
+          errorMessage: response.message.isNotEmpty ? response.message : '搜索失败',
         );
       }
     } catch (e) {
@@ -269,9 +301,9 @@ class SearchNotifier extends _$SearchNotifier {
         lastItem: state.lastItem,
       );
 
-      if (response.status == 1 && response.data != null) {
-        final newResults = (response.data as List<dynamic>)
-            .map((item) => SearchResult.fromJson(item as Map<String, dynamic>))
+      if (response.status == 1 || response.status == 200) {
+        final newResults = response.data
+            .map((item) => SearchResult.fromFeedData(item))
             .toList();
 
         if (newResults.isEmpty) {
