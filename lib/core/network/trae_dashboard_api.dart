@@ -92,4 +92,62 @@ class TraeDashboardApi {
       }
 
       final result = data['Result'] as Map<String, dynamic>;
-      return TraeUserStats.from
+      return TraeUserStats.fromJson(result);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw TraeApiException(
+          message: '登录已过期，请重新登录',
+          code: 'UNAUTHORIZED',
+        );
+      }
+      throw TraeApiException(
+        message: '网络请求失败: ${e.message}',
+        code: 'NETWORK_ERROR',
+      );
+    } catch (e) {
+      throw TraeApiException(
+        message: '获取统计数据失败: $e',
+        code: 'UNKNOWN_ERROR',
+      );
+    }
+  }
+
+  /// 获取用户信息
+  ///
+  /// 返回用户的基本信息（昵称、头像等）
+  Future<TraeUserInfo> getUserInfo() async {
+    try {
+      // 检查是否有有效 Cookie
+      final hasCookies = await TraeCookieManager.hasValidCookies();
+      if (!hasCookies) {
+        throw TraeApiException(
+          message: '未登录或 Cookie 已过期',
+          code: 'NO_COOKIES',
+        );
+      }
+
+      final response = await _dio.post(
+        '$_apiPrefix/GetUserInfo',
+        data: {},
+      );
+
+      if (response.statusCode != 200) {
+        throw TraeApiException(
+          message: '请求失败: ${response.statusCode}',
+          code: 'HTTP_ERROR',
+        );
+      }
+
+      final data = response.data as Map<String, dynamic>;
+
+      if (data['Result'] == null) {
+        throw TraeApiException(
+          message: '响应数据格式错误',
+          code: 'INVALID_RESPONSE',
+        );
+      }
+
+      final result = data['Result'] as Map<String, dynamic>;
+      return TraeUserInfo.fromJson(result);
+    } on DioException catch (e) {
+      if (e.response?.statusCode ==
