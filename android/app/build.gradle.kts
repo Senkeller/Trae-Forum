@@ -33,6 +33,9 @@ android {
     }
 
     signingConfigs {
+        getByName("debug") {
+            // Debug 签名配置
+        }
         create("release") {
             // 从 key.properties 文件加载签名配置
             val keyPropertiesFile = rootProject.file("key.properties")
@@ -60,8 +63,12 @@ android {
                 "proguard-rules.pro"
             )
             
-            // 使用发布签名配置
-            signingConfig = signingConfigs.getByName("release")
+            // 使用发布签名配置（如果没有配置则使用 debug 签名）
+            signingConfig = if (signingConfigs.findByName("release")?.storeFile != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             // Debug 配置

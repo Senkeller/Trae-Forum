@@ -153,6 +153,9 @@ class RoutePaths {
   static const String history = '/history';
   static const String favorites = '/favorites';
   static const String imagePreview = '/image-preview';
+
+  // Trae Dashboard
+  static const String traeDashboard = '/trae-dashboard';
 }
 
 /// 图片质量

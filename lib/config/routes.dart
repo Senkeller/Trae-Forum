@@ -10,6 +10,7 @@ import '../presentation/pages/search/search_page.dart';
 import '../presentation/pages/message/message_page.dart';
 import '../presentation/pages/settings/settings_page.dart';
 import '../presentation/pages/common/webview_page.dart' as webview;
+import '../presentation/pages/dashboard/trae_dashboard_page.dart';
 
 /// 应用路由配置
 class AppRouter {
@@ -229,6 +230,12 @@ class AppRouter {
           final index = int.tryParse(state.uri.queryParameters['index'] ?? '0') ?? 0;
           return ImagePreviewPage(images: images, initialIndex: index);
         },
+      ),
+
+      // Trae Dashboard
+      GoRoute(
+        path: RoutePaths.traeDashboard,
+        builder: (context, state) => const TraeDashboardPage(),
       ),
     ],
     

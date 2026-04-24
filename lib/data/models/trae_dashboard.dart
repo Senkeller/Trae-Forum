@@ -60,93 +60,98 @@ class TraeUserStats with _$TraeUserStats {
 /// 每日活跃数据模型
 ///
 /// 用于热力图展示的单日数据
-@freezed
-class DailyActivity with _$DailyActivity {
-  /// 构造函数
-  ///
-  /// [date] 日期
-  /// [count] 活跃次数
-  /// [level] 活跃等级（0-4，用于颜色深浅）
-  const factory DailyActivity({
-    required DateTime date,
-    required int count,
-    @Default(0) int level,
-  }) = _DailyActivity;
+class DailyActivity {
+  /// 日期
+  final DateTime date;
 
-  factory DailyActivity.fromJson(Map<String, dynamic> json) =>
-      _$DailyActivityFromJson(json);
+  /// 活跃次数
+  final int count;
+
+  /// 活跃等级（0-4，用于颜色深浅）
+  final int level;
+
+  /// 构造函数
+  const DailyActivity({
+    required this.date,
+    required this.count,
+    this.level = 0,
+  });
 }
 
 /// 编程语言统计模型
-@freezed
-class LanguageStat with _$LanguageStat {
-  /// 构造函数
-  ///
-  /// [language] 编程语言
-  /// [count] 采纳次数
-  /// [percentage] 占比（0-1）
-  const factory LanguageStat({
-    required String language,
-    required int count,
-    @Default(0.0) double percentage,
-  }) = _LanguageStat;
+class LanguageStat {
+  /// 编程语言
+  final String language;
 
-  factory LanguageStat.fromJson(Map<String, dynamic> json) =>
-      _$LanguageStatFromJson(json);
+  /// 采纳次数
+  final int count;
+
+  /// 占比（0-1）
+  final double percentage;
+
+  /// 构造函数
+  const LanguageStat({
+    required this.language,
+    required this.count,
+    this.percentage = 0.0,
+  });
 }
 
 /// 智能体使用统计模型
-@freezed
-class AgentStat with _$AgentStat {
-  /// 构造函数
-  ///
-  /// [agentName] 智能体名称
-  /// [count] 使用次数
-  /// [iconUrl] 图标URL（可选）
-  const factory AgentStat({
-    required String agentName,
-    required int count,
-    String? iconUrl,
-  }) = _AgentStat;
+class AgentStat {
+  /// 智能体名称
+  final String agentName;
 
-  factory AgentStat.fromJson(Map<String, dynamic> json) =>
-      _$AgentStatFromJson(json);
+  /// 使用次数
+  final int count;
+
+  /// 图标URL（可选）
+  final String? iconUrl;
+
+  /// 构造函数
+  const AgentStat({
+    required this.agentName,
+    required this.count,
+    this.iconUrl,
+  });
 }
 
 /// AI 模型调用统计模型
-@freezed
-class ModelStat with _$ModelStat {
-  /// 构造函数
-  ///
-  /// [modelName] 模型名称
-  /// [count] 调用次数
-  /// [percentage] 占比（0-1）
-  const factory ModelStat({
-    required String modelName,
-    required int count,
-    @Default(0.0) double percentage,
-  }) = _ModelStat;
+class ModelStat {
+  /// 模型名称
+  final String modelName;
 
-  factory ModelStat.fromJson(Map<String, dynamic> json) =>
-      _$ModelStatFromJson(json);
+  /// 调用次数
+  final int count;
+
+  /// 占比（0-1）
+  final double percentage;
+
+  /// 构造函数
+  const ModelStat({
+    required this.modelName,
+    required this.count,
+    this.percentage = 0.0,
+  });
 }
 
 /// 时段活跃数据模型
-@freezed
-class HourlyActivity with _$HourlyActivity {
-  /// 构造函数
-  ///
-  /// [hour] 小时（0-23）
-  /// [count] 活跃次数
-  /// [isPeak] 是否为高峰时段
-  const factory HourlyActivity({
-    required int hour,
-    required int count,
-    @Default(false) bool isPeak,
-  }) = _HourlyActivity;
+class HourlyActivity {
+  /// 小时（0-23）
+  final int hour;
 
-  factory HourlyActivity.fromJson(Map<String, dynamic> json) =>
-      _$HourlyActivityFromJson(json);
+  /// 活跃次数
+  final int count;
+
+  /// 是否为高峰时段
+  final bool isPeak;
+
+  /// 构造函数
+  const HourlyActivity({
+    required this.hour,
+    required this.count,
+    this.isPeak = false,
+  });
 }
 
 /// Trae 用户信息模型
@@ -177,40 +182,7 @@ class TraeUserInfo with _$TraeUserInfo {
       );
 }
 
-/// API 响应包装模型
-@freezed
-class TraeApiResponse<T> with _$TraeApiResponse<T> {
-  /// 构造函数
-  ///
-  /// [responseMetadata] 响应元数据
-  /// [result] 响应结果数据
-  const factory TraeApiResponse({
-    @JsonKey(name: 'ResponseMetadata')
-    required TraeResponseMetadata responseMetadata,
-    @JsonKey(name: 'Result') required T result,
-  }) = _TraeApiResponse<T>;
 
-  factory TraeApiResponse.fromJson(
-    Map<String, dynamic> json,
-    T Function(Object?) fromJsonT,
-  ) =>
-      _$TraeApiResponseFromJson<T>(json, fromJsonT);
-}
-
-/// API 响应元数据
-@freezed
-class TraeResponseMetadata with _$TraeResponseMetadata {
-  /// 构造函数
-  const factory TraeResponseMetadata({
-    @JsonKey(name: 'RequestId') String? requestId,
-    @JsonKey(name: 'TraceID') String? traceId,
-    @JsonKey(name: 'Action') String? action,
-    @JsonKey(name: 'Version') String? version,
-  }) = _TraeResponseMetadata;
-
-  factory TraeResponseMetadata.fromJson(Map<String, dynamic> json) =>
-      _$TraeResponseMetadataFromJson(json);
-}
 
 /// TraeUserStats 扩展方法
 extension TraeUserStatsExtension on TraeUserStats {

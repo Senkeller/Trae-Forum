@@ -26,24 +26,19 @@ class TraeCookieManager {
   /// 返回是否成功保存 Cookie
   static Future<bool> extractAndSaveCookies(WebViewController controller) async {
     try {
-      final cookieManager = WebViewCookieManager();
-      final cookies = await cookieManager.getCookies(
-        WebViewCookieManager.getCookiesUrl(
-          Uri.parse('https://www.trae.cn'),
-        ),
+      // 使用 JavaScript 从页面获取 Cookie
+      final cookiesString = await controller.runJavaScriptReturningResult(
+        'document.cookie',
       );
 
-      if (cookies == null || cookies.isEmpty) {
-        // 尝试从 api.trae.cn 获取
-        final apiCookies = await cookieManager.getCookies(
-          WebViewCookieManager.getCookiesUrl(
-            Uri.parse('https://api.trae.cn'),
-          ),
-        );
-        if (apiCookies != null && apiCookies.isNotEmpty) {
-          await _saveCookies(apiCookies);
-          return true;
-        }
+      if (cookiesString == null || cookiesString.toString().isEmpty) {
+        print('⚠️ [TraeCookieManager] 未获取到 Cookie');
+        return false;
+      }
+
+      final cookies = _parseCookieString(cookiesString.toString());
+      if (cookies.isEmpty) {
+        print('⚠️ [TraeCookieManager] 解析 Cookie 为空');
         return false;
       }
 
@@ -55,21 +50,55 @@ class TraeCookieManager {
     }
   }
 
+  /// 解析 Cookie 字符串
+  ///
+  /// [cookieString] 格式: "name1=value1; name2=value2"
+  /// 返回 Cookie Map
+  static Map<String, String> _parseCookieString(String cookieString) {
+    final cookies = <String, String>{};
+
+    // 移除可能的引号
+    var cleanString = cookieString;
+    if (cleanString.startsWith('"') && cleanString.endsWith('"')) {
+      cleanString = cleanString.substring(1, cleanString.length - 1);
+    }
+
+    final pairs = cleanString.split(';');
+    for (final pair in pairs) {
+      final trimmed = pair.trim();
+      if (trimmed.isEmpty) continue;
+
+      final index = trimmed.indexOf('=');
+      if (index > 0) {
+        final name = trimmed.substring(0, index).trim();
+        final value = trimmed.substring(index + 1).trim();
+        cookies[name] = value;
+      }
+    }
+
+    return cookies;
+  }
+
   /// 保存 Cookie 到本地存储
   ///
-  /// [cookies] Cookie 列表
-  static Future<void> _saveCookies(List<WebViewCookie> cookies) async {
+  /// [cookies] Cookie Map
+  static Future<void> _saveCookies(Map<String, String> cookies) async {
     final prefs = await SharedPreferences.getInstance();
+    int savedCount = 0;
 
-    for (final cookie in cookies) {
-      final key = '$_prefix${cookie.name}';
-      await prefs.setString(key, cookie.value);
-      print('💾 [TraeCookieManager] 保存 Cookie: ${cookie.name}=${cookie.value.substring(0, cookie.value.length > 20 ? 20 : cookie.value.length)}...');
+    for (final entry in cookies.entries) {
+      // 只保存关键 Cookie
+      if (_essentialCookies.contains(entry.key)) {
+        final key = '$_prefix${entry.key}';
+        await prefs.setString(key, entry.value);
+        savedCount++;
+        print('💾 [TraeCookieManager] 保存 Cookie: ${entry.key}=${entry.value.substring(0, entry.value.length > 20 ? 20 : entry.value.length)}...');
+      }
     }
 
     // 记录保存时间
     await prefs.setInt('${_prefix}saved_at', DateTime.now().millisecondsSinceEpoch);
-    print('✅ [TraeCookieManager] Cookie 保存完成，共 ${cookies.length} 个');
+    print('✅ [TraeCookieManager] Cookie 保存完成，共 $savedCount 个关键 Cookie');
   }
 
   /// 获取指定名称的 Cookie 值
@@ -150,9 +179,4 @@ class TraeCookieManager {
     final diff = now.difference(savedTime);
     return diff.inDays > 7;
   }
-}
-
-/// WebViewCookieManager 扩展方法
-extension WebViewCookieManagerExtension on WebViewCookieManager {
-  static Uri getCookiesUrl(Uri url) => url;
 }
