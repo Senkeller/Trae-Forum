@@ -687,7 +687,32 @@ class ApiService extends _$ApiService {
     required String url,
     required String id,
   }) async {
-    return LikeFeedResponse(status: 404, message: 'Not implemented for Discourse');
+    try {
+      final postId = int.parse(id);
+      await _discourseApi.likePost(postId);
+      return LikeFeedResponse(
+        status: 200,
+        message: 'success',
+        data: {'liked': true},
+      );
+    } catch (e) {
+      if (e is DioException) {
+        if (e.response?.statusCode == 403) {
+          return LikeFeedResponse(
+            status: 401,
+            message: 'Unauthorized - please login first',
+          );
+        }
+        return LikeFeedResponse(
+          status: e.response?.statusCode ?? 500,
+          message: 'Failed to like feed: $e',
+        );
+      }
+      return LikeFeedResponse(
+        status: 500,
+        message: 'Failed to like feed: $e',
+      );
+    }
   }
 
   /// 点赞/取消点赞评论

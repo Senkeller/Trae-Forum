@@ -454,4 +454,81 @@ class DiscourseApiService {
       ),
     );
   }
+
+  // ==================== 关注/粉丝相关 API ====================
+
+  /// 关注用户
+  ///
+  /// [username] 要关注的用户名
+  /// 调用 Discourse PUT /u/{username}/follow API
+  Future<Response> followUser(String username) async {
+    return _dio.put(
+      '$_baseUrl/u/$username/follow',
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  /// 取消关注用户
+  ///
+  /// [username] 要取消关注的用户名
+  /// 调用 Discourse DELETE /u/{username}/follow API
+  Future<Response> unfollowUser(String username) async {
+    return _dio.delete(
+      '$_baseUrl/u/$username/follow',
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  // ==================== 创建话题相关 API ====================
+
+  /// 创建新话题
+  ///
+  /// [title] 话题标题
+  /// [raw] 话题内容（Markdown格式）
+  /// [category] 分类ID（可选）
+  /// [replyToPostNumber] 回复的帖子编号（可选，用于楼中楼回复）
+  /// 调用 Discourse POST /posts API
+  Future<Response> createTopic({
+    required String title,
+    required String raw,
+    int? category,
+    int? replyToPostNumber,
+  }) async {
+    final data = <String, dynamic>{
+      'title': title,
+      'raw': raw,
+    };
+
+    if (category != null) {
+      data['category'] = category;
+    }
+
+    if (replyToPostNumber != null) {
+      data['reply_to_post_number'] = replyToPostNumber;
+    }
+
+    return _dio.post(
+      '$_baseUrl/posts',
+      data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
 }
