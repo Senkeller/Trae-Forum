@@ -180,13 +180,33 @@ UserInfo? currentUser(CurrentUserRef ref) {
   return null;
 }
 
-/// 是否已登录 Provider
+/// 是否已登录 Provider（同步版本）
 ///
-/// 返回当前用户是否已登录
+/// 返回当前用户是否已登录（仅检查 CoolApk 登录状态）
+/// 用于需要同步检查的场景
 @riverpod
 bool isAuthenticated(IsAuthenticatedRef ref) {
   final user = ref.watch(currentUserProvider);
   return user != null;
+}
+
+/// 是否已登录 Provider（异步版本）
+///
+/// 返回当前用户是否已登录（支持 CoolApk 和 Discourse 两种登录方式）
+/// 用于需要完整检查登录状态的场景
+@riverpod
+Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
+  // 1. 先检查 CoolApk 登录状态（同步检查）
+  final user = ref.read(currentUserProvider);
+  if (user != null) {
+    debugPrint('✅ [isAuthenticatedAsync] CoolApk 已登录: ${user.username}');
+    return true;
+  }
+
+  // 2. 检查 Discourse 登录状态（通过检查 Cookie）
+  final hasDiscourseCookie = await DioClient.hasDiscourseSession();
+  debugPrint('🔍 [isAuthenticatedAsync] Discourse session: $hasDiscourseCookie');
+  return hasDiscourseCookie;
 }
 
 /// 用户 Token Provider

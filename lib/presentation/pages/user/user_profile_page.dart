@@ -1094,7 +1094,7 @@ class _FeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = feed.content.isNotEmpty ? feed.content : 'Topic #${feed.id}';
+    final content = feed.content.isNotEmpty ? feed.content : '话题 #${feed.id}';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

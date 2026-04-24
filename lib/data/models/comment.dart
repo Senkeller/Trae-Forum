@@ -169,9 +169,9 @@ class CommentResult {
   });
 
   /// 创建成功结果
-  /// @param postId 帖子ID
+  /// @param postId 帖子ID（可选）
   /// @return CommentResult实例
-  factory CommentResult.success({required int postId}) {
+  factory CommentResult.success({int? postId}) {
     return CommentResult(success: true, postId: postId);
   }
 

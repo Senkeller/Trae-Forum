@@ -7,6 +7,7 @@ import '../../widgets/dashboard/activity_heatmap.dart';
 import '../../widgets/dashboard/language_bar_chart.dart';
 import '../../widgets/dashboard/model_preference_list.dart';
 import '../../widgets/dashboard/hourly_activity_curve.dart';
+import '../../../core/network/cookie_manager.dart';
 
 /// Trae Dashboard 页面
 ///
@@ -465,15 +466,32 @@ class _LoadingView extends StatelessWidget {
 }
 
 /// 错误视图
-class _ErrorView extends StatelessWidget {
+class _ErrorView extends StatefulWidget {
   final String error;
   final VoidCallback onRetry;
 
   const _ErrorView({required this.error, required this.onRetry});
 
   @override
+  State<_ErrorView> createState() => _ErrorViewState();
+}
+
+class _ErrorViewState extends State<_ErrorView> {
+  String? _cookieInfo;
+
+  Future<void> _checkCookies() async {
+    final cookies = await TraeCookieManager.getAllCookies();
+    setState(() {
+      _cookieInfo = 'Cookie 数量: ${cookies.length}\n'
+          'Keys: ${cookies.keys.toList()}\n'
+          'Has sessionid: ${cookies.containsKey('sessionid')}\n'
+          'Has ttwid: ${cookies.containsKey('ttwid')}';
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isAuthError = error.contains('未登录') || error.contains('过期');
+    final isAuthError = widget.error.contains('未登录') || widget.error.contains('过期');
 
     return Center(
       child: Padding(
@@ -499,7 +517,7 @@ class _ErrorView extends StatelessWidget {
             Text(
               isAuthError
                   ? '请先登录 Trae 账号以查看仪表盘数据'
-                  : error,
+                  : widget.error,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white.withOpacity(0.6),
@@ -521,7 +539,7 @@ class _ErrorView extends StatelessWidget {
               )
             else
               ElevatedButton.icon(
-                onPressed: onRetry,
+                onPressed: widget.onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('重试'),
                 style: ElevatedButton.styleFrom(
@@ -529,6 +547,31 @@ class _ErrorView extends StatelessWidget {
                   foregroundColor: Colors.black,
                 ),
               ),
+            const SizedBox(height: 16),
+            // 调试按钮
+            TextButton.icon(
+              onPressed: _checkCookies,
+              icon: const Icon(Icons.cookie_outlined, color: Colors.grey),
+              label: const Text('查看 Cookie', style: TextStyle(color: Colors.grey)),
+            ),
+            if (_cookieInfo != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[800],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _cookieInfo!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

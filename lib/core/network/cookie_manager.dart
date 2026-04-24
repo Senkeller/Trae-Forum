@@ -149,8 +149,19 @@ class TraeCookieManager {
   /// 返回是否存在关键 Cookie
   static Future<bool> hasValidCookies() async {
     final cookies = await getAllCookies();
-    // 至少需要 sessionid 或 ttwid
-    return cookies.containsKey('sessionid') || cookies.containsKey('ttwid');
+    // 检查是否有任何认证相关的 Cookie
+    // 包括 sessionid, ttwid, passport_csrf_token 等
+    final hasAuthCookie = cookies.containsKey('sessionid') ||
+        cookies.containsKey('ttwid') ||
+        cookies.containsKey('passport_csrf_token') ||
+        cookies.containsKey('passport_auth_status');
+    
+    print('[TraeCookieManager] hasValidCookies check: sessionid=${cookies.containsKey('sessionid')}, '
+        'ttwid=${cookies.containsKey('ttwid')}, '
+        'passport_csrf_token=${cookies.containsKey('passport_csrf_token')}, '
+        'passport_auth_status=${cookies.containsKey('passport_auth_status')}');
+    
+    return hasAuthCookie;
   }
 
   /// 清除所有 Trae Cookie

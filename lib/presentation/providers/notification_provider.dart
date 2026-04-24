@@ -115,7 +115,8 @@ class NotificationNotifier extends _$NotificationNotifier {
   ///
   /// 根据当前筛选类型加载对应的通知列表
   Future<void> loadNotifications() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) {
       state = state.copyWith(errorMessage: '请先登录');
       return;
@@ -167,7 +168,8 @@ class NotificationNotifier extends _$NotificationNotifier {
 
   /// 刷新通知列表
   Future<void> refreshNotifications() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return;
 
     if (state.isRefreshing) return;
@@ -215,7 +217,8 @@ class NotificationNotifier extends _$NotificationNotifier {
 
   /// 加载更多通知
   Future<void> loadMoreNotifications() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return;
 
     if (state.isLoadingMore || !state.hasMore) return;
@@ -279,7 +282,8 @@ class NotificationNotifier extends _$NotificationNotifier {
   ///
   /// [notificationId] 要标记的通知ID，为空则标记当前筛选类型所有通知
   Future<void> markAsRead([int? notificationId]) async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return;
 
     try {

@@ -29,9 +29,10 @@ final currentUserProvider = AutoDisposeProvider<UserInfo?>.internal(
 typedef CurrentUserRef = AutoDisposeProviderRef<UserInfo?>;
 String _$isAuthenticatedHash() => r'fe6f954f2d7938a820a402d3f97973c87930d8b5';
 
-/// 是否已登录 Provider
+/// 是否已登录 Provider（同步版本）
 ///
-/// 返回当前用户是否已登录
+/// 返回当前用户是否已登录（仅检查 CoolApk 登录状态）
+/// 用于需要同步检查的场景
 ///
 /// Copied from [isAuthenticated].
 @ProviderFor(isAuthenticated)
@@ -48,6 +49,29 @@ final isAuthenticatedProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsAuthenticatedRef = AutoDisposeProviderRef<bool>;
+String _$isAuthenticatedAsyncHash() =>
+    r'e6e5ed11c7f8bc14e8c661ca3bf615ed4d113568';
+
+/// 是否已登录 Provider（异步版本）
+///
+/// 返回当前用户是否已登录（支持 CoolApk 和 Discourse 两种登录方式）
+/// 用于需要完整检查登录状态的场景
+///
+/// Copied from [isAuthenticatedAsync].
+@ProviderFor(isAuthenticatedAsync)
+final isAuthenticatedAsyncProvider = AutoDisposeFutureProvider<bool>.internal(
+  isAuthenticatedAsync,
+  name: r'isAuthenticatedAsyncProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$isAuthenticatedAsyncHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+typedef IsAuthenticatedAsyncRef = AutoDisposeFutureProviderRef<bool>;
 String _$authTokenHash() => r'9a41745586309e28c4623885edf5dc759eae968d';
 
 /// 用户 Token Provider

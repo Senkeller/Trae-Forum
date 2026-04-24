@@ -194,6 +194,30 @@ class DioClient {
   static void clearToken() {
     dio.options.headers.remove('Authorization');
   }
+
+  /// 检查是否有 Discourse 登录 session
+  ///
+  /// 通过检查 CookieJar 中是否存在 Discourse 的 session cookie 来判断
+  /// 返回 true 表示用户已登录 Discourse
+  static Future<bool> hasDiscourseSession() async {
+    try {
+      if (_cookieJar == null) return false;
+
+      final uri = Uri.parse('https://forum.trae.cn');
+      final cookies = await _cookieJar!.loadForRequest(uri);
+
+      // 检查是否有 Discourse 的 session cookie（_t 是 Discourse 的主要 session cookie）
+      final hasSession = cookies.any((cookie) =>
+        cookie.name == '_t' || cookie.name == '_forum_session'
+      );
+
+      print('🔍 [DioClient] Discourse session check: $hasSession, cookies: ${cookies.map((c) => c.name).join(', ')}');
+      return hasSession;
+    } catch (e) {
+      print('❌ [DioClient] 检查 Discourse session 失败: $e');
+      return false;
+    }
+  }
 }
 
 /// API 异常

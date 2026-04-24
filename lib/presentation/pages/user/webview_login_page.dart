@@ -276,26 +276,8 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       );
     }
 
-    // 先导航到主站 dashboard 页面提取 Cookie（用于 Dashboard API）
-    debugPrint('🔍 [WebViewLogin] 导航到主站 dashboard 提取 Cookie...');
-    try {
-      await _controller.loadRequest(Uri.parse('https://www.trae.cn/dashboard'));
-      // 等待页面加载完成
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // 提取并保存 Trae Cookie
-      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(_controller);
-      if (cookieSaved) {
-        debugPrint('✅ [WebViewLogin] Trae Cookie 提取并保存成功');
-      } else {
-        debugPrint('⚠️ [WebViewLogin] Trae Cookie 提取失败或为空');
-      }
-    } catch (e) {
-      debugPrint('❌ [WebViewLogin] 提取 Trae Cookie 时出错: $e');
-    }
-
-    // 同步 WebView Cookie 到 Dio，以便 Discourse API 请求使用
-    debugPrint('🔍 [WebViewLogin] 开始同步 WebView Cookie 到 Dio...');
+    // 同步论坛 WebView Cookie 到 Dio
+    debugPrint('🔍 [WebViewLogin] 开始同步论坛 Cookie 到 Dio...');
     try {
       final cookieString = await _controller.runJavaScriptReturningResult('document.cookie');
       if (cookieString != null && cookieString.toString().isNotEmpty) {
@@ -303,12 +285,24 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           cookieString.toString(),
           _forumUrl,
         );
-        debugPrint('✅ [WebViewLogin] WebView Cookie 已同步到 Dio');
-      } else {
-        debugPrint('⚠️ [WebViewLogin] WebView Cookie 为空，无法同步');
+        debugPrint('✅ [WebViewLogin] 论坛 Cookie 已同步到 Dio');
       }
     } catch (e) {
-      debugPrint('❌ [WebViewLogin] 同步 WebView Cookie 到 Dio 失败: $e');
+      debugPrint('❌ [WebViewLogin] 同步论坛 Cookie 失败: $e');
+    }
+
+    // 打开主站 dashboard 页面来提取 Dashboard API 所需的 Cookie
+    debugPrint('🔍 [WebViewLogin] 打开主站 dashboard 提取 Cookie...');
+    if (mounted) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => _DashboardLoginPage(
+            onCookieExtracted: (success) {
+              debugPrint('✅ [WebViewLogin] Dashboard Cookie 提取结果: $success');
+            },
+          ),
+        ),
+      );
     }
 
     // 获取用户名（从 WebView 或传入的参数）
@@ -449,6 +443,110 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                   ),
                 ],
               ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dashboard 登录页面
+///
+/// 用于登录主站 dashboard 并提取 Cookie
+class _DashboardLoginPage extends StatefulWidget {
+  final Function(bool) onCookieExtracted;
+
+  const _DashboardLoginPage({required this.onCookieExtracted});
+
+  @override
+  State<_DashboardLoginPage> createState() => _DashboardLoginPageState();
+}
+
+class _DashboardLoginPageState extends State<_DashboardLoginPage> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+  bool _hasExtractedCookie = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebView();
+  }
+
+  void _initWebView() {
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            debugPrint('🔍 [DashboardLogin] 页面开始加载: $url');
+            setState(() {
+              _isLoading = true;
+            });
+          },
+          onPageFinished: (String url) async {
+            debugPrint('✅ [DashboardLogin] 页面加载完成: $url');
+            setState(() {
+              _isLoading = false;
+            });
+
+            // 如果加载的是 dashboard 页面，提取 Cookie
+            if (url.contains('trae.cn/dashboard') && !_hasExtractedCookie) {
+              _hasExtractedCookie = true;
+              await _extractCookie();
+            }
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse('https://www.trae.cn/dashboard'));
+  }
+
+  Future<void> _extractCookie() async {
+    debugPrint('🔍 [DashboardLogin] 开始提取 Cookie...');
+    try {
+      // 等待页面完全加载
+      await Future.delayed(const Duration(seconds: 2));
+      
+      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(_controller);
+      widget.onCookieExtracted(cookieSaved);
+      
+      if (cookieSaved) {
+        debugPrint('✅ [DashboardLogin] Cookie 提取成功');
+        // 检查是否有有效的 Cookie
+        final hasValid = await TraeCookieManager.hasValidCookies();
+        if (hasValid) {
+          debugPrint('✅ [DashboardLogin] Cookie 有效，关闭页面');
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        } else {
+          debugPrint('⚠️ [DashboardLogin] Cookie 无效，需要登录');
+        }
+      } else {
+        debugPrint('⚠️ [DashboardLogin] Cookie 提取失败');
+      }
+    } catch (e) {
+      debugPrint('❌ [DashboardLogin] 提取 Cookie 失败: $e');
+      widget.onCookieExtracted(false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('登录 TRAE 主站'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
             ),
         ],
       ),

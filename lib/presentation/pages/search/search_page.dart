@@ -251,7 +251,7 @@ class _SearchBody extends StatelessWidget {
                       ),
                     const SizedBox(height: 4),
                     Text(
-                      'Topic #$topicId${username.isNotEmpty ? ' · @$username' : ''}${replyCount != null ? ' · 回复 $replyCount' : ''}',
+                      '话题 #$topicId${username.isNotEmpty ? ' · @$username' : ''}${replyCount != null ? ' · 回复 $replyCount' : ''}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],

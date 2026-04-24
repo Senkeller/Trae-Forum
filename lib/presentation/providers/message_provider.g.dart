@@ -103,7 +103,7 @@ final isMessageLoadingProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsMessageLoadingRef = AutoDisposeProviderRef<bool>;
-String _$messageNotifierHash() => r'5c6c4e7f554f4c8488bf3fed369e7841b84da3b7';
+String _$messageNotifierHash() => r'596a1b25fa1a60aa54d0f8d17b29cfb9e2743a0a';
 
 /// 消息状态 Notifier
 ///

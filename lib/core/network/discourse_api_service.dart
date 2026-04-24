@@ -1,13 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/models/search.dart';
-import '../../data/models/discourse/discourse_notification.dart';
 import 'dio_client.dart';
 
 part 'discourse_api_service.g.dart';
 
 @riverpod
-DiscourseApiService discourseApiService(DiscourseApiServiceRef ref) {
+DiscourseApiService discourseApiService(Ref ref) {
   return DiscourseApiService();
 }
 
@@ -257,14 +256,195 @@ class DiscourseApiService {
       'raw': raw,
       'topic_id': topicId,
     };
-    
+
     if (replyToPostNumber != null) {
       data['reply_to_post_number'] = replyToPostNumber;
     }
-    
+
     return _dio.post(
       '$_baseUrl/posts',
       data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  // ==================== 点赞相关 API ====================
+
+  /// 点赞帖子
+  ///
+  /// [postId] 帖子ID
+  /// 调用 Discourse POST /post_actions API
+  /// 成功返回200，失败返回相应错误码
+  Future<Response> likePost(int postId) async {
+    return _dio.post(
+      '$_baseUrl/post_actions',
+      data: {
+        'id': postId,
+        'post_action_type_id': 2, // 2 = like
+      },
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  /// 取消点赞帖子
+  ///
+  /// [postId] 帖子ID
+  /// 调用 Discourse DELETE /post_actions/{postId} API
+  /// 成功返回200，失败返回相应错误码
+  Future<Response> unlikePost(int postId) async {
+    return _dio.delete(
+      '$_baseUrl/post_actions/$postId',
+      queryParameters: {
+        'post_action_type_id': 2, // 2 = like
+      },
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  /// 获取帖子详情（包含点赞状态）
+  ///
+  /// [postId] 帖子ID
+  /// 返回帖子详细信息，包括actions_summary等
+  Future<Response> getPostDetail(int postId) async {
+    return _dio.get('$_baseUrl/posts/$postId.json');
+  }
+
+  /// 编辑帖子/评论
+  ///
+  /// [postId] 帖子ID
+  /// [raw] 新的评论内容（原始Markdown格式）
+  /// [editReason] 编辑原因（可选）
+  /// 调用 Discourse PUT /posts/{id} API
+  Future<Response> editPost({
+    required int postId,
+    required String raw,
+    String? editReason,
+  }) async {
+    final data = <String, dynamic>{
+      'raw': raw,
+    };
+
+    if (editReason != null && editReason.isNotEmpty) {
+      data['edit_reason'] = editReason;
+    }
+
+    return _dio.put(
+      '$_baseUrl/posts/$postId',
+      data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  /// 删除帖子/评论
+  ///
+  /// [postId] 帖子ID
+  /// [forceDestroy] 是否强制删除（管理员使用）
+  /// 调用 Discourse DELETE /posts/{id} API
+  Future<Response> deletePost({
+    required int postId,
+    bool forceDestroy = false,
+  }) async {
+    return _dio.delete(
+      '$_baseUrl/posts/$postId',
+      queryParameters: {
+        if (forceDestroy) 'force_destroy': 'true',
+      },
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  // ==================== 草稿相关 API ====================
+
+  /// 保存草稿
+  ///
+  /// [draftKey] 草稿标识符，如 'topic_123' 或 'new_private_message'
+  /// [data] 草稿数据（序列化后的内容）
+  /// [sequence] 草稿序列号，用于版本控制
+  /// 调用 Discourse POST /drafts API
+  Future<Response> saveDraft({
+    required String draftKey,
+    required String data,
+    int sequence = 1,
+  }) async {
+    return _dio.post(
+      '$_baseUrl/drafts',
+      data: {
+        'draft_key': draftKey,
+        'data': data,
+        'sequence': sequence,
+      },
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  /// 获取草稿
+  ///
+  /// [draftKey] 草稿标识符
+  /// 调用 Discourse GET /drafts/{draft_key} API
+  /// 返回草稿数据，如果没有草稿则返回空
+  Future<Response> getDraft(String draftKey) async {
+    return _dio.get(
+      '$_baseUrl/drafts/$draftKey',
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  /// 删除草稿
+  ///
+  /// [draftKey] 草稿标识符
+  /// [sequence] 草稿序列号
+  /// 调用 Discourse DELETE /drafts/{draft_key} API
+  Future<Response> deleteDraft({
+    required String draftKey,
+    int sequence = 1,
+  }) async {
+    return _dio.delete(
+      '$_baseUrl/drafts/$draftKey',
+      queryParameters: {
+        'sequence': sequence,
+      },
       options: Options(
         headers: {
           'X-Requested-With': 'XMLHttpRequest',

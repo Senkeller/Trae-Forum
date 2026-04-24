@@ -1,6 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/api_service.dart';
-import '../../core/network/dio_client.dart';
 import 'auth_provider.dart';
 
 part 'message_provider.g.dart';
@@ -260,7 +259,8 @@ class MessageNotifier extends _$MessageNotifier {
   ///
   /// 根据当前消息类型加载对应的消息列表
   Future<void> loadMessages() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) {
       state = state.copyWith(errorMessage: '请先登录');
       return;
@@ -308,7 +308,8 @@ class MessageNotifier extends _$MessageNotifier {
 
   /// 刷新消息列表
   Future<void> refreshMessages() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return;
 
     if (state.isRefreshing) return;
@@ -352,7 +353,8 @@ class MessageNotifier extends _$MessageNotifier {
 
   /// 加载更多消息
   Future<void> loadMoreMessages() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return;
 
     if (state.isLoadingMore || !state.hasMore) return;
@@ -407,7 +409,8 @@ class MessageNotifier extends _$MessageNotifier {
   ///
   /// 从服务器获取最新的未读消息计数
   Future<void> checkUnreadCount() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return;
 
     try {
@@ -428,7 +431,8 @@ class MessageNotifier extends _$MessageNotifier {
   ///
   /// [messageId] 要标记的消息ID，为空则标记当前类型所有消息
   Future<void> markAsRead([String? messageId]) async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return;
 
     try {
@@ -460,7 +464,8 @@ class MessageNotifier extends _$MessageNotifier {
   ///
   /// [messageId] 要删除的消息ID
   Future<bool> deleteMessage(String messageId) async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) return false;
 
     try {

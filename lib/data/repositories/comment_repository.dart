@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/api_service.dart' as api;
 import '../../core/network/discourse_api_service.dart';
 import '../models/comment.dart';
+import '../models/draft_model.dart';
 
 part 'comment_repository.g.dart';
 
@@ -256,5 +257,207 @@ class CommentRepository {
       url: '',
       id: id,
     );
+  }
+
+  // ==================== 草稿相关方法 ====================
+
+  /// 保存草稿
+  ///
+  /// [topicId] 话题ID
+  /// [content] 草稿内容
+  /// [replyToPostNumber] 回复目标楼层号（可选）
+  /// @return 是否保存成功
+  Future<bool> saveDraft({
+    required int topicId,
+    required String content,
+    int? replyToPostNumber,
+  }) async {
+    try {
+      final draftKey = replyToPostNumber != null
+          ? 'topic_${topicId}_$replyToPostNumber'
+          : 'topic_$topicId';
+
+      final response = await _discourseApi.saveDraft(
+        draftKey: draftKey,
+        data: content,
+        sequence: DraftSequence.next(),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 获取草稿
+  ///
+  /// [topicId] 话题ID
+  /// [replyToPostNumber] 回复目标楼层号（可选）
+  /// @return 草稿模型，如果没有则返回null
+  Future<DraftModel?> getDraft({
+    required int topicId,
+    int? replyToPostNumber,
+  }) async {
+    try {
+      final draftKey = replyToPostNumber != null
+          ? 'topic_${topicId}_$replyToPostNumber'
+          : 'topic_$topicId';
+
+      final response = await _discourseApi.getDraft(draftKey);
+
+      if (response.statusCode == 200 && response.data != null) {
+        final data = response.data as Map<String, dynamic>?;
+        final draftData = data?['draft'] as String?;
+
+        if (draftData != null && draftData.isNotEmpty) {
+          return DraftModel.create(
+            topicId: topicId,
+            content: draftData,
+            replyToPostNumber: replyToPostNumber,
+          );
+        }
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// 删除草稿
+  ///
+  /// [topicId] 话题ID
+  /// [replyToPostNumber] 回复目标楼层号（可选）
+  Future<void> deleteDraft({
+    required int topicId,
+    int? replyToPostNumber,
+  }) async {
+    try {
+      final draftKey = replyToPostNumber != null
+          ? 'topic_${topicId}_$replyToPostNumber'
+          : 'topic_$topicId';
+
+      await _discourseApi.deleteDraft(
+        draftKey: draftKey,
+        sequence: DraftSequence.next(),
+      );
+    } catch (e) {
+      // 忽略删除错误
+    }
+  }
+
+  // ==================== 编辑相关方法 ====================
+
+  /// 编辑评论
+  ///
+  /// [postId] 帖子ID
+  /// [content] 新的评论内容
+  /// [editReason] 编辑原因（可选）
+  /// @return 操作结果
+  Future<CommentResult> editComment({
+    required int postId,
+    required String content,
+    String? editReason,
+  }) async {
+    try {
+      final response = await _discourseApi.editPost(
+        postId: postId,
+        raw: content,
+        editReason: editReason,
+      );
+
+      final data = response.data as Map<String, dynamic>?;
+
+      if (response.statusCode == 200 && data != null) {
+        final updatedPostId = data['id'] as int?;
+        return CommentResult.success(postId: updatedPostId);
+      } else if (response.statusCode == 403) {
+        return CommentResult.failure('权限不足，无法编辑此评论');
+      } else if (response.statusCode == 422) {
+        final errors = data?['errors'];
+        if (errors != null && errors is List && errors.isNotEmpty) {
+          return CommentResult.failure(errors.first.toString());
+        }
+        return CommentResult.failure('请求参数错误');
+      } else {
+        return CommentResult.failure('编辑失败: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      return CommentResult.failure('编辑评论时发生错误: $e');
+    }
+  }
+
+  /// 删除评论（使用Discourse API）
+  ///
+  /// [postId] 帖子ID
+  /// [forceDestroy] 是否强制删除（管理员使用）
+  /// @return 操作结果
+  Future<CommentResult> deletePost({
+    required int postId,
+    bool forceDestroy = false,
+  }) async {
+    try {
+      final response = await _discourseApi.deletePost(
+        postId: postId,
+        forceDestroy: forceDestroy,
+      );
+
+      if (response.statusCode == 200) {
+        return CommentResult.success();
+      } else if (response.statusCode == 403) {
+        return CommentResult.failure('权限不足，无法删除此评论');
+      } else if (response.statusCode == 404) {
+        return CommentResult.failure('评论不存在或已被删除');
+      } else {
+        return CommentResult.failure('删除失败: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      return CommentResult.failure('删除评论时发生错误: $e');
+    }
+  }
+
+  // ==================== 点赞相关方法 ====================
+
+  /// 点赞帖子
+  ///
+  /// [postId] 帖子ID
+  /// @return 操作结果
+  Future<CommentResult> likePost(int postId) async {
+    try {
+      final response = await _discourseApi.likePost(postId);
+
+      if (response.statusCode == 200) {
+        return CommentResult.success();
+      } else {
+        return CommentResult.failure('点赞失败: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      return CommentResult.failure('点赞时发生错误: $e');
+    }
+  }
+
+  /// 取消点赞帖子
+  ///
+  /// [postId] 帖子ID
+  /// @return 操作结果
+  Future<CommentResult> unlikePost(int postId) async {
+    try {
+      final response = await _discourseApi.unlikePost(postId);
+
+      if (response.statusCode == 200) {
+        return CommentResult.success();
+      } else {
+        return CommentResult.failure('取消点赞失败: HTTP ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      return CommentResult.failure('取消点赞时发生错误: $e');
+    }
   }
 }

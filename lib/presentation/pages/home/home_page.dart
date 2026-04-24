@@ -278,6 +278,67 @@ class _FeedListView extends ConsumerWidget {
   }
 }
 
+/// 标签汉化映射表
+/// 
+/// 用于将英文标签映射为中文显示
+const Map<String, String> _tagLocalizationMap = {
+  // 活动相关
+  'event': '活动',
+  'events': '活动',
+  'activity': '活动',
+  'contest': '比赛',
+  'challenge': '挑战',
+  'solo': 'SOLO赛',
+  
+  // 内容类型
+  'announcement': '公告',
+  'official': '官方',
+  'news': '新闻',
+  'update': '更新',
+  'release': '发布',
+  
+  // 主题分类
+  'help': '求助',
+  'question': '问题',
+  'support': '支持',
+  
+  // 建议反馈
+  'suggestion': '建议',
+  'feedback': '反馈',
+  'feature-request': '功能请求',
+  'bug': 'Bug',
+  
+  // 技巧分享
+  'tips': '技巧',
+  'tutorial': '教程',
+  'guide': '指南',
+  'how-to': '教程',
+  'best-practice': '最佳实践',
+  
+  // 作品展示
+  'showcase': '作品',
+  'project': '项目',
+  'demo': '演示',
+  'portfolio': '作品集',
+  
+  // 交流讨论
+  'discussion': '讨论',
+  'general': '综合',
+  'chat': '闲聊',
+  'intro': '介绍',
+  'introduction': '介绍',
+  
+  // 技术相关
+  'tech': '技术',
+  'code': '代码',
+  'development': '开发',
+  'ai': 'AI',
+  'ml': '机器学习',
+  
+  // 其他
+  'pinned': '置顶',
+};
+
 class _FeedCard extends ConsumerStatefulWidget {
   final FeedItem feed;
   final VoidCallback onTap;
@@ -468,19 +529,35 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     );
   }
 
+  /// 获取标签的汉化显示文本
+  /// 
+  /// [tag] 原始标签文本（英文）
+  /// @return 汉化后的标签文本，如果没有映射则返回原值
+  String _getLocalizedTag(String tag) {
+    final lowerTag = tag.toLowerCase().trim();
+    // 移除可能的 # 前缀
+    final cleanTag = lowerTag.startsWith('#') ? lowerTag.substring(1) : lowerTag;
+    return _tagLocalizationMap[cleanTag] ?? tag;
+  }
+
   Widget _buildMetaTags(BuildContext context) {
     final items = <Widget>[];
 
+    // 分类标签（使用汉化映射）
     if (widget.feed.category.isNotEmpty) {
-      items.add(_metaChip(context, '#${widget.feed.category}'));
+      final localizedCategory = _getLocalizedTag(widget.feed.category);
+      items.add(_metaChip(context, '#$localizedCategory'));
     }
 
+    // 普通标签（使用汉化映射）
     for (final tag in widget.feed.tags.take(3)) {
-      items.add(_metaChip(context, tag));
+      final localizedTag = _getLocalizedTag(tag);
+      items.add(_metaChip(context, '#$localizedTag'));
     }
 
+    // 置顶标签（汉化）
     if (widget.feed.isPinned) {
-      items.add(_metaChip(context, 'Pinned'));
+      items.add(_metaChip(context, '置顶'));
     }
 
     return Wrap(
