@@ -6,7 +6,7 @@ part of 'comment_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$commentRepositoryHash() => r'c3657eb7e299873f81a0075f833e72ac172e8646';
+String _$commentRepositoryHash() => r'97b044bc11c73e3fb202d0ec5a066fa7a9e91656';
 
 /// 评论仓库
 /// 负责处理评论相关的数据操作，包括获取评论列表、发布评论、点赞评论、获取楼中楼回复等

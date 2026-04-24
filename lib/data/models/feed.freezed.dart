@@ -15,6 +15,268 @@ final _privateConstructorUsedError = UnsupportedError(
   'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
 );
 
+TopComment _$TopCommentFromJson(Map<String, dynamic> json) {
+  return _TopComment.fromJson(json);
+}
+
+/// @nodoc
+mixin _$TopComment {
+  @JsonKey(name: 'id')
+  String get id => throw _privateConstructorUsedError;
+  @JsonKey(name: 'username')
+  String get username => throw _privateConstructorUsedError;
+  @JsonKey(name: 'content')
+  String get content => throw _privateConstructorUsedError;
+  @JsonKey(name: 'like_count')
+  int get likeCount => throw _privateConstructorUsedError;
+  @JsonKey(name: 'avatar_url')
+  String? get avatarUrl => throw _privateConstructorUsedError;
+
+  /// Serializes this TopComment to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of TopComment
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $TopCommentCopyWith<TopComment> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $TopCommentCopyWith<$Res> {
+  factory $TopCommentCopyWith(
+    TopComment value,
+    $Res Function(TopComment) then,
+  ) = _$TopCommentCopyWithImpl<$Res, TopComment>;
+  @useResult
+  $Res call({
+    @JsonKey(name: 'id') String id,
+    @JsonKey(name: 'username') String username,
+    @JsonKey(name: 'content') String content,
+    @JsonKey(name: 'like_count') int likeCount,
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
+  });
+}
+
+/// @nodoc
+class _$TopCommentCopyWithImpl<$Res, $Val extends TopComment>
+    implements $TopCommentCopyWith<$Res> {
+  _$TopCommentCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of TopComment
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? username = null,
+    Object? content = null,
+    Object? likeCount = null,
+    Object? avatarUrl = freezed,
+  }) {
+    return _then(
+      _value.copyWith(
+            id: null == id
+                ? _value.id
+                : id // ignore: cast_nullable_to_non_nullable
+                      as String,
+            username: null == username
+                ? _value.username
+                : username // ignore: cast_nullable_to_non_nullable
+                      as String,
+            content: null == content
+                ? _value.content
+                : content // ignore: cast_nullable_to_non_nullable
+                      as String,
+            likeCount: null == likeCount
+                ? _value.likeCount
+                : likeCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            avatarUrl: freezed == avatarUrl
+                ? _value.avatarUrl
+                : avatarUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$TopCommentImplCopyWith<$Res>
+    implements $TopCommentCopyWith<$Res> {
+  factory _$$TopCommentImplCopyWith(
+    _$TopCommentImpl value,
+    $Res Function(_$TopCommentImpl) then,
+  ) = __$$TopCommentImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({
+    @JsonKey(name: 'id') String id,
+    @JsonKey(name: 'username') String username,
+    @JsonKey(name: 'content') String content,
+    @JsonKey(name: 'like_count') int likeCount,
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
+  });
+}
+
+/// @nodoc
+class __$$TopCommentImplCopyWithImpl<$Res>
+    extends _$TopCommentCopyWithImpl<$Res, _$TopCommentImpl>
+    implements _$$TopCommentImplCopyWith<$Res> {
+  __$$TopCommentImplCopyWithImpl(
+    _$TopCommentImpl _value,
+    $Res Function(_$TopCommentImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of TopComment
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? username = null,
+    Object? content = null,
+    Object? likeCount = null,
+    Object? avatarUrl = freezed,
+  }) {
+    return _then(
+      _$TopCommentImpl(
+        id: null == id
+            ? _value.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        username: null == username
+            ? _value.username
+            : username // ignore: cast_nullable_to_non_nullable
+                  as String,
+        content: null == content
+            ? _value.content
+            : content // ignore: cast_nullable_to_non_nullable
+                  as String,
+        likeCount: null == likeCount
+            ? _value.likeCount
+            : likeCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        avatarUrl: freezed == avatarUrl
+            ? _value.avatarUrl
+            : avatarUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$TopCommentImpl implements _TopComment {
+  const _$TopCommentImpl({
+    @JsonKey(name: 'id') required this.id,
+    @JsonKey(name: 'username') required this.username,
+    @JsonKey(name: 'content') this.content = '',
+    @JsonKey(name: 'like_count') this.likeCount = 0,
+    @JsonKey(name: 'avatar_url') this.avatarUrl,
+  });
+
+  factory _$TopCommentImpl.fromJson(Map<String, dynamic> json) =>
+      _$$TopCommentImplFromJson(json);
+
+  @override
+  @JsonKey(name: 'id')
+  final String id;
+  @override
+  @JsonKey(name: 'username')
+  final String username;
+  @override
+  @JsonKey(name: 'content')
+  final String content;
+  @override
+  @JsonKey(name: 'like_count')
+  final int likeCount;
+  @override
+  @JsonKey(name: 'avatar_url')
+  final String? avatarUrl;
+
+  @override
+  String toString() {
+    return 'TopComment(id: $id, username: $username, content: $content, likeCount: $likeCount, avatarUrl: $avatarUrl)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$TopCommentImpl &&
+            (identical(other.id, id) || other.id == id) &&
+            (identical(other.username, username) ||
+                other.username == username) &&
+            (identical(other.content, content) || other.content == content) &&
+            (identical(other.likeCount, likeCount) ||
+                other.likeCount == likeCount) &&
+            (identical(other.avatarUrl, avatarUrl) ||
+                other.avatarUrl == avatarUrl));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, id, username, content, likeCount, avatarUrl);
+
+  /// Create a copy of TopComment
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$TopCommentImplCopyWith<_$TopCommentImpl> get copyWith =>
+      __$$TopCommentImplCopyWithImpl<_$TopCommentImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$TopCommentImplToJson(this);
+  }
+}
+
+abstract class _TopComment implements TopComment {
+  const factory _TopComment({
+    @JsonKey(name: 'id') required final String id,
+    @JsonKey(name: 'username') required final String username,
+    @JsonKey(name: 'content') final String content,
+    @JsonKey(name: 'like_count') final int likeCount,
+    @JsonKey(name: 'avatar_url') final String? avatarUrl,
+  }) = _$TopCommentImpl;
+
+  factory _TopComment.fromJson(Map<String, dynamic> json) =
+      _$TopCommentImpl.fromJson;
+
+  @override
+  @JsonKey(name: 'id')
+  String get id;
+  @override
+  @JsonKey(name: 'username')
+  String get username;
+  @override
+  @JsonKey(name: 'content')
+  String get content;
+  @override
+  @JsonKey(name: 'like_count')
+  int get likeCount;
+  @override
+  @JsonKey(name: 'avatar_url')
+  String? get avatarUrl;
+
+  /// Create a copy of TopComment
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$TopCommentImplCopyWith<_$TopCommentImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
 HomeFeedResponse _$HomeFeedResponseFromJson(Map<String, dynamic> json) {
   return _HomeFeedResponse.fromJson(json);
 }
@@ -350,6 +612,8 @@ mixin _$HomeFeedData {
   List<dynamic> get replyRows => throw _privateConstructorUsedError;
   @JsonKey(name: 'replyRowsMore')
   bool get replyRowsMore => throw _privateConstructorUsedError;
+  @JsonKey(name: 'topComment')
+  TopComment? get topComment => throw _privateConstructorUsedError;
 
   /// Serializes this HomeFeedData to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -384,10 +648,12 @@ abstract class $HomeFeedDataCopyWith<$Res> {
     @JsonKey(name: 'device_title') String? deviceTitle,
     @JsonKey(name: 'replyRows') List<dynamic> replyRows,
     @JsonKey(name: 'replyRowsMore') bool replyRowsMore,
+    @JsonKey(name: 'topComment') TopComment? topComment,
   });
 
   $UserInfoCopyWith<$Res>? get userInfo;
   $UserActionCopyWith<$Res> get action;
+  $TopCommentCopyWith<$Res>? get topComment;
 }
 
 /// @nodoc
@@ -420,6 +686,7 @@ class _$HomeFeedDataCopyWithImpl<$Res, $Val extends HomeFeedData>
     Object? deviceTitle = freezed,
     Object? replyRows = null,
     Object? replyRowsMore = null,
+    Object? topComment = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -483,6 +750,10 @@ class _$HomeFeedDataCopyWithImpl<$Res, $Val extends HomeFeedData>
                 ? _value.replyRowsMore
                 : replyRowsMore // ignore: cast_nullable_to_non_nullable
                       as bool,
+            topComment: freezed == topComment
+                ? _value.topComment
+                : topComment // ignore: cast_nullable_to_non_nullable
+                      as TopComment?,
           )
           as $Val,
     );
@@ -509,6 +780,20 @@ class _$HomeFeedDataCopyWithImpl<$Res, $Val extends HomeFeedData>
   $UserActionCopyWith<$Res> get action {
     return $UserActionCopyWith<$Res>(_value.action, (value) {
       return _then(_value.copyWith(action: value) as $Val);
+    });
+  }
+
+  /// Create a copy of HomeFeedData
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $TopCommentCopyWith<$Res>? get topComment {
+    if (_value.topComment == null) {
+      return null;
+    }
+
+    return $TopCommentCopyWith<$Res>(_value.topComment!, (value) {
+      return _then(_value.copyWith(topComment: value) as $Val);
     });
   }
 }
@@ -538,12 +823,15 @@ abstract class _$$HomeFeedDataImplCopyWith<$Res>
     @JsonKey(name: 'device_title') String? deviceTitle,
     @JsonKey(name: 'replyRows') List<dynamic> replyRows,
     @JsonKey(name: 'replyRowsMore') bool replyRowsMore,
+    @JsonKey(name: 'topComment') TopComment? topComment,
   });
 
   @override
   $UserInfoCopyWith<$Res>? get userInfo;
   @override
   $UserActionCopyWith<$Res> get action;
+  @override
+  $TopCommentCopyWith<$Res>? get topComment;
 }
 
 /// @nodoc
@@ -575,6 +863,7 @@ class __$$HomeFeedDataImplCopyWithImpl<$Res>
     Object? deviceTitle = freezed,
     Object? replyRows = null,
     Object? replyRowsMore = null,
+    Object? topComment = freezed,
   }) {
     return _then(
       _$HomeFeedDataImpl(
@@ -638,6 +927,10 @@ class __$$HomeFeedDataImplCopyWithImpl<$Res>
             ? _value.replyRowsMore
             : replyRowsMore // ignore: cast_nullable_to_non_nullable
                   as bool,
+        topComment: freezed == topComment
+            ? _value.topComment
+            : topComment // ignore: cast_nullable_to_non_nullable
+                  as TopComment?,
       ),
     );
   }
@@ -662,6 +955,7 @@ class _$HomeFeedDataImpl implements _HomeFeedData {
     @JsonKey(name: 'device_title') this.deviceTitle,
     @JsonKey(name: 'replyRows') final List<dynamic> replyRows = const [],
     @JsonKey(name: 'replyRowsMore') this.replyRowsMore = false,
+    @JsonKey(name: 'topComment') this.topComment,
   }) : _picArr = picArr,
        _replyRows = replyRows;
 
@@ -725,10 +1019,13 @@ class _$HomeFeedDataImpl implements _HomeFeedData {
   @override
   @JsonKey(name: 'replyRowsMore')
   final bool replyRowsMore;
+  @override
+  @JsonKey(name: 'topComment')
+  final TopComment? topComment;
 
   @override
   String toString() {
-    return 'HomeFeedData(id: $id, entityType: $entityType, title: $title, message: $message, picArr: $picArr, userInfo: $userInfo, action: $action, dateline: $dateline, replyNum: $replyNum, forwardNum: $forwardNum, forwardId: $forwardId, forwardSource: $forwardSource, deviceTitle: $deviceTitle, replyRows: $replyRows, replyRowsMore: $replyRowsMore)';
+    return 'HomeFeedData(id: $id, entityType: $entityType, title: $title, message: $message, picArr: $picArr, userInfo: $userInfo, action: $action, dateline: $dateline, replyNum: $replyNum, forwardNum: $forwardNum, forwardId: $forwardId, forwardSource: $forwardSource, deviceTitle: $deviceTitle, replyRows: $replyRows, replyRowsMore: $replyRowsMore, topComment: $topComment)';
   }
 
   @override
@@ -762,7 +1059,9 @@ class _$HomeFeedDataImpl implements _HomeFeedData {
               _replyRows,
             ) &&
             (identical(other.replyRowsMore, replyRowsMore) ||
-                other.replyRowsMore == replyRowsMore));
+                other.replyRowsMore == replyRowsMore) &&
+            (identical(other.topComment, topComment) ||
+                other.topComment == topComment));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -784,6 +1083,7 @@ class _$HomeFeedDataImpl implements _HomeFeedData {
     deviceTitle,
     const DeepCollectionEquality().hash(_replyRows),
     replyRowsMore,
+    topComment,
   );
 
   /// Create a copy of HomeFeedData
@@ -817,6 +1117,7 @@ abstract class _HomeFeedData implements HomeFeedData {
     @JsonKey(name: 'device_title') final String? deviceTitle,
     @JsonKey(name: 'replyRows') final List<dynamic> replyRows,
     @JsonKey(name: 'replyRowsMore') final bool replyRowsMore,
+    @JsonKey(name: 'topComment') final TopComment? topComment,
   }) = _$HomeFeedDataImpl;
 
   factory _HomeFeedData.fromJson(Map<String, dynamic> json) =
@@ -867,6 +1168,9 @@ abstract class _HomeFeedData implements HomeFeedData {
   @override
   @JsonKey(name: 'replyRowsMore')
   bool get replyRowsMore;
+  @override
+  @JsonKey(name: 'topComment')
+  TopComment? get topComment;
 
   /// Create a copy of HomeFeedData
   /// with the given fields replaced by the non-null parameter values.

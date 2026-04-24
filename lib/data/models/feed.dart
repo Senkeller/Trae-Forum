@@ -7,6 +7,31 @@ part 'feed.g.dart';
 /// 动态/帖子模型文件
 /// 包含首页动态、帖子详情等数据结构
 
+/// 精选评论模型
+/// 用于展示在动态卡片上的热门评论
+@freezed
+class TopComment with _$TopComment {
+  /// 构造函数
+  /// @param id 评论ID
+  /// @param username 用户名
+  /// @param content 评论内容
+  /// @param likeCount 点赞数
+  /// @param avatarUrl 用户头像URL
+  const factory TopComment({
+    @JsonKey(name: 'id') required String id,
+    @JsonKey(name: 'username') required String username,
+    @JsonKey(name: 'content') @Default('') String content,
+    @JsonKey(name: 'like_count') @Default(0) int likeCount,
+    @JsonKey(name: 'avatar_url') String? avatarUrl,
+  }) = _TopComment;
+
+  /// 从JSON解析精选评论对象
+  /// @param json JSON数据
+  /// @return TopComment实例
+  factory TopComment.fromJson(Map<String, dynamic> json) =>
+      _$TopCommentFromJson(json);
+}
+
 /// 首页动态响应模型
 /// 用于首页动态列表接口返回的数据
 @freezed
@@ -54,6 +79,7 @@ class HomeFeedData with _$HomeFeedData {
   /// @param deviceTitle 发布设备
   /// @param replyRows 部分回复列表
   /// @param replyRowsMore 是否有更多回复
+  /// @param topComment 精选评论
   const factory HomeFeedData({
     @JsonKey(name: 'id') required String id,
     @JsonKey(name: 'entityType') required String entityType,
@@ -70,6 +96,7 @@ class HomeFeedData with _$HomeFeedData {
     @JsonKey(name: 'device_title') String? deviceTitle,
     @JsonKey(name: 'replyRows') @Default([]) List<dynamic> replyRows,
     @JsonKey(name: 'replyRowsMore') @Default(false) bool replyRowsMore,
+    @JsonKey(name: 'topComment') TopComment? topComment,
   }) = _HomeFeedData;
 
   /// 从JSON解析动态数据对象

@@ -145,3 +145,44 @@ class SubReplyResponse with _$SubReplyResponse {
   factory SubReplyResponse.fromJson(Map<String, dynamic> json) =>
       _$SubReplyResponseFromJson(json);
 }
+
+/// 创建评论结果模型
+/// 用于 createComment 方法返回的结果
+class CommentResult {
+  /// 是否成功
+  final bool success;
+  
+  /// 错误消息（失败时）
+  final String? errorMessage;
+  
+  /// 创建的帖子ID（成功时）
+  final int? postId;
+
+  /// 构造函数
+  /// @param success 是否成功
+  /// @param errorMessage 错误消息
+  /// @param postId 帖子ID
+  const CommentResult({
+    required this.success,
+    this.errorMessage,
+    this.postId,
+  });
+
+  /// 创建成功结果
+  /// @param postId 帖子ID
+  /// @return CommentResult实例
+  factory CommentResult.success({required int postId}) {
+    return CommentResult(success: true, postId: postId);
+  }
+
+  /// 创建失败结果
+  /// @param message 错误消息
+  /// @return CommentResult实例
+  factory CommentResult.failure(String message) {
+    return CommentResult(success: false, errorMessage: message);
+  }
+
+  @override
+  String toString() =>
+      'CommentResult(success: $success, postId: $postId, errorMessage: $errorMessage)';
+}

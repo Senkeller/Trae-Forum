@@ -6,6 +6,24 @@ part of 'feed.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+_$TopCommentImpl _$$TopCommentImplFromJson(Map<String, dynamic> json) =>
+    _$TopCommentImpl(
+      id: json['id'] as String,
+      username: json['username'] as String,
+      content: json['content'] as String? ?? '',
+      likeCount: (json['like_count'] as num?)?.toInt() ?? 0,
+      avatarUrl: json['avatar_url'] as String?,
+    );
+
+Map<String, dynamic> _$$TopCommentImplToJson(_$TopCommentImpl instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'username': instance.username,
+      'content': instance.content,
+      'like_count': instance.likeCount,
+      'avatar_url': instance.avatarUrl,
+    };
+
 _$HomeFeedResponseImpl _$$HomeFeedResponseImplFromJson(
   Map<String, dynamic> json,
 ) => _$HomeFeedResponseImpl(
@@ -57,6 +75,9 @@ _$HomeFeedDataImpl _$$HomeFeedDataImplFromJson(Map<String, dynamic> json) =>
       deviceTitle: json['device_title'] as String?,
       replyRows: json['replyRows'] as List<dynamic>? ?? const [],
       replyRowsMore: json['replyRowsMore'] as bool? ?? false,
+      topComment: json['topComment'] == null
+          ? null
+          : TopComment.fromJson(json['topComment'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$HomeFeedDataImplToJson(_$HomeFeedDataImpl instance) =>
@@ -76,6 +97,7 @@ Map<String, dynamic> _$$HomeFeedDataImplToJson(_$HomeFeedDataImpl instance) =>
       'device_title': instance.deviceTitle,
       'replyRows': instance.replyRows,
       'replyRowsMore': instance.replyRowsMore,
+      'topComment': instance.topComment,
     };
 
 _$FeedContentResponseImpl _$$FeedContentResponseImplFromJson(

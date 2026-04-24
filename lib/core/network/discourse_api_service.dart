@@ -239,4 +239,39 @@ class DiscourseApiService {
   Future<Response> updatePresence() async {
     return _dio.post('$_baseUrl/presence/update');
   }
+
+  // ==================== 帖子/评论相关 API ====================
+
+  /// 创建帖子/评论
+  ///
+  /// [topicId] 话题ID
+  /// [raw] 评论内容（原始Markdown格式）
+  /// [replyToPostNumber] 回复的帖子编号（楼中楼回复时使用）
+  /// 调用 Discourse POST /posts API
+  Future<Response> createPost({
+    required int topicId,
+    required String raw,
+    int? replyToPostNumber,
+  }) async {
+    final data = <String, dynamic>{
+      'raw': raw,
+      'topic_id': topicId,
+    };
+    
+    if (replyToPostNumber != null) {
+      data['reply_to_post_number'] = replyToPostNumber;
+    }
+    
+    return _dio.post(
+      '$_baseUrl/posts',
+      data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
 }

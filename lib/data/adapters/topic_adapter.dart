@@ -1,3 +1,4 @@
+import '../models/discourse/discourse_post.dart';
 import '../models/discourse/discourse_topic.dart';
 import '../models/feed.dart';
 import '../models/user.dart';
@@ -11,11 +12,13 @@ class TopicAdapter {
   ///
   /// [topic] Discourse 话题数据
   /// [users] 用户列表（用于解析头像）
+  /// [posts] 帖子列表（用于提取精选评论）
   /// @return HomeFeedData 实例
   static HomeFeedData adaptTopicToFeed(
     DiscourseTopic topic,
-    List<DiscourseUserBasic> users,
-  ) {
+    List<DiscourseUserBasic> users, {
+    List<DiscoursePost> posts = const [],
+  }) {
     final createdBy = DiscourseAdapter.findUserById(
       topic.posters.isNotEmpty ? topic.posters.first.userId : 0,
       users,
@@ -31,6 +34,9 @@ class TopicAdapter {
       level: createdBy?.trustLevel ?? 1,
     );
 
+    // 提取精选评论
+    final topComment = _extractTopComment(posts);
+
     return HomeFeedData(
       id: topic.id.toString(),
       entityType: 'feed',
@@ -41,7 +47,62 @@ class TopicAdapter {
       dateline: DiscourseAdapter.parseIso8601ToTimestamp(topic.createdAt).toString(),
       replyNum: topic.postsCount - 1,
       forwardNum: 0,
+      topComment: topComment,
     );
+  }
+
+  /// 从帖子列表中提取精选评论
+  ///
+  /// 逻辑：
+  /// 1. 筛选 post_number > 1 的回复（排除主帖）
+  /// 2. 按 like_count 降序排序
+  /// 3. 取第一条作为精选评论
+  ///
+  /// [posts] Discourse 帖子列表
+  /// @return TopComment? 精选评论，如果没有符合条件的评论则返回 null
+  static TopComment? _extractTopComment(List<DiscoursePost> posts) {
+    if (posts.isEmpty) return null;
+
+    // 筛选 post_number > 1 的回复（排除主帖）
+    final replies = posts.where((post) => post.postNumber > 1).toList();
+    if (replies.isEmpty) return null;
+
+    // 按 like_count 降序排序
+    replies.sort((a, b) => b.likeCount.compareTo(a.likeCount));
+
+    // 取第一条作为精选评论
+    final topPost = replies.first;
+
+    return TopComment(
+      id: topPost.id.toString(),
+      username: topPost.username,
+      content: _extractPlainText(topPost.cooked ?? ''),
+      likeCount: topPost.likeCount,
+      avatarUrl: DiscourseAdapter.formatAvatarUrl(
+        topPost.avatarTemplate,
+        topPost.username,
+      ),
+    );
+  }
+
+  /// 从 HTML 内容中提取纯文本
+  ///
+  /// [html] HTML 格式的内容
+  /// @return String 纯文本内容
+  static String _extractPlainText(String html) {
+    // 移除 HTML 标签
+    var text = html.replaceAll(RegExp(r'<[^>]*>'), '');
+    // 解码 HTML 实体
+    text = text
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&nbsp;', ' ');
+    // 移除多余空白
+    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text;
   }
 
   /// 将 Discourse Topic 列表转换为 Feed 响应

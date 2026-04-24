@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/constants.dart';
 import '../../../data/models/user.dart';
 import '../../../presentation/providers/auth_provider.dart';
@@ -134,10 +135,13 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   /// 检查 URL 是否是登录成功后的跳转
   bool _isLoginSuccessUrl(String url) {
     // 如果跳转回论坛首页或用户页面，说明登录成功
-    return url.startsWith(_forumUrl) &&
+    final isSuccess = url.startsWith(_forumUrl) &&
         (url.contains('/session/sso_login') ||
             url == _forumUrl ||
             url == '$_forumUrl/');
+    debugPrint('🔍 [WebViewLogin] 检查URL: $url');
+    debugPrint('🔍 [WebViewLogin] 是否登录成功URL: $isSuccess');
+    return isSuccess;
   }
 
   /// 检查登录状态
