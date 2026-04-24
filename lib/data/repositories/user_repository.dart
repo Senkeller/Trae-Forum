@@ -24,7 +24,7 @@ class UserRepository {
   /// 获取用户空间信息
   ///
   /// [uid] 用户 ID
-  Future<UserProfileResponse> getUserSpace({
+  Future<api.UserProfileResponse> getUserSpace({
     required String uid,
   }) async {
     return await _apiService.getUserSpace(uid: uid);
@@ -33,7 +33,7 @@ class UserRepository {
   /// 获取用户资料
   ///
   /// [uid] 用户 ID
-  Future<UserProfileResponse> getProfile({
+  Future<api.UserProfileResponse> getProfile({
     required String uid,
   }) async {
     return await _apiService.getProfile(uid: uid);
@@ -42,7 +42,7 @@ class UserRepository {
   /// 获取用户动态列表
   ///
   /// [uid] 用户 ID
-  Future<HomeFeedResponse> getUserFeedList({
+  Future<api.HomeFeedResponse> getUserFeedList({
     required String uid,
     required int page,
     String? lastItem,
@@ -71,7 +71,7 @@ class UserRepository {
   /// 获取关注列表
   ///
   /// [uid] 用户 ID
-  Future<HomeFeedResponse> getFollowList({
+  Future<api.HomeFeedResponse> getFollowList({
     required String uid,
     required int page,
     String? lastItem,
@@ -87,7 +87,7 @@ class UserRepository {
   /// 获取粉丝列表
   ///
   /// [uid] 用户 ID
-  Future<HomeFeedResponse> getFansList({
+  Future<api.HomeFeedResponse> getFansList({
     required String uid,
     required int page,
     String? lastItem,

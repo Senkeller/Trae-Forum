@@ -6,7 +6,7 @@ part of 'auth_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$currentUserHash() => r'67949e6c8fe4615db15360f26df1d8c363cbb79e';
+String _$currentUserHash() => r'5ba5fe5c7165288c23479e8771ede13d8393774d';
 
 /// 当前用户信息 Provider
 ///
@@ -48,7 +48,7 @@ final isAuthenticatedProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsAuthenticatedRef = AutoDisposeProviderRef<bool>;
-String _$authTokenHash() => r'96de45b1d07e368977b4e562e1f235fb55c40cb6';
+String _$authTokenHash() => r'9a41745586309e28c4623885edf5dc759eae968d';
 
 /// 用户 Token Provider
 ///
@@ -69,14 +69,14 @@ final authTokenProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthTokenRef = AutoDisposeProviderRef<String?>;
-String _$authNotifierHash() => r'890e8362ff7a02a0c9e4f7286d6150587aee8372';
+String _$authNotifierHash() => r'ac19047416a0d7a6eeed8c8acec0c9c27ea61086';
 
-/// 认证状态类
+/// 认证状态 Notifier
 ///
 /// Copied from [AuthNotifier].
 @ProviderFor(AuthNotifier)
 final authNotifierProvider =
-    AutoDisposeAsyncNotifierProvider<AuthNotifier, UserInfo>.internal(
+    AutoDisposeNotifierProvider<AuthNotifier, AsyncValue<UserInfo>>.internal(
       AuthNotifier.new,
       name: r'authNotifierProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -86,6 +86,6 @@ final authNotifierProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$AuthNotifier = AutoDisposeAsyncNotifier<UserInfo>;
+typedef _$AuthNotifier = AutoDisposeNotifier<AsyncValue<UserInfo>>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

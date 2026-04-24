@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/api_service.dart' as api;
 import '../../core/network/dio_client.dart';
-import '../models/feed.dart';
+import '../models/feed.dart' hide LikeFeedResponse;
 
 part 'feed_repository.g.dart';
 
@@ -101,7 +101,7 @@ class FeedRepository {
   /// [id] 动态 ID
   /// 返回点赞响应数据
   /// 抛出 [ApiException] 或 [NetworkException] 当请求失败时
-  Future<LikeFeedResponse> likeFeed({
+  Future<api.LikeFeedResponse> likeFeed({
     required String id,
   }) async {
     try {
@@ -122,7 +122,7 @@ class FeedRepository {
   /// [id] 动态 ID
   /// 返回取消点赞响应数据
   /// 抛出 [ApiException] 或 [NetworkException] 当请求失败时
-  Future<LikeFeedResponse> unlikeFeed({
+  Future<api.LikeFeedResponse> unlikeFeed({
     required String id,
   }) async {
     try {

@@ -201,9 +201,23 @@ class HomeNotifier extends _$HomeNotifier {
       );
 
       if (response.status == 1 && response.data != null) {
-        final feeds = (response.data as List<dynamic>)
-            .map((item) => FeedItem.fromJson(item as Map<String, dynamic>))
-            .toList();
+        // 将 HomeFeedData 转换为 FeedItem
+        final feeds = response.data.map((feedData) {
+          return FeedItem(
+            id: feedData.id,
+            uid: feedData.userInfo?.uid ?? '',
+            username: feedData.userInfo?.username ?? '',
+            avatarUrl: feedData.userInfo?.avatar ?? '',
+            content: feedData.message ?? feedData.title ?? '',
+            createTime: feedData.dateline ?? '',
+            likeCount: feedData.action.likeNum,
+            replyCount: feedData.replyNum,
+            isLiked: feedData.action.isLike,
+            images: feedData.picArr,
+            type: feedData.entityType,
+            tags: [],
+          );
+        }).toList();
 
         state = state.copyWith(
           feedList: feeds,
@@ -249,9 +263,23 @@ class HomeNotifier extends _$HomeNotifier {
       );
 
       if (response.status == 1 && response.data != null) {
-        final newFeeds = (response.data as List<dynamic>)
-            .map((item) => FeedItem.fromJson(item as Map<String, dynamic>))
-            .toList();
+        // 将 HomeFeedData 转换为 FeedItem
+        final newFeeds = response.data.map((feedData) {
+          return FeedItem(
+            id: feedData.id,
+            uid: feedData.userInfo?.uid ?? '',
+            username: feedData.userInfo?.username ?? '',
+            avatarUrl: feedData.userInfo?.avatar ?? '',
+            content: feedData.message ?? feedData.title ?? '',
+            createTime: feedData.dateline ?? '',
+            likeCount: feedData.action.likeNum,
+            replyCount: feedData.replyNum,
+            isLiked: feedData.action.isLike,
+            images: feedData.picArr,
+            type: feedData.entityType,
+            tags: [],
+          );
+        }).toList();
 
         if (newFeeds.isEmpty) {
           state = state.copyWith(

@@ -91,7 +91,7 @@ class AppErrorWidget extends StatelessWidget {
 
     return Material(
       child: Container(
-        color: colorScheme.background,
+        color: colorScheme.surface,
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
