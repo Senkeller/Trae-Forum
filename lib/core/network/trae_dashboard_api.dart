@@ -150,4 +150,93 @@ class TraeDashboardApi {
       final result = data['Result'] as Map<String, dynamic>;
       return TraeUserInfo.fromJson(result);
     } on DioException catch (e) {
-      if (e.response?.statusCode ==
+      if (e.response?.statusCode == 401) {
+        throw TraeApiException(
+          message: '登录已过期，请重新登录',
+          code: 'UNAUTHORIZED',
+        );
+      }
+      throw TraeApiException(
+        message: '网络请求失败: ${e.message}',
+        code: 'NETWORK_ERROR',
+      );
+    } catch (e) {
+      throw TraeApiException(
+        message: '获取用户信息失败: $e',
+        code: 'UNKNOWN_ERROR',
+      );
+    }
+  }
+
+  /// 检查登录状态
+  ///
+  /// 返回是否已登录且 Cookie 有效
+  Future<bool> checkLoginStatus() async {
+    try {
+      await getUserInfo();
+      return true;
+    } on TraeApiException catch (e) {
+      if (e.code == 'UNAUTHORIZED' || e.code == 'NO_COOKIES') {
+        return false;
+      }
+      rethrow;
+    }
+  }
+}
+
+/// Cookie 拦截器
+///
+/// 自动从 CookieManager 获取 Cookie 并添加到请求头
+class _CookieInterceptor extends Interceptor {
+  @override
+  Future<void> onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
+    try {
+      final cookieString = await TraeCookieManager.getCookieString();
+      if (cookieString.isNotEmpty) {
+        options.headers['Cookie'] = cookieString;
+        print('🔑 [CookieInterceptor] 已添加 Cookie');
+      } else {
+        print('⚠️ [CookieInterceptor] Cookie 为空');
+      }
+    } catch (e) {
+      print('❌ [CookieInterceptor] 获取 Cookie 失败: $e');
+    }
+
+    handler.next(options);
+  }
+
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    // 可以在这里处理响应中的 Set-Cookie
+    handler.next(response);
+  }
+
+  @override
+  void onError(DioException err, ErrorInterceptorHandler handler) {
+    // 处理错误，如 401 未授权
+    if (err.response?.statusCode == 401) {
+      print('🚫 [CookieInterceptor] 收到 401 未授权响应');
+    }
+    handler.next(err);
+  }
+}
+
+/// Trae API 异常
+class TraeApiException implements Exception {
+  /// 错误信息
+  final String message;
+
+  /// 错误代码
+  final String code;
+
+  TraeApiException({
+    required this.message,
+    required this.code,
+  });
+
+  @override
+  String toString() => 'TraeApiException($code): $message';
+}
