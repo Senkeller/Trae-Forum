@@ -457,6 +457,166 @@ class ApiService extends _$ApiService {
     return getHomeFeed(page: page, installTime: '');
   }
 
+  /// 获取用户总结
+  Future<UserSummaryResponse> getUserSummary({
+    required String username,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserSummary(username);
+      final Map<String, dynamic> data = discourseResponse.data;
+      return UserSummaryResponse.fromJson(data);
+    } catch (e) {
+      return UserSummaryResponse(
+        status: 500,
+        message: 'Failed to fetch user summary: $e',
+      );
+    }
+  }
+
+  /// 获取用户活动
+  Future<UserActivityResponse> getUserActivity({
+    required String username,
+    int page = 0,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivity(username, page: page);
+      final List<dynamic> data = discourseResponse.data as List<dynamic>;
+      final activities = data.map((item) {
+        return UserActivity.fromJson(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity: $e',
+      );
+    }
+  }
+
+  /// 获取用户活动 - 话题
+  Future<UserActivityResponse> getUserActivityTopics({
+    required String username,
+    int page = 0,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivityTopics(username, page: page);
+      final List<dynamic> data = discourseResponse.data as List<dynamic>;
+      final activities = data.map((item) {
+        return UserActivity.fromJson(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity topics: $e',
+      );
+    }
+  }
+
+  /// 获取用户活动 - 回复
+  Future<UserActivityResponse> getUserActivityReplies({
+    required String username,
+    int page = 0,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivityReplies(username, page: page);
+      final List<dynamic> data = discourseResponse.data as List<dynamic>;
+      final activities = data.map((item) {
+        return UserActivity.fromJson(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity replies: $e',
+      );
+    }
+  }
+
+  /// 获取用户活动 - 赞
+  Future<UserActivityResponse> getUserActivityLikes({
+    required String username,
+    int page = 0,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivityLikes(username, page: page);
+      final List<dynamic> data = discourseResponse.data as List<dynamic>;
+      final activities = data.map((item) {
+        return UserActivity.fromJson(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity likes: $e',
+      );
+    }
+  }
+
+  /// 获取用户活动 - 已解决
+  Future<UserActivityResponse> getUserActivitySolved({
+    required String username,
+    int page = 0,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivitySolved(username, page: page);
+      final List<dynamic> data = discourseResponse.data as List<dynamic>;
+      final activities = data.map((item) {
+        return UserActivity.fromJson(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity solved: $e',
+      );
+    }
+  }
+
+  /// 获取用户活动 - 投票
+  Future<UserActivityResponse> getUserActivityVotes({
+    required String username,
+    int page = 0,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivityVotes(username, page: page);
+      final List<dynamic> data = discourseResponse.data as List<dynamic>;
+      final activities = data.map((item) {
+        return UserActivity.fromJson(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity votes: $e',
+      );
+    }
+  }
+
   // ==================== 应用相关 ====================
 
   /// 获取应用信息
@@ -794,4 +954,222 @@ class OSSUploadPrepareResponse {
         message: json['message'],
         data: json['data'],
       );
+}
+
+/// 用户总结响应
+class UserSummaryResponse {
+  final int? status;
+  final String? message;
+  final UserSummary? data;
+
+  UserSummaryResponse({this.status, this.message, this.data});
+
+  factory UserSummaryResponse.fromJson(Map<String, dynamic> json) {
+    return UserSummaryResponse(
+      status: 200,
+      message: 'success',
+      data: json['user_summary'] != null
+          ? UserSummary.fromJson(json['user_summary'] as Map<String, dynamic>)
+          : null,
+    );
+  }
+}
+
+/// 用户总结数据
+class UserSummary {
+  final int topicCount;
+  final int postCount;
+  final int likesReceived;
+  final int likesGiven;
+  final int postsReadCount;
+  final int daysVisited;
+  final int timeRead;
+  final List<UserSummaryTopic> topics;
+  final List<UserSummaryReply> replies;
+
+  UserSummary({
+    this.topicCount = 0,
+    this.postCount = 0,
+    this.likesReceived = 0,
+    this.likesGiven = 0,
+    this.postsReadCount = 0,
+    this.daysVisited = 0,
+    this.timeRead = 0,
+    this.topics = const [],
+    this.replies = const [],
+  });
+
+  factory UserSummary.fromJson(Map<String, dynamic> json) {
+    return UserSummary(
+      topicCount: json['topic_count'] ?? 0,
+      postCount: json['post_count'] ?? 0,
+      likesReceived: json['likes_received'] ?? 0,
+      likesGiven: json['likes_given'] ?? 0,
+      postsReadCount: json['posts_read_count'] ?? 0,
+      daysVisited: json['days_visited'] ?? 0,
+      timeRead: json['time_read'] ?? 0,
+      topics: (json['topics'] as List<dynamic>?)
+              ?.map((e) => UserSummaryTopic.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      replies: (json['replies'] as List<dynamic>?)
+              ?.map((e) => UserSummaryReply.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+    );
+  }
+}
+
+/// 用户总结中的话题
+class UserSummaryTopic {
+  final int id;
+  final String title;
+  final int likeCount;
+  final int replyCount;
+  final int views;
+  final String? excerpt;
+  final String? createdAt;
+
+  UserSummaryTopic({
+    this.id = 0,
+    this.title = '',
+    this.likeCount = 0,
+    this.replyCount = 0,
+    this.views = 0,
+    this.excerpt,
+    this.createdAt,
+  });
+
+  factory UserSummaryTopic.fromJson(Map<String, dynamic> json) {
+    return UserSummaryTopic(
+      id: json['id'] ?? 0,
+      title: json['title'] ?? '',
+      likeCount: json['like_count'] ?? 0,
+      replyCount: json['reply_count'] ?? 0,
+      views: json['views'] ?? 0,
+      excerpt: json['excerpt'],
+      createdAt: json['created_at'],
+    );
+  }
+}
+
+/// 用户总结中的回复
+class UserSummaryReply {
+  final int topicId;
+  final String topicTitle;
+  final String? postNumber;
+  final String? excerpt;
+  final int? likeCount;
+  final String? createdAt;
+
+  UserSummaryReply({
+    this.topicId = 0,
+    this.topicTitle = '',
+    this.postNumber,
+    this.excerpt,
+    this.likeCount,
+    this.createdAt,
+  });
+
+  factory UserSummaryReply.fromJson(Map<String, dynamic> json) {
+    return UserSummaryReply(
+      topicId: json['topic_id'] ?? 0,
+      topicTitle: json['topic_title'] ?? '',
+      postNumber: json['post_number']?.toString(),
+      excerpt: json['excerpt'],
+      likeCount: json['like_count'],
+      createdAt: json['created_at'],
+    );
+  }
+}
+
+/// 用户活动响应
+class UserActivityResponse {
+  final int? status;
+  final String? message;
+  final List<UserActivity> data;
+
+  UserActivityResponse({
+    this.status,
+    this.message,
+    this.data = const [],
+  });
+}
+
+/// 用户活动数据
+class UserActivity {
+  final int id;
+  final String username;
+  final String? avatarTemplate;
+  final String? createdAt;
+  final String? cooked;
+  final int? postNumber;
+  final int? postsCount;
+  final int? replyCount;
+  final int? likeCount;
+  final int? reads;
+  final double? score;
+  final int topicId;
+  final String? topicSlug;
+  final String? userTitle;
+  final int? userId;
+  final bool? moderator;
+  final bool? admin;
+  final bool? staff;
+  final int? trustLevel;
+  final String? excerpt;
+  final String? postUrl;
+  final Map<String, dynamic>? replyToUser;
+
+  UserActivity({
+    this.id = 0,
+    this.username = '',
+    this.avatarTemplate,
+    this.createdAt,
+    this.cooked,
+    this.postNumber,
+    this.postsCount,
+    this.replyCount,
+    this.likeCount,
+    this.reads,
+    this.score,
+    this.topicId = 0,
+    this.topicSlug,
+    this.userTitle,
+    this.userId,
+    this.moderator,
+    this.admin,
+    this.staff,
+    this.trustLevel,
+    this.excerpt,
+    this.postUrl,
+    this.replyToUser,
+  });
+
+  factory UserActivity.fromJson(Map<String, dynamic> json) {
+    return UserActivity(
+      id: json['id'] ?? 0,
+      username: json['username'] ?? '',
+      avatarTemplate: json['avatar_template'],
+      createdAt: json['created_at'],
+      cooked: json['cooked'],
+      postNumber: json['post_number'],
+      postsCount: json['posts_count'],
+      replyCount: json['reply_count'],
+      likeCount: json['like_count'],
+      reads: json['reads'],
+      score: (json['score'] as num?)?.toDouble(),
+      topicId: json['topic_id'] ?? 0,
+      topicSlug: json['topic_slug'],
+      userTitle: json['user_title'],
+      userId: json['user_id'],
+      moderator: json['moderator'],
+      admin: json['admin'],
+      staff: json['staff'],
+      trustLevel: json['trust_level'],
+      excerpt: json['excerpt'],
+      postUrl: json['post_url'],
+      replyToUser: json['reply_to_user'] as Map<String, dynamic>?,
+    );
+  }
 }

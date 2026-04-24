@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/network/api_service.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
@@ -25,6 +26,7 @@ class UserProfilePage extends ConsumerStatefulWidget {
 class _UserProfilePageState extends ConsumerState<UserProfilePage> {
   final ScrollController _scrollController = ScrollController();
   String? _activeUsername;
+  int _selectedTabIndex = 0;
 
   @override
   void initState() {
@@ -76,6 +78,8 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
       final notifier = ref.read(userSpaceNotifierProvider(username).notifier);
       notifier.loadUserProfile();
       notifier.loadUserFeeds();
+      notifier.loadUserSummary();
+      notifier.loadUserActivities();
     });
   }
 
@@ -126,6 +130,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
         userState: userState,
         notifier: notifier,
         isOwnProfile: isOwnProfile,
+        username: username,
       ),
     );
   }
@@ -135,6 +140,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
     required UserSpaceState userState,
     required UserSpaceNotifier notifier,
     required bool isOwnProfile,
+    required String username,
   }) {
     if (userState.isLoadingProfile && userState.profile == null) {
       return const _StateView(
@@ -172,6 +178,8 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
       onRefresh: () async {
         await notifier.loadUserProfile();
         await notifier.refreshUserFeeds();
+        await notifier.loadUserSummary();
+        await notifier.loadUserActivities();
       },
       child: CustomScrollView(
         controller: _scrollController,
@@ -196,23 +204,125 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
                   SnackBar(content: Text(text)),
                 );
               },
+              onSendMessage: () {
+                _showMessageDialog(context, username);
+              },
             ),
           ),
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Text(
-                '最近话题',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
+            child: _UserTabs(
+              selectedIndex: _selectedTabIndex,
+              onTabSelected: (index) {
+                setState(() {
+                  _selectedTabIndex = index;
+                });
+              },
             ),
           ),
-          ..._buildFeedSlivers(context, userState, notifier),
+          ..._buildTabContent(context, userState, notifier),
         ],
       ),
     );
+  }
+
+  List<Widget> _buildTabContent(
+    BuildContext context,
+    UserSpaceState userState,
+    UserSpaceNotifier notifier,
+  ) {
+    switch (_selectedTabIndex) {
+      case 0:
+        return _buildSummaryContent(context, userState);
+      case 1:
+        return _buildActivityContent(context, userState, notifier);
+      case 2:
+        return _buildFeedSlivers(context, userState, notifier);
+      default:
+        return [];
+    }
+  }
+
+  List<Widget> _buildSummaryContent(
+    BuildContext context,
+    UserSpaceState userState,
+  ) {
+    if (userState.isLoadingSummary) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _StateView(
+            icon: Icons.summarize,
+            title: '正在加载总结',
+            message: '正在从 forum.trae.cn 拉取用户总结…',
+            loading: true,
+          ),
+        ),
+      ];
+    }
+
+    final summary = userState.summary;
+    if (summary == null) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: _StateView(
+            icon: Icons.summarize,
+            title: '暂无总结',
+            message: '该用户暂时没有总结数据。',
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverToBoxAdapter(
+        child: _SummarySection(summary: summary),
+      ),
+    ];
+  }
+
+  List<Widget> _buildActivityContent(
+    BuildContext context,
+    UserSpaceState userState,
+    UserSpaceNotifier notifier,
+  ) {
+    return [
+      SliverToBoxAdapter(
+        child: _ActivityCategoryTabs(
+          selectedCategory: userState.activityCategory,
+          onCategorySelected: (category) {
+            notifier.switchActivityCategory(category);
+          },
+        ),
+      ),
+      if (userState.isLoadingActivities && userState.activities.isEmpty)
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: _StateView(
+            icon: Icons.timeline,
+            title: '正在加载活动',
+            message: '正在从 forum.trae.cn 拉取用户活动…',
+            loading: true,
+          ),
+        )
+      else if (userState.activities.isEmpty)
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: _StateView(
+            icon: Icons.timeline,
+            title: '暂无活动',
+            message: '该用户近期没有活动记录。',
+          ),
+        )
+      else
+        SliverList.builder(
+          itemCount: userState.activities.length,
+          itemBuilder: (context, index) {
+            final activity = userState.activities[index];
+            return _ActivityCard(activity: activity);
+          },
+        ),
+    ];
   }
 
   List<Widget> _buildFeedSlivers(
@@ -309,6 +419,523 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
       ),
     );
   }
+
+  void _showMessageDialog(BuildContext context, String username) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('发私信给 @$username'),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          decoration: const InputDecoration(
+            hintText: '请输入私信内容...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('私信功能开发中')),
+              );
+            },
+            child: const Text('发送'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UserTabs extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTabSelected;
+
+  const _UserTabs({
+    required this.selectedIndex,
+    required this.onTabSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          _TabItem(
+            label: '总结',
+            isSelected: selectedIndex == 0,
+            onTap: () => onTabSelected(0),
+          ),
+          _TabItem(
+            label: '活动',
+            isSelected: selectedIndex == 1,
+            onTap: () => onTabSelected(1),
+          ),
+          _TabItem(
+            label: '话题',
+            isSelected: selectedIndex == 2,
+            onTap: () => onTabSelected(2),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityCategoryTabs extends StatelessWidget {
+  final UserActivityCategory selectedCategory;
+  final ValueChanged<UserActivityCategory> onCategorySelected;
+
+  const _ActivityCategoryTabs({
+    required this.selectedCategory,
+    required this.onCategorySelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: UserActivityCategory.values.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final category = UserActivityCategory.values[index];
+          final isSelected = category == selectedCategory;
+
+          return FilterChip(
+            label: Text(category.label),
+            selected: isSelected,
+            onSelected: (_) => onCategorySelected(category),
+            backgroundColor: colorScheme.surfaceContainerHighest,
+            selectedColor: colorScheme.primaryContainer,
+            checkmarkColor: colorScheme.primary,
+            labelStyle: TextStyle(
+              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TabItem extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TabItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: isSelected ? colorScheme.primary : Colors.transparent,
+                width: 2,
+              ),
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SummarySection extends StatelessWidget {
+  final UserSummary summary;
+
+  const _SummarySection({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '统计信息',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _SummaryStatItem(
+                value: summary.topicCount.toString(),
+                label: '话题',
+              ),
+              _SummaryStatItem(
+                value: summary.postCount.toString(),
+                label: '回复',
+              ),
+              _SummaryStatItem(
+                value: summary.likesReceived.toString(),
+                label: '收到赞',
+              ),
+              _SummaryStatItem(
+                value: summary.daysVisited.toString(),
+                label: '访问天数',
+              ),
+            ],
+          ),
+          if (summary.topics.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              '热门话题',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            ...summary.topics.take(5).map((topic) => _SummaryTopicItem(topic: topic)),
+          ],
+          if (summary.replies.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Text(
+              '热门回复',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            ...summary.replies.take(5).map((reply) => _SummaryReplyItem(reply: reply)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryStatItem extends StatelessWidget {
+  final String value;
+  final String label;
+
+  const _SummaryStatItem({
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _SummaryTopicItem extends StatelessWidget {
+  final UserSummaryTopic topic;
+
+  const _SummaryTopicItem({required this.topic});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () {
+          context.push(RoutePaths.feedDetail.replaceFirst(':id', topic.id.toString()));
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                topic.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.thumb_up_outlined,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${topic.likeCount}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.comment_outlined,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${topic.replyCount}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${topic.views}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryReplyItem extends StatelessWidget {
+  final UserSummaryReply reply;
+
+  const _SummaryReplyItem({required this.reply});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () {
+          if (reply.topicId > 0) {
+            context.push(RoutePaths.feedDetail.replaceFirst(':id', reply.topicId.toString()));
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '回复了: ${reply.topicTitle}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+              ),
+              if (reply.excerpt != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  reply.excerpt!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  if (reply.likeCount != null) ...[
+                    Icon(
+                      Icons.thumb_up_outlined,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${reply.likeCount}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                  if (reply.postNumber != null) ...[
+                    const SizedBox(width: 12),
+                    Text(
+                      '#${reply.postNumber}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityCard extends StatelessWidget {
+  final UserActivity activity;
+
+  const _ActivityCard({required this.activity});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: InkWell(
+        onTap: () {
+          if (activity.topicId > 0) {
+            context.push(RoutePaths.feedDetail.replaceFirst(':id', activity.topicId.toString()));
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  if (activity.avatarTemplate != null)
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundImage: NetworkImage(
+                        _formatAvatarUrl(activity.avatarTemplate!),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          activity.username,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        if (activity.createdAt != null)
+                          Text(
+                            _formatTime(activity.createdAt!),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (activity.cooked != null && activity.cooked!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _stripHtml(activity.cooked!),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+              if (activity.topicSlug != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '话题 #${activity.topicSlug}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatAvatarUrl(String template) {
+    if (template.startsWith('http')) {
+      return template;
+    }
+    return 'https://forum.trae.cn${template.replaceAll('{size}', '60')}';
+  }
+
+  String _formatTime(String isoTime) {
+    try {
+      final dateTime = DateTime.parse(isoTime);
+      final now = DateTime.now();
+      final diff = now.difference(dateTime);
+
+      if (diff.inDays > 0) {
+        return '$diff.inDays 天前';
+      } else if (diff.inHours > 0) {
+        return '${diff.inHours} 小时前';
+      } else if (diff.inMinutes > 0) {
+        return '${diff.inMinutes} 分钟前';
+      } else {
+        return '刚刚';
+      }
+    } catch (e) {
+      return isoTime;
+    }
+  }
+
+  String _stripHtml(String htmlString) {
+    return htmlString
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .trim();
+  }
 }
 
 class _ProfileHeader extends StatelessWidget {
@@ -316,12 +943,14 @@ class _ProfileHeader extends StatelessWidget {
   final bool isOwnProfile;
   final VoidCallback onEditProfile;
   final VoidCallback onToggleFollow;
+  final VoidCallback onSendMessage;
 
   const _ProfileHeader({
     required this.profile,
     required this.isOwnProfile,
     required this.onEditProfile,
     required this.onToggleFollow,
+    required this.onSendMessage,
   });
 
   @override
@@ -395,12 +1024,21 @@ class _ProfileHeader extends StatelessWidget {
               ),
             )
           else
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: onToggleFollow,
-                child: Text(profile.isFollowing ? '取消关注' : '关注'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    onPressed: onToggleFollow,
+                    child: Text(profile.isFollowing ? '取消关注' : '关注'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  onPressed: onSendMessage,
+                  icon: const Icon(Icons.message_outlined, size: 18),
+                  label: const Text('私信'),
+                ),
+              ],
             ),
         ],
       ),

@@ -62,6 +62,52 @@ class DiscourseApiService {
     );
   }
 
+  Future<Response> getUserSummary(String username) async {
+    return _dio.get('$_baseUrl/u/$username/summary.json');
+  }
+
+  Future<Response> getUserActivity(String username, {int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/u/$username/activity.json',
+      queryParameters: {'page': page},
+    );
+  }
+
+  Future<Response> getUserActivityTopics(String username, {int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/u/$username/activity/topics.json',
+      queryParameters: {'page': page},
+    );
+  }
+
+  Future<Response> getUserActivityReplies(String username, {int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/u/$username/activity/replies.json',
+      queryParameters: {'page': page},
+    );
+  }
+
+  Future<Response> getUserActivityLikes(String username, {int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/u/$username/activity/likes-given.json',
+      queryParameters: {'page': page},
+    );
+  }
+
+  Future<Response> getUserActivitySolved(String username, {int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/u/$username/activity/solved.json',
+      queryParameters: {'page': page},
+    );
+  }
+
+  Future<Response> getUserActivityVotes(String username, {int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/u/$username/activity/votes.json',
+      queryParameters: {'page': page},
+    );
+  }
+
   Future<Response> getHotTopics({int page = 0}) async {
     return _dio.get(
       '$_baseUrl/hot.json',

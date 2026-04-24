@@ -6,6 +6,19 @@ import 'home_provider.dart';
 
 part 'user_provider.g.dart';
 
+/// 用户活动子分类枚举
+enum UserActivityCategory {
+  all('所有'),
+  topics('话题'),
+  replies('回复'),
+  likes('赞'),
+  solved('已解决'),
+  votes('投票');
+
+  final String label;
+  const UserActivityCategory(this.label);
+}
+
 /// 用户资料数据模型
 class UserProfile {
   /// 用户ID
@@ -112,16 +125,28 @@ class UserSpaceState {
   final UserProfile? profile;
   /// 用户动态列表
   final List<FeedItem> feeds;
+  /// 用户总结
+  final UserSummary? summary;
+  /// 用户活动列表
+  final List<UserActivity> activities;
+  /// 当前活动子分类
+  final UserActivityCategory activityCategory;
   /// 是否正在加载资料
   final bool isLoadingProfile;
   /// 是否正在加载动态
   final bool isLoadingFeeds;
   /// 是否正在刷新动态
   final bool isRefreshingFeeds;
+  /// 是否正在加载总结
+  final bool isLoadingSummary;
+  /// 是否正在加载活动
+  final bool isLoadingActivities;
   /// 动态当前页码
   final int feedPage;
   /// 是否还有更多动态
   final bool hasMoreFeeds;
+  /// 是否还有更多活动
+  final bool hasMoreActivities;
   /// 错误信息
   final String? errorMessage;
   /// 最后加载标识
@@ -131,11 +156,17 @@ class UserSpaceState {
     required this.uid,
     this.profile,
     this.feeds = const [],
+    this.summary,
+    this.activities = const [],
+    this.activityCategory = UserActivityCategory.all,
     this.isLoadingProfile = false,
     this.isLoadingFeeds = false,
     this.isRefreshingFeeds = false,
+    this.isLoadingSummary = false,
+    this.isLoadingActivities = false,
     this.feedPage = 1,
     this.hasMoreFeeds = true,
+    this.hasMoreActivities = true,
     this.errorMessage,
     this.lastItem,
   });
@@ -145,11 +176,17 @@ class UserSpaceState {
     String? uid,
     UserProfile? profile,
     List<FeedItem>? feeds,
+    UserSummary? summary,
+    List<UserActivity>? activities,
+    UserActivityCategory? activityCategory,
     bool? isLoadingProfile,
     bool? isLoadingFeeds,
     bool? isRefreshingFeeds,
+    bool? isLoadingSummary,
+    bool? isLoadingActivities,
     int? feedPage,
     bool? hasMoreFeeds,
+    bool? hasMoreActivities,
     String? errorMessage,
     String? lastItem,
   }) {
@@ -157,11 +194,17 @@ class UserSpaceState {
       uid: uid ?? this.uid,
       profile: profile ?? this.profile,
       feeds: feeds ?? this.feeds,
+      summary: summary ?? this.summary,
+      activities: activities ?? this.activities,
+      activityCategory: activityCategory ?? this.activityCategory,
       isLoadingProfile: isLoadingProfile ?? this.isLoadingProfile,
       isLoadingFeeds: isLoadingFeeds ?? this.isLoadingFeeds,
       isRefreshingFeeds: isRefreshingFeeds ?? this.isRefreshingFeeds,
+      isLoadingSummary: isLoadingSummary ?? this.isLoadingSummary,
+      isLoadingActivities: isLoadingActivities ?? this.isLoadingActivities,
       feedPage: feedPage ?? this.feedPage,
       hasMoreFeeds: hasMoreFeeds ?? this.hasMoreFeeds,
+      hasMoreActivities: hasMoreActivities ?? this.hasMoreActivities,
       errorMessage: errorMessage,
       lastItem: lastItem ?? this.lastItem,
     );
@@ -350,6 +393,124 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
     } catch (e) {
       state = state.copyWith(
         isLoadingFeeds: false,
+        errorMessage: '网络错误: $e',
+      );
+    }
+  }
+
+  /// 加载用户总结
+  Future<void> loadUserSummary() async {
+    if (state.isLoadingSummary) return;
+
+    state = state.copyWith(
+      isLoadingSummary: true,
+      errorMessage: null,
+    );
+
+    try {
+      final response = await _apiService.getUserSummary(
+        username: state.uid,
+      );
+
+      if ((response.status == 1 || response.status == 200) &&
+          response.data != null) {
+        state = state.copyWith(
+          summary: response.data,
+          isLoadingSummary: false,
+        );
+      } else {
+        state = state.copyWith(
+          isLoadingSummary: false,
+          errorMessage: response.message ?? '加载用户总结失败',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingSummary: false,
+        errorMessage: '网络错误: $e',
+      );
+    }
+  }
+
+  /// 切换活动子分类
+  Future<void> switchActivityCategory(UserActivityCategory category) async {
+    if (state.activityCategory == category) return;
+
+    state = state.copyWith(
+      activityCategory: category,
+      activities: [],
+      isLoadingActivities: true,
+      errorMessage: null,
+    );
+
+    try {
+      final response = await _fetchActivitiesByCategory(category);
+
+      if (response.status == 1 || response.status == 200) {
+        state = state.copyWith(
+          activities: response.data,
+          isLoadingActivities: false,
+          hasMoreActivities: response.data.length >= 20,
+        );
+      } else {
+        state = state.copyWith(
+          isLoadingActivities: false,
+          errorMessage: response.message ?? '加载用户活动失败',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingActivities: false,
+        errorMessage: '网络错误: $e',
+      );
+    }
+  }
+
+  /// 根据分类获取活动数据
+  Future<UserActivityResponse> _fetchActivitiesByCategory(UserActivityCategory category) async {
+    switch (category) {
+      case UserActivityCategory.all:
+        return _apiService.getUserActivity(username: state.uid);
+      case UserActivityCategory.topics:
+        return _apiService.getUserActivityTopics(username: state.uid);
+      case UserActivityCategory.replies:
+        return _apiService.getUserActivityReplies(username: state.uid);
+      case UserActivityCategory.likes:
+        return _apiService.getUserActivityLikes(username: state.uid);
+      case UserActivityCategory.solved:
+        return _apiService.getUserActivitySolved(username: state.uid);
+      case UserActivityCategory.votes:
+        return _apiService.getUserActivityVotes(username: state.uid);
+    }
+  }
+
+  /// 加载用户活动列表
+  Future<void> loadUserActivities({bool refresh = false}) async {
+    if (state.isLoadingActivities && !refresh) return;
+
+    state = state.copyWith(
+      isLoadingActivities: true,
+      errorMessage: null,
+    );
+
+    try {
+      final response = await _fetchActivitiesByCategory(state.activityCategory);
+
+      if (response.status == 1 || response.status == 200) {
+        state = state.copyWith(
+          activities: response.data,
+          isLoadingActivities: false,
+          hasMoreActivities: response.data.length >= 20,
+        );
+      } else {
+        state = state.copyWith(
+          isLoadingActivities: false,
+          errorMessage: response.message ?? '加载用户活动失败',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingActivities: false,
         errorMessage: '网络错误: $e',
       );
     }
