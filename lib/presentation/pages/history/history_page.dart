@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
-import '../../providers/auth_provider.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -127,9 +126,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currentUser = ref.watch(currentUserProvider);
-    final isLoggedIn = currentUser != null && currentUser.uid.isNotEmpty;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('浏览历史'),

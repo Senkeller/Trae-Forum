@@ -22,7 +22,7 @@ class _FanListPageState extends ConsumerState<FanListPage> {
   final RefreshController _refreshController = RefreshController();
 
   List<Map<String, String>> _fanList = [];
-  Set<String> _followingSet = {};
+  final Set<String> _followingSet = {};
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;

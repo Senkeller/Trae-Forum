@@ -63,8 +63,7 @@ class _TopicListPageState extends ConsumerState<TopicListPage>
     });
 
     try {
-      final feedType = _getFeedType(_tabs[_currentTabIndex]);
-      final response = await ref.read(homeNotifierProvider.notifier).refreshFeeds();
+      await ref.read(homeNotifierProvider.notifier).refreshFeeds();
 
       await Future.delayed(const Duration(milliseconds: 300));
 
@@ -78,21 +77,6 @@ class _TopicListPageState extends ConsumerState<TopicListPage>
         _isLoading = false;
         _errorMessage = '加载失败: $e';
       });
-    }
-  }
-
-  FeedType _getFeedType(String tab) {
-    switch (tab) {
-      case 'latest':
-        return FeedType.recommended;
-      case 'top':
-        return FeedType.hot;
-      case 'hot':
-        return FeedType.hot;
-      case 'votes':
-        return FeedType.hot;
-      default:
-        return FeedType.recommended;
     }
   }
 

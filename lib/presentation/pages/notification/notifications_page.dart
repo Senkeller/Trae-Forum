@@ -235,7 +235,6 @@ class _NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final username = notification['username']?.toString() ?? '';
     final avatarUrl = notification['avatarUrl']?.toString() ?? '';
     final content = notification['content']?.toString() ?? '';
     final time = notification['time']?.toString() ?? '';
