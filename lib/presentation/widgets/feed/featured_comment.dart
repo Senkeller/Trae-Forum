@@ -1,40 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../config/theme.dart';
+import '../../../data/models/feed.dart';
 
-/// 精选评论数据模型
-///
-/// 用于展示在动态卡片中的高赞评论
-class TopComment {
-  /// 评论 ID
-  final String id;
-
-  /// 评论者用户名
-  final String username;
-
-  /// 评论内容
-  final String content;
-
-  /// 点赞数
-  final int likeCount;
-
-  /// 评论者头像 URL
-  final String? avatarUrl;
-
-  /// 构造函数
-  ///
-  /// [id] 评论 ID（必填）
-  /// [username] 评论者用户名（必填）
-  /// [content] 评论内容（必填）
-  /// [likeCount] 点赞数，默认 0
-  /// [avatarUrl] 评论者头像 URL，可选
-  const TopComment({
-    required this.id,
-    required this.username,
-    required this.content,
-    this.likeCount = 0,
-    this.avatarUrl,
-  });
-}
+export '../../../data/models/feed.dart' show TopComment;
 
 /// 精选评论组件
 ///
@@ -93,7 +61,7 @@ class FeaturedComment extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceVariant.withOpacity(0.3),
+          color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -118,9 +86,9 @@ class FeaturedComment extends StatelessWidget {
   Widget _buildLikeBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppTheme.successColor,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.all(Radius.circular(4)),
       ),
       child: Text(
         '${comment!.likeCount}赞',

@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../config/constants.dart';
 import '../../core/network/discourse_api_service.dart';
+import '../../data/models/feed.dart';
 
 part 'home_provider.g.dart';
 
@@ -105,6 +106,9 @@ class FeedItem {
   /// 是否置顶
   final bool isPinned;
 
+  /// 精选评论
+  final TopComment? topComment;
+
   const FeedItem({
     required this.id,
     required this.uid,
@@ -123,10 +127,20 @@ class FeedItem {
     this.type = 'topic',
     this.tags = const [],
     this.isPinned = false,
+    this.topComment,
   });
 
   /// 从 JSON 创建
   factory FeedItem.fromJson(Map<String, dynamic> json) {
+    TopComment? topComment;
+    if (json['topComment'] != null && json['topComment'] is Map<String, dynamic>) {
+      try {
+        topComment = TopComment.fromJson(json['topComment'] as Map<String, dynamic>);
+      } catch (_) {
+        topComment = null;
+      }
+    }
+
     return FeedItem(
       id: json['id']?.toString() ?? '',
       uid: json['uid']?.toString() ?? '',
@@ -151,6 +165,7 @@ class FeedItem {
               .toList() ??
           const [],
       isPinned: json['isPinned'] == true,
+      topComment: topComment,
     );
   }
 
@@ -173,6 +188,7 @@ class FeedItem {
     String? type,
     List<String>? tags,
     bool? isPinned,
+    TopComment? topComment,
   }) {
     return FeedItem(
       id: id ?? this.id,
@@ -192,6 +208,7 @@ class FeedItem {
       type: type ?? this.type,
       tags: tags ?? this.tags,
       isPinned: isPinned ?? this.isPinned,
+      topComment: topComment ?? this.topComment,
     );
   }
 }
@@ -554,6 +571,17 @@ class HomeNotifier extends _$HomeNotifier {
 
     final imageUrl = (topic['image_url'] ?? '').toString();
 
+    // 解析精选评论
+    TopComment? topComment;
+    final topCommentData = topic['top_comment'] ?? topic['topComment'];
+    if (topCommentData != null && topCommentData is Map<String, dynamic>) {
+      try {
+        topComment = TopComment.fromJson(topCommentData);
+      } catch (_) {
+        topComment = null;
+      }
+    }
+
     return FeedItem(
       id: (topic['id'] ?? '').toString(),
       uid: firstPosterUserId > 0 ? firstPosterUserId.toString() : '',
@@ -578,6 +606,7 @@ class HomeNotifier extends _$HomeNotifier {
           .where((e) => e.isNotEmpty)
           .toList(),
       isPinned: topic['pinned'] == true,
+      topComment: topComment,
     );
   }
 

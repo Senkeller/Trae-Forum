@@ -180,16 +180,21 @@ class _ExpandableTextState extends State<_ExpandableText> {
       ),
       maxLines: widget.maxLines,
       textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.of(context).textScaler,
     );
 
     textPainter.layout(maxWidth: widget.maxWidth);
 
     // 如果文本被截断（didExceedMaxLines 为 true），则需要显示展开按钮
-    setState(() {
-      _needsExpand = textPainter.didExceedMaxLines;
-    });
-
+    final needsExpand = textPainter.didExceedMaxLines;
     textPainter.dispose();
+
+    // 仅在状态变化时调用 setState，减少不必要的重建
+    if (needsExpand != _needsExpand) {
+      setState(() {
+        _needsExpand = needsExpand;
+      });
+    }
   }
 
   @override
@@ -240,13 +245,14 @@ class _ExpandableTextState extends State<_ExpandableText> {
         style: widget.textStyle?.copyWith(
           color: colorScheme.onSurface,
         ),
-        children: _buildTextSpans(),
+        children: _buildTextSpans(context),
       ),
     );
   }
 
   /// 构建文本片段，包含截断文本和「查看更多」按钮
-  List<TextSpan> _buildTextSpans() {
+  List<TextSpan> _buildTextSpans(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final textSpans = <TextSpan>[];
 
     // 计算截断位置
@@ -264,7 +270,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
       TextSpan(
         text: '...查看更多',
         style: widget.textStyle?.copyWith(
-          color: AppTheme.primaryColor,
+          color: colorScheme.primary,
           fontWeight: FontWeight.w500,
         ),
         recognizer: TapGestureRecognizer()..onTap = widget.onExpand,
@@ -277,6 +283,10 @@ class _ExpandableTextState extends State<_ExpandableText> {
   /// 计算截断后的文本
   ///
   /// 使用二分查找找到合适的截断位置，确保截断后加上「...查看更多」不超过 maxLines 行
+  /// 优化处理：
+  /// - 正确处理 Unicode 字符（如表情符号）
+  /// - 避免在字符中间截断
+  /// - 确保计算精度
   String _calculateTruncatedText() {
     const ellipsisText = '...查看更多';
 
@@ -285,13 +295,15 @@ class _ExpandableTextState extends State<_ExpandableText> {
       return widget.text;
     }
 
+    // 使用字符列表处理 Unicode 字符（包括表情符号）
+    final characters = widget.text.characters.toList();
     int left = 0;
-    int right = widget.text.length;
+    int right = characters.length;
     String bestFit = '';
 
     while (left <= right) {
       final mid = (left + right) ~/ 2;
-      final testText = widget.text.substring(0, mid);
+      final testText = characters.take(mid).join();
       final fullText = testText + ellipsisText;
 
       final textPainter = TextPainter(
@@ -301,6 +313,8 @@ class _ExpandableTextState extends State<_ExpandableText> {
         ),
         maxLines: widget.maxLines,
         textDirection: TextDirection.ltr,
+        // 确保正确处理中文和 emoji
+        textScaler: MediaQuery.of(context).textScaler,
       );
 
       textPainter.layout(maxWidth: widget.maxWidth);
@@ -315,6 +329,12 @@ class _ExpandableTextState extends State<_ExpandableText> {
       }
 
       textPainter.dispose();
+    }
+
+    // 确保不在单词或字符中间截断，尝试找到合适的截断点
+    if (bestFit.isNotEmpty && bestFit.length < characters.length) {
+      // 移除末尾的不完整字符或空格
+      bestFit = bestFit.trimRight();
     }
 
     return bestFit;

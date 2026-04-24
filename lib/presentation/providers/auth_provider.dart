@@ -27,17 +27,22 @@ class AuthNotifier extends _$AuthNotifier {
       final username = prefs.getString('username');
       final avatarUrl = prefs.getString('avatarUrl');
 
-      if (uid != null && username != null) {
+      debugPrint('🔍 [AuthNotifier] 从本地加载: uid=$uid, username=$username');
+
+      if (uid != null && username != null && uid.isNotEmpty) {
         final userInfo = UserInfo(
           uid: uid,
           username: username,
           avatar: avatarUrl ?? '',
         );
+        debugPrint('✅ [AuthNotifier] 加载用户信息成功: ${userInfo.username}');
         state = AsyncData(userInfo);
       } else {
+        debugPrint('ℹ️ [AuthNotifier] 本地无用户信息，设置为未登录');
         state = const AsyncValue.data(UserInfo(uid: '', username: ''));
       }
     } catch (e, stackTrace) {
+      debugPrint('❌ [AuthNotifier] 加载用户信息失败: $e');
       state = AsyncError(e, stackTrace);
     }
   }
@@ -137,10 +142,14 @@ class AuthNotifier extends _$AuthNotifier {
   /// [userInfo] 用户信息对象
   /// 将用户信息保存到本地存储并更新状态
   Future<void> setUserInfo(UserInfo userInfo) async {
+    debugPrint('💾 [AuthNotifier] setUserInfo 被调用: ${userInfo.username}');
     try {
       await _saveUserInfo(userInfo);
+      debugPrint('✅ [AuthNotifier] 用户信息已保存到本地');
       state = AsyncData(userInfo);
+      debugPrint('✅ [AuthNotifier] 状态已更新');
     } catch (e, stackTrace) {
+      debugPrint('❌ [AuthNotifier] setUserInfo 失败: $e');
       state = AsyncError(e, stackTrace);
     }
   }

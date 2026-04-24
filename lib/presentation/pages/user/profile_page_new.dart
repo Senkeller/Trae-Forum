@@ -27,6 +27,13 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = currentUser != null;
+    
+    // 调试日志
+    debugPrint('🔍 [ProfilePage] currentUser: $currentUser');
+    debugPrint('🔍 [ProfilePage] isAuthenticated: $isAuthenticated');
+    if (currentUser != null) {
+      debugPrint('🔍 [ProfilePage] uid: ${currentUser.uid}, username: ${currentUser.username}');
+    }
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),

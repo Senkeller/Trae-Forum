@@ -146,17 +146,34 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   /// 检查登录状态
   Future<void> _checkLoginStatus(String url) async {
+    debugPrint('🔍 [WebViewLogin] 页面加载完成: $url');
     try {
-      // 如果当前在论坛页面且不是登录页，说明已登录
-      if (url.startsWith(_forumUrl) && !url.contains('/login')) {
+      // 检测登录成功的几种情况：
+      // 1. 跳转到论坛页面（已登录状态）
+      // 2. 跳转到 TRAE 主站的 dashboard（登录成功后的页面）
+      final isForumPage = url.startsWith(_forumUrl) && !url.contains('/login');
+      final isTraeDashboard = url.startsWith('https://www.trae.cn') &&
+          (url.contains('/dashboard') || url.contains('/console') || url == 'https://www.trae.cn/');
+
+      if (isForumPage) {
+        debugPrint('✅ [WebViewLogin] 检测到论坛页面，尝试提取用户信息');
         // 尝试提取用户信息
         final userInfo = await _extractUserInfo();
-        if (userInfo != null) {
-          _handleLoginSuccess(userInfo: userInfo);
-        }
+        debugPrint('✅ [WebViewLogin] 提取到的用户信息: $userInfo');
+        // 即使无法提取用户信息，也认为是登录成功
+        _handleLoginSuccess(userInfo: userInfo);
+      } else if (isTraeDashboard) {
+        debugPrint('✅ [WebViewLogin] 检测到 TRAE 登录成功页面，准备跳转到论坛验证');
+        // 登录成功，但需要跳转到论坛来验证登录状态
+        // 延迟一下确保 Cookie 已经保存
+        await Future.delayed(const Duration(seconds: 1));
+        debugPrint('🚀 [WebViewLogin] 导航到论坛页面');
+        await _controller.loadRequest(Uri.parse(_forumUrl));
+      } else {
+        debugPrint('ℹ️ [WebViewLogin] 当前不是登录成功页面，跳过登录检测');
       }
     } catch (e) {
-      debugPrint('检查登录状态失败: $e');
+      debugPrint('❌ [WebViewLogin] 检查登录状态失败: $e');
     }
   }
 
@@ -209,7 +226,11 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   /// 处理登录成功
   void _handleLoginSuccess({Map<String, dynamic>? userInfo}) async {
-    if (_isLoginSuccess) return; // 防止重复处理
+    debugPrint('🎉 [WebViewLogin] _handleLoginSuccess 被调用');
+    if (_isLoginSuccess) {
+      debugPrint('⚠️ [WebViewLogin] 已经处理过登录成功，跳过');
+      return; // 防止重复处理
+    }
     _isLoginSuccess = true;
 
     // 显示成功提示
@@ -228,9 +249,11 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
     if (userInfo != null && userInfo['username'] != null) {
       username = userInfo['username'].toString();
+      debugPrint('✅ [WebViewLogin] 从 userInfo 获取用户名: $username');
     } else {
       // 尝试从 Cookie 或页面获取用户名
       try {
+        debugPrint('🔍 [WebViewLogin] 尝试从页面获取用户名...');
         final cookieResult = await _controller.runJavaScriptReturningResult('''
           (function() {
             // 尝试从 Discourse 获取当前用户名
@@ -249,16 +272,21 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           })()
         ''');
         final resultStr = cookieResult.toString();
+        debugPrint('✅ [WebViewLogin] JavaScript 返回: $resultStr');
         if (resultStr.isNotEmpty && resultStr != 'null' && resultStr != '""') {
           username = resultStr.replaceAll('"', '');
           userId = username;
+          debugPrint('✅ [WebViewLogin] 解析后的用户名: $username');
+        } else {
+          debugPrint('⚠️ [WebViewLogin] JavaScript 返回为空，使用默认用户名');
         }
       } catch (e) {
-        debugPrint('获取用户名失败: $e');
+        debugPrint('❌ [WebViewLogin] 获取用户名失败: $e');
       }
     }
 
     // 创建用户信息对象并保存
+    debugPrint('💾 [WebViewLogin] 创建 UserInfo: uid=$userId, username=$username');
     final userData = UserInfo(
       uid: userId,
       username: username,
@@ -266,12 +294,21 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     );
 
     // 保存到本地存储并更新状态
+    debugPrint('💾 [WebViewLogin] 调用 setUserInfo...');
     await ref.read(authNotifierProvider.notifier).setUserInfo(userData);
+    debugPrint('✅ [WebViewLogin] setUserInfo 完成');
+
+    // 验证保存结果
+    final prefs = await SharedPreferences.getInstance();
+    final savedUid = prefs.getString('uid');
+    final savedUsername = prefs.getString('username');
+    debugPrint('🔍 [WebViewLogin] 验证保存结果: uid=$savedUid, username=$savedUsername');
 
     // 延迟后返回或跳转
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (mounted) {
+      debugPrint('🚀 [WebViewLogin] 导航到首页');
       if (widget.redirectPath != null) {
         context.go(widget.redirectPath!);
       } else {

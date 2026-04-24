@@ -6,6 +6,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../../../config/constants.dart';
 import '../../../core/utils/performance_util.dart';
 import '../../providers/home_provider.dart';
+import '../../widgets/feed/featured_comment.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -319,6 +320,14 @@ class _FeedCard extends StatelessWidget {
               if (feed.tags.isNotEmpty || feed.category.isNotEmpty || feed.isPinned) ...[
                 const SizedBox(height: 12),
                 _buildMetaTags(context),
+              ],
+              // 精选评论
+              if (feed.topComment != null) ...[
+                const SizedBox(height: 12),
+                FeaturedComment(
+                  comment: feed.topComment,
+                  onTap: onTap,
+                ),
               ],
               const SizedBox(height: 12),
               _buildActions(context, colorScheme),

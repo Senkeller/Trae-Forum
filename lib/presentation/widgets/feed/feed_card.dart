@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../common/cached_image.dart';
 import '../common/loading_widget.dart';
 import '../user/user_name.dart';
 import '../user/follow_button.dart';
+import '../user/user_avatar.dart';
+import '../comment/quick_comment_sheet.dart';
 import 'feed_author.dart';
 import 'feed_content.dart';
 import 'feed_actions.dart';
+import 'quick_comment_bar.dart';
+import '../../providers/auth_provider.dart';
 
 /// 动态卡片数据模型
 class FeedCardData {
   /// 动态 ID
   final String id;
+
+  /// 话题ID（用于评论）
+  final int? topicId;
 
   /// 用户头像 URL
   final String? avatarUrl;
@@ -57,6 +65,7 @@ class FeedCardData {
   /// 构造函数
   FeedCardData({
     required this.id,
+    this.topicId,
     this.avatarUrl,
     this.userId,
     required this.username,
@@ -72,12 +81,52 @@ class FeedCardData {
     this.isFavorited = false,
     this.isFollowing = false,
   });
+
+  /// 复制并修改数据
+  FeedCardData copyWith({
+    String? id,
+    int? topicId,
+    String? avatarUrl,
+    String? userId,
+    String? username,
+    DateTime? publishTime,
+    String? location,
+    UserLevel? userLevel,
+    String? text,
+    List<String>? images,
+    int? likeCount,
+    int? commentCount,
+    int? shareCount,
+    bool? isLiked,
+    bool? isFavorited,
+    bool? isFollowing,
+  }) {
+    return FeedCardData(
+      id: id ?? this.id,
+      topicId: topicId ?? this.topicId,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      publishTime: publishTime ?? this.publishTime,
+      location: location ?? this.location,
+      userLevel: userLevel ?? this.userLevel,
+      text: text ?? this.text,
+      images: images ?? this.images,
+      likeCount: likeCount ?? this.likeCount,
+      commentCount: commentCount ?? this.commentCount,
+      shareCount: shareCount ?? this.shareCount,
+      isLiked: isLiked ?? this.isLiked,
+      isFavorited: isFavorited ?? this.isFavorited,
+      isFollowing: isFollowing ?? this.isFollowing,
+    );
+  }
 }
 
 /// 动态卡片组件
 ///
 /// 组合作者信息、内容、操作栏的完整动态卡片
-class FeedCard extends StatelessWidget {
+/// 集成快速评论栏，支持登录态检查和评论功能
+class FeedCard extends ConsumerStatefulWidget {
   /// 动态数据
   final FeedCardData data;
 
@@ -105,6 +154,9 @@ class FeedCard extends StatelessWidget {
   /// 图片点击回调
   final Function(int index)? onImageTap;
 
+  /// 评论数变化回调
+  final Function(int newCount)? onCommentCountChanged;
+
   /// 是否显示关注按钮
   final bool showFollowButton;
 
@@ -113,6 +165,9 @@ class FeedCard extends StatelessWidget {
 
   /// 是否显示分享按钮
   final bool showShareButton;
+
+  /// 是否显示快速评论栏
+  final bool showQuickCommentBar;
 
   /// 卡片外边距
   final EdgeInsetsGeometry margin;
@@ -131,9 +186,11 @@ class FeedCard extends StatelessWidget {
   /// [onFollow] 关注回调
   /// [onMore] 更多操作回调
   /// [onImageTap] 图片点击回调
+  /// [onCommentCountChanged] 评论数变化回调
   /// [showFollowButton] 是否显示关注按钮，默认 true
   /// [showFavoriteButton] 是否显示收藏按钮，默认 true
   /// [showShareButton] 是否显示分享按钮，默认 true
+  /// [showQuickCommentBar] 是否显示快速评论栏，默认 true
   /// [margin] 卡片外边距，默认 EdgeInsets.symmetric(vertical: 4)
   /// [padding] 卡片内边距，默认 EdgeInsets.zero
   const FeedCard({
@@ -147,64 +204,132 @@ class FeedCard extends StatelessWidget {
     this.onFollow,
     this.onMore,
     this.onImageTap,
+    this.onCommentCountChanged,
     this.showFollowButton = true,
     this.showFavoriteButton = true,
     this.showShareButton = true,
+    this.showQuickCommentBar = true,
     this.margin = const EdgeInsets.symmetric(vertical: 4),
     this.padding = EdgeInsets.zero,
   });
 
   @override
+  ConsumerState<FeedCard> createState() => _FeedCardState();
+}
+
+class _FeedCardState extends ConsumerState<FeedCard> {
+  /// 当前评论数
+  late int _currentCommentCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentCommentCount = widget.data.commentCount;
+  }
+
+  @override
+  void didUpdateWidget(FeedCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data.commentCount != widget.data.commentCount) {
+      _currentCommentCount = widget.data.commentCount;
+    }
+  }
+
+  /// 处理评论成功
+  ///
+  /// [content] 评论内容
+  void _handleCommentSuccess(String content) {
+    setState(() {
+      _currentCommentCount++;
+    });
+    widget.onCommentCountChanged?.call(_currentCommentCount);
+    widget.onComment?.call();
+  }
+
+  /// 打开快速评论面板
+  ///
+  /// 使用 QuickCommentSheet 显示底部评论输入面板
+  void _openQuickCommentSheet(BuildContext context) {
+    final topicId = widget.data.topicId;
+    if (topicId == null) {
+      // 如果没有 topicId，调用原有的评论回调
+      widget.onComment?.call();
+      return;
+    }
+
+    QuickCommentSheet.show(
+      context: context,
+      topicId: topicId,
+      onSubmit: (content) {
+        _handleCommentSuccess(content);
+      },
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentUser = ref.watch(currentUserProvider);
 
     return Card(
-      margin: margin,
+      margin: widget.margin,
       color: colorScheme.surface,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         child: Padding(
-          padding: padding,
+          padding: widget.padding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               // 作者信息
               FeedAuthor(
-                avatarUrl: data.avatarUrl,
-                userId: data.userId,
-                username: data.username,
-                publishTime: data.publishTime,
-                location: data.location,
-                userLevel: data.userLevel,
-                showFollowButton: showFollowButton,
-                followStatus: data.isFollowing
+                avatarUrl: widget.data.avatarUrl,
+                userId: widget.data.userId,
+                username: widget.data.username,
+                publishTime: widget.data.publishTime,
+                location: widget.data.location,
+                userLevel: widget.data.userLevel,
+                showFollowButton: widget.showFollowButton,
+                followStatus: widget.data.isFollowing
                     ? FollowStatus.following
                     : FollowStatus.notFollowing,
-                onFollowTap: onFollow,
-                onMoreTap: onMore,
+                onFollowTap: widget.onFollow,
+                onMoreTap: widget.onMore,
               ),
               // 内容
               FeedContent(
-                text: data.text,
-                images: data.images,
-                onImageTap: onImageTap,
+                text: widget.data.text,
+                images: widget.data.images,
+                onImageTap: widget.onImageTap,
               ),
               const SizedBox(height: 12),
               // 操作栏
               FeedActions(
-                likeCount: data.likeCount,
-                commentCount: data.commentCount,
-                shareCount: data.shareCount,
-                isLiked: data.isLiked,
-                isFavorited: data.isFavorited,
-                onLike: onLike,
-                onComment: onComment,
-                onShare: onShare,
-                onFavorite: onFavorite,
-                showFavorite: showFavoriteButton,
-                showShare: showShareButton,
+                likeCount: widget.data.likeCount,
+                commentCount: _currentCommentCount,
+                shareCount: widget.data.shareCount,
+                isLiked: widget.data.isLiked,
+                isFavorited: widget.data.isFavorited,
+                onLike: widget.onLike,
+                onComment: widget.onComment,
+                onShare: widget.onShare,
+                onFavorite: widget.onFavorite,
+                showFavorite: widget.showFavoriteButton,
+                showShare: widget.showShareButton,
               ),
+              // 快速评论栏
+              if (widget.showQuickCommentBar) ...[
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: QuickCommentBar(
+                    currentUserAvatar: currentUser?.avatar,
+                    onTap: () => _openQuickCommentSheet(context),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
             ],
           ),
         ),
