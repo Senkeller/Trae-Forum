@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../config/constants.dart';
 import '../../../data/models/user.dart';
 import '../../../presentation/providers/auth_provider.dart';
+import '../../../core/network/cookie_manager.dart';
 
 /// WebView 登录页面
 ///
@@ -272,6 +273,19 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           backgroundColor: Colors.green,
         ),
       );
+    }
+
+    // 提取并保存 Trae Cookie（用于 Dashboard API）
+    debugPrint('🔍 [WebViewLogin] 开始提取 Trae Cookie...');
+    try {
+      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(_controller);
+      if (cookieSaved) {
+        debugPrint('✅ [WebViewLogin] Trae Cookie 提取并保存成功');
+      } else {
+        debugPrint('⚠️ [WebViewLogin] Trae Cookie 提取失败或为空');
+      }
+    } catch (e) {
+      debugPrint('❌ [WebViewLogin] 提取 Trae Cookie 时出错: $e');
     }
 
     // 获取用户名（从 WebView 或传入的参数）
