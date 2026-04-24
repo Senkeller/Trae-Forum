@@ -209,18 +209,20 @@ class UserAvatar extends StatelessWidget {
         placeholderColor: placeholderColor ?? colorScheme.surfaceVariant,
       );
     } else {
-      // 默认头像
+      // 默认头像，使用回退参数
       avatar = Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: placeholderColor ?? colorScheme.surfaceVariant,
+          color: fallbackBackgroundColor ??
+              placeholderColor ??
+              colorScheme.surfaceVariant,
           shape: BoxShape.circle,
         ),
         child: Icon(
-          Icons.person,
+          fallbackIcon ?? Icons.person,
           size: size * 0.5,
-          color: colorScheme.onSurfaceVariant,
+          color: fallbackIconColor ?? colorScheme.onSurfaceVariant,
         ),
       );
     }
