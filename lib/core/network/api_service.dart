@@ -672,12 +672,75 @@ class ApiService extends _$ApiService {
     required int page,
     String? lastItem,
   }) async {
-    return MessageResponse(status: 404, message: 'Not implemented for Discourse', data: []);
+    try {
+      final isPrivateMessages = url.contains('private');
+      List<dynamic> messages = [];
+
+      if (isPrivateMessages) {
+        final discourseResponse = await _discourseApi.getPrivateMessages('');
+        final Map<String, dynamic> data = discourseResponse.data;
+        final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+        final topics = topicListMap?['topics'] as List<dynamic>? ?? [];
+        messages = topics.map((topic) {
+          final map = topic as Map<String, dynamic>;
+          return {
+            'id': map['id'],
+            'title': map['title'],
+            'last_posted_at': map['last_posted_at'],
+            'reply_count': map['reply_count'],
+          };
+        }).toList();
+      } else {
+        final discourseResponse = await _discourseApi.getNotifications(
+          limit: 30,
+          recent: true,
+        );
+        final Map<String, dynamic> data = discourseResponse.data;
+        final notifications = data['notifications'] as List<dynamic>? ?? [];
+        messages = notifications.map((notif) {
+          final map = notif as Map<String, dynamic>;
+          return {
+            'id': map['id'],
+            'notification_type': map['notification_type'],
+            'data': map['data'],
+            'created_at': map['created_at'],
+          };
+        }).toList();
+      }
+
+      return MessageResponse(
+        status: 200,
+        message: 'success',
+        data: messages,
+      );
+    } catch (e) {
+      return MessageResponse(
+        status: 500,
+        message: 'Failed to fetch messages: $e',
+        data: [],
+      );
+    }
   }
 
   /// 检查未读消息数量
   Future<CheckCountResponse> checkCount() async {
-    return CheckCountResponse(status: 200, data: {'count': 0});
+    try {
+      final discourseResponse = await _discourseApi.getNotifications(
+        limit: 1,
+        recent: false,
+      );
+      final Map<String, dynamic> data = discourseResponse.data;
+      final totalRows = data['total_rows_notifications'] ?? 0;
+      return CheckCountResponse(
+        status: 200,
+        data: {'count': totalRows},
+      );
+    } catch (e) {
+      return CheckCountResponse(
+        status: 200,
+        data: {'count': 0},
+      );
+    }
   }
 
   // ==================== 动态操作 ====================
@@ -720,7 +783,32 @@ class ApiService extends _$ApiService {
     required String url,
     required String id,
   }) async {
-    return LikeReplyResponse(status: 404, message: 'Not implemented for Discourse');
+    try {
+      final postId = int.parse(id);
+      await _discourseApi.likePost(postId);
+      return LikeReplyResponse(
+        status: 200,
+        message: 'success',
+        data: {'liked': true},
+      );
+    } catch (e) {
+      if (e is DioException) {
+        if (e.response?.statusCode == 403) {
+          return LikeReplyResponse(
+            status: 401,
+            message: 'Unauthorized - please login first',
+          );
+        }
+        return LikeReplyResponse(
+          status: e.response?.statusCode ?? 500,
+          message: 'Failed to like reply: $e',
+        );
+      }
+      return LikeReplyResponse(
+        status: 500,
+        message: 'Failed to like reply: $e',
+      );
+    }
   }
 
   /// 关注/取消关注用户
@@ -728,7 +816,36 @@ class ApiService extends _$ApiService {
     required String url,
     required String uid,
   }) async {
-    return LikeReplyResponse(status: 404, message: 'Not implemented for Discourse');
+    try {
+      final isFollow = url.contains('follow');
+      if (isFollow) {
+        await _discourseApi.followUser(uid);
+      } else {
+        await _discourseApi.unfollowUser(uid);
+      }
+      return LikeReplyResponse(
+        status: 200,
+        message: 'success',
+        data: {'following': isFollow},
+      );
+    } catch (e) {
+      if (e is DioException) {
+        if (e.response?.statusCode == 403) {
+          return LikeReplyResponse(
+            status: 401,
+            message: 'Unauthorized - please login first',
+          );
+        }
+        return LikeReplyResponse(
+          status: e.response?.statusCode ?? 500,
+          message: 'Failed to follow/unfollow user: $e',
+        );
+      }
+      return LikeReplyResponse(
+        status: 500,
+        message: 'Failed to follow/unfollow user: $e',
+      );
+    }
   }
 
   /// 发布评论
@@ -737,14 +854,82 @@ class ApiService extends _$ApiService {
     required String id,
     required String type,
   }) async {
-    return PostReplyResponse(status: 404, message: 'Not implemented for Discourse');
+    try {
+      final topicId = int.parse(id);
+      final content = data['content'] ?? '';
+      final replyToPostNumberStr = data['reply_to_post_number'];
+      final replyToPostNumber = replyToPostNumberStr != null ? int.tryParse(replyToPostNumberStr) : null;
+
+      await _discourseApi.createPost(
+        topicId: topicId,
+        raw: content,
+        replyToPostNumber: replyToPostNumber,
+      );
+
+      return PostReplyResponse(
+        status: 200,
+        message: 'success',
+        data: {'topic_id': topicId},
+      );
+    } catch (e) {
+      if (e is DioException) {
+        if (e.response?.statusCode == 403) {
+          return PostReplyResponse(
+            status: 401,
+            message: 'Unauthorized - please login first',
+          );
+        }
+        return PostReplyResponse(
+          status: e.response?.statusCode ?? 500,
+          message: 'Failed to post reply: $e',
+        );
+      }
+      return PostReplyResponse(
+        status: 500,
+        message: 'Failed to post reply: $e',
+      );
+    }
   }
 
   /// 发布动态
   Future<CreateFeedResponse> postCreateFeed({
     required Map<String, String> data,
   }) async {
-    return CreateFeedResponse(status: 404, message: 'Not implemented for Discourse');
+    try {
+      final title = data['title'] ?? '';
+      final content = data['content'] ?? '';
+      final categoryStr = data['category'];
+      final category = categoryStr != null ? int.tryParse(categoryStr) : null;
+
+      await _discourseApi.createTopic(
+        title: title,
+        raw: content,
+        category: category,
+      );
+
+      return CreateFeedResponse(
+        status: 200,
+        message: 'success',
+        data: {'title': title},
+      );
+    } catch (e) {
+      if (e is DioException) {
+        if (e.response?.statusCode == 403) {
+          return CreateFeedResponse(
+            status: 401,
+            message: 'Unauthorized - please login first',
+          );
+        }
+        return CreateFeedResponse(
+          status: e.response?.statusCode ?? 500,
+          message: 'Failed to create feed: $e',
+        );
+      }
+      return CreateFeedResponse(
+        status: 500,
+        message: 'Failed to create feed: $e',
+      );
+    }
   }
 
   /// 删除动态/评论
@@ -752,7 +937,32 @@ class ApiService extends _$ApiService {
     required String url,
     required String id,
   }) async {
-    return LikeReplyResponse(status: 404, message: 'Not implemented for Discourse');
+    try {
+      final postId = int.parse(id);
+      await _discourseApi.deletePost(postId: postId);
+      return LikeReplyResponse(
+        status: 200,
+        message: 'success',
+        data: {'deleted': true},
+      );
+    } catch (e) {
+      if (e is DioException) {
+        if (e.response?.statusCode == 403) {
+          return LikeReplyResponse(
+            status: 401,
+            message: 'Unauthorized - please login first',
+          );
+        }
+        return LikeReplyResponse(
+          status: e.response?.statusCode ?? 500,
+          message: 'Failed to delete: $e',
+        );
+      }
+      return LikeReplyResponse(
+        status: 500,
+        message: 'Failed to delete: $e',
+      );
+    }
   }
 
   // ==================== 登录 ====================

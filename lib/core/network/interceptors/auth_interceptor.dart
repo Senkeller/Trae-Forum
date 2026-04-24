@@ -39,7 +39,7 @@ class AuthInterceptor extends Interceptor {
   }
 
   @override
-  void onResponse(Response response, RequestInterceptorHandler handler) {
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
     DiscourseCsrfToken.updateFromResponse(response);
 
     final newToken = response.headers.value('x-auth-token');

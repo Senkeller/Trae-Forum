@@ -135,6 +135,7 @@ class RoutePaths {
   static const String message = '/messages';
   static const String messageDetail = '/messages/:type';
   static const String notifications = '/notifications';
+  static const String notificationSettings = '/notifications/settings';
   
   // 设置
   static const String settings = '/settings';

@@ -6,7 +6,7 @@ part of 'like_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$likeRepositoryHash() => r'fcc4e13e807fcb19a2636cee1c347df56894b52d';
+String _$likeRepositoryHash() => r'bea8a5a5867abf0ff497e5d94bc634aa72bd4461';
 
 /// 点赞仓库
 /// 负责处理帖子点赞相关的数据操作

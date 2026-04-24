@@ -7,6 +7,7 @@ import '../../config/constants.dart';
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/log_interceptor.dart' as app_log;
 import 'interceptors/error_interceptor.dart';
+import 'interceptors/retry_interceptor.dart';
 
 /// Dio 客户端配置
 class DioClient {
@@ -49,12 +50,14 @@ class DioClient {
 
     // 添加拦截器
     dio.interceptors.addAll([
+      RetryInterceptor(dio: dio),
       AuthInterceptor(),
       app_log.LogInterceptor(),
       ErrorInterceptor(),
     ]);
 
     // 初始化 CookieManager（如果尚未初始化）
+    // CookieManager 需要在其他拦截器之后添加，以确保 Cookie 处理在最后
     _initCookieManager(dio);
 
     return dio;

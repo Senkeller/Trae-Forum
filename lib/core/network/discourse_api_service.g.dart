@@ -7,7 +7,7 @@ part of 'discourse_api_service.dart';
 // **************************************************************************
 
 String _$discourseApiServiceHash() =>
-    r'de0b374f5429f70ead5a40a41ea22570ec562be9';
+    r'78d2c385f4351f538895028cef75dc2977c2c357';
 
 /// See also [discourseApiService].
 @ProviderFor(discourseApiService)

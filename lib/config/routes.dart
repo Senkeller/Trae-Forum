@@ -4,12 +4,34 @@ import 'constants.dart';
 import '../presentation/pages/main/main_page.dart';
 import '../presentation/pages/home/home_page.dart';
 import '../presentation/pages/feed/feed_detail_page.dart';
+import '../presentation/pages/feed/feed_create_page.dart';
+import '../presentation/pages/feed/feed_reply_page.dart';
 import '../presentation/pages/user/user_profile_page.dart';
+import '../presentation/pages/user/user_edit_page.dart';
+import '../presentation/pages/user/follow_list_page.dart';
+import '../presentation/pages/user/fan_list_page.dart';
 import '../presentation/pages/user/login_page.dart';
 import '../presentation/pages/search/search_page.dart';
+import '../presentation/pages/search/search_result_page.dart';
 import '../presentation/pages/message/message_page.dart';
+import '../presentation/pages/message/message_detail_page.dart';
+import '../presentation/pages/notification/notifications_page.dart';
+import '../presentation/pages/notification/notification_settings_page.dart';
 import '../presentation/pages/settings/settings_page.dart';
+import '../presentation/pages/settings/theme_settings_page.dart';
+import '../presentation/pages/settings/font_settings_page.dart';
+import '../presentation/pages/settings/blacklist_page.dart';
+import '../presentation/pages/settings/about_page.dart';
+import '../presentation/pages/auth/register_page.dart';
+import '../presentation/pages/auth/forgot_password_page.dart';
+import '../presentation/pages/topic/topic_list_page.dart';
+import '../presentation/pages/topic/topic_detail_page.dart';
+import '../presentation/pages/product/product_detail_page.dart';
+import '../presentation/pages/history/history_page.dart';
+import '../presentation/pages/favorites/favorites_page.dart';
+import '../presentation/pages/error/error_page.dart';
 import '../presentation/pages/common/webview_page.dart' as webview;
+import '../presentation/pages/common/image_preview_page.dart';
 import '../presentation/pages/dashboard/trae_dashboard_page.dart';
 
 /// 应用路由配置
@@ -152,6 +174,12 @@ class AppRouter {
         builder: (context, state) => const NotificationsPage(),
       ),
       
+      // 通知设置
+      GoRoute(
+        path: RoutePaths.notificationSettings,
+        builder: (context, state) => const NotificationSettingsPage(),
+      ),
+      
       // 设置
       GoRoute(
         path: RoutePaths.settings,
@@ -228,7 +256,7 @@ class AppRouter {
         builder: (context, state) {
           final images = state.extra as List<String>? ?? [];
           final index = int.tryParse(state.uri.queryParameters['index'] ?? '0') ?? 0;
-          return ImagePreviewPage(images: images, initialIndex: index);
+          return ImagePreviewPage(imageUrls: images, initialIndex: index);
         },
       ),
 
@@ -312,143 +340,4 @@ extension AppRouterExtension on BuildContext {
   
   /// 返回上一页
   void goBack<T extends Object?>([T? result]) => appRouter.pop(result);
-}
-
-// 以下页面占位符将在后续任务中实现
-class FeedCreatePage extends StatelessWidget {
-  const FeedCreatePage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('FeedCreatePage')));
-}
-
-class FeedReplyPage extends StatelessWidget {
-  final String feedId;
-  const FeedReplyPage({super.key, required this.feedId});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('FeedReplyPage: $feedId')));
-}
-
-class UserEditPage extends StatelessWidget {
-  const UserEditPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('UserEditPage')));
-}
-
-class FollowListPage extends StatelessWidget {
-  final String uid;
-  const FollowListPage({super.key, required this.uid});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('FollowListPage: $uid')));
-}
-
-class FanListPage extends StatelessWidget {
-  final String uid;
-  const FanListPage({super.key, required this.uid});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('FanListPage: $uid')));
-}
-
-class TopicListPage extends StatelessWidget {
-  const TopicListPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('TopicListPage')));
-}
-
-class TopicDetailPage extends StatelessWidget {
-  final String tag;
-  const TopicDetailPage({super.key, required this.tag});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('TopicDetailPage: $tag')));
-}
-
-class ProductDetailPage extends StatelessWidget {
-  final String id;
-  const ProductDetailPage({super.key, required this.id});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('ProductDetailPage: $id')));
-}
-
-class SearchResultPage extends StatelessWidget {
-  final String query;
-  const SearchResultPage({super.key, required this.query});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('SearchResultPage: $query')));
-}
-
-class MessageDetailPage extends StatelessWidget {
-  final String type;
-  const MessageDetailPage({super.key, required this.type});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('MessageDetailPage: $type')));
-}
-
-class NotificationsPage extends StatelessWidget {
-  const NotificationsPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('NotificationsPage')));
-}
-
-class ThemeSettingsPage extends StatelessWidget {
-  const ThemeSettingsPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('ThemeSettingsPage')));
-}
-
-class FontSettingsPage extends StatelessWidget {
-  const FontSettingsPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('FontSettingsPage')));
-}
-
-class BlacklistPage extends StatelessWidget {
-  const BlacklistPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('BlacklistPage')));
-}
-
-class AboutPage extends StatelessWidget {
-  const AboutPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('AboutPage')));
-}
-
-class RegisterPage extends StatelessWidget {
-  const RegisterPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('RegisterPage')));
-}
-
-class ForgotPasswordPage extends StatelessWidget {
-  const ForgotPasswordPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('ForgotPasswordPage')));
-}
-
-
-
-class HistoryPage extends StatelessWidget {
-  const HistoryPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('HistoryPage')));
-}
-
-class FavoritesPage extends StatelessWidget {
-  const FavoritesPage({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('FavoritesPage')));
-}
-
-class ImagePreviewPage extends StatelessWidget {
-  final List<String> images;
-  final int initialIndex;
-  const ImagePreviewPage({super.key, required this.images, required this.initialIndex});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('ImagePreviewPage: ${images.length}')));
-}
-
-class ErrorPage extends StatelessWidget {
-  final Exception? error;
-  const ErrorPage({super.key, this.error});
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('Error: $error')));
 }
