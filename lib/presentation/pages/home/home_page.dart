@@ -5,8 +5,11 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/utils/performance_util.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/feed/featured_comment.dart';
+import '../../widgets/feed/quick_comment_bar.dart';
+import '../../widgets/comment/quick_comment_sheet.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -103,6 +106,13 @@ class _HomePageState extends ConsumerState<HomePage>
               snap: true,
               forceElevated: innerBoxIsScrolled,
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.dashboard_outlined),
+                  tooltip: 'TRAE 仪表盘',
+                  onPressed: () {
+                    context.push(RoutePaths.traeDashboard);
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.language),
                   tooltip: '访问论坛网页',
@@ -268,7 +278,7 @@ class _FeedListView extends ConsumerWidget {
   }
 }
 
-class _FeedCard extends StatelessWidget {
+class _FeedCard extends ConsumerStatefulWidget {
   final FeedItem feed;
   final VoidCallback onTap;
 
@@ -279,14 +289,53 @@ class _FeedCard extends StatelessWidget {
   });
 
   @override
+  ConsumerState<_FeedCard> createState() => _FeedCardState();
+}
+
+class _FeedCardState extends ConsumerState<_FeedCard> {
+  late int _replyCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _replyCount = widget.feed.replyCount;
+  }
+
+  @override
+  void didUpdateWidget(_FeedCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.feed.replyCount != widget.feed.replyCount) {
+      _replyCount = widget.feed.replyCount;
+    }
+  }
+
+  void _handleCommentSuccess(String content) {
+    setState(() {
+      _replyCount++;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('评论发送成功')),
+    );
+  }
+
+  void _openQuickCommentSheet(BuildContext context) {
+    QuickCommentSheet.show(
+      context: context,
+      topicId: widget.feed.topicId,
+      onSubmit: (content) => _handleCommentSuccess(content),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final currentUser = ref.watch(currentUserProvider);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -296,41 +345,47 @@ class _FeedCard extends StatelessWidget {
             children: [
               _buildUserInfo(context, colorScheme),
               const SizedBox(height: 10),
-              if (feed.title.isNotEmpty)
+              if (widget.feed.title.isNotEmpty)
                 Text(
-                  feed.title,
+                  widget.feed.title,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              if (feed.title.isNotEmpty && feed.content.isNotEmpty) const SizedBox(height: 8),
-              if (feed.content.isNotEmpty)
+              if (widget.feed.title.isNotEmpty && widget.feed.content.isNotEmpty) const SizedBox(height: 8),
+              if (widget.feed.content.isNotEmpty)
                 Text(
-                  feed.content,
+                  widget.feed.content,
                   style: theme.textTheme.bodyMedium,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                 ),
-              if (feed.images.isNotEmpty) ...[
+              if (widget.feed.images.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 _buildImagePreview(context),
               ],
-              if (feed.tags.isNotEmpty || feed.category.isNotEmpty || feed.isPinned) ...[
+              if (widget.feed.tags.isNotEmpty || widget.feed.category.isNotEmpty || widget.feed.isPinned) ...[
                 const SizedBox(height: 12),
                 _buildMetaTags(context),
               ],
               // 精选评论
-              if (feed.topComment != null) ...[
+              if (widget.feed.topComment != null) ...[
                 const SizedBox(height: 12),
                 FeaturedComment(
-                  comment: feed.topComment,
-                  onTap: onTap,
+                  comment: widget.feed.topComment,
+                  onTap: widget.onTap,
                 ),
               ],
               const SizedBox(height: 12),
-              _buildActions(context, colorScheme),
+              _buildActions(context, colorScheme, _replyCount),
+              // 快速输入栏
+              const SizedBox(height: 12),
+              QuickCommentBar(
+                currentUserAvatar: currentUser?.avatar,
+                onTap: () => _openQuickCommentSheet(context),
+              ),
             ],
           ),
         ),
@@ -339,12 +394,12 @@ class _FeedCard extends StatelessWidget {
   }
 
   Widget _buildUserInfo(BuildContext context, ColorScheme colorScheme) {
-    final initial = feed.username.isNotEmpty ? feed.username[0].toUpperCase() : '?';
+    final initial = widget.feed.username.isNotEmpty ? widget.feed.username[0].toUpperCase() : '?';
 
     return InkWell(
       onTap: () {
-        if (feed.username.isNotEmpty) {
-          context.push(RoutePaths.userProfile.replaceFirst(':uid', feed.username));
+        if (widget.feed.username.isNotEmpty) {
+          context.push(RoutePaths.userProfile.replaceFirst(':uid', widget.feed.username));
         }
       },
       borderRadius: BorderRadius.circular(20),
@@ -355,9 +410,9 @@ class _FeedCard extends StatelessWidget {
             CircleAvatar(
               radius: 20,
               backgroundColor: colorScheme.primaryContainer,
-              backgroundImage: feed.avatarUrl.isNotEmpty ? NetworkImage(feed.avatarUrl) : null,
+              backgroundImage: widget.feed.avatarUrl.isNotEmpty ? NetworkImage(widget.feed.avatarUrl) : null,
               onBackgroundImageError: (error, stackTrace) {},
-              child: feed.avatarUrl.isEmpty
+              child: widget.feed.avatarUrl.isEmpty
                   ? Text(
                       initial,
                       style: TextStyle(color: colorScheme.onPrimaryContainer),
@@ -370,13 +425,13 @@ class _FeedCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    feed.username,
+                    widget.feed.username,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
                   Text(
-                    _formatTime(feed.createTime),
+                    _formatTime(widget.feed.createTime),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -396,7 +451,7 @@ class _FeedCard extends StatelessWidget {
       child: AspectRatio(
         aspectRatio: 16 / 9,
         child: Image.network(
-          feed.images.first,
+          widget.feed.images.first,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
             return Container(
@@ -416,15 +471,15 @@ class _FeedCard extends StatelessWidget {
   Widget _buildMetaTags(BuildContext context) {
     final items = <Widget>[];
 
-    if (feed.category.isNotEmpty) {
-      items.add(_metaChip(context, '#${feed.category}'));
+    if (widget.feed.category.isNotEmpty) {
+      items.add(_metaChip(context, '#${widget.feed.category}'));
     }
 
-    for (final tag in feed.tags.take(3)) {
+    for (final tag in widget.feed.tags.take(3)) {
       items.add(_metaChip(context, tag));
     }
 
-    if (feed.isPinned) {
+    if (widget.feed.isPinned) {
       items.add(_metaChip(context, 'Pinned'));
     }
 
@@ -451,7 +506,7 @@ class _FeedCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActions(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildActions(BuildContext context, ColorScheme colorScheme, int replyCount) {
     final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
           color: colorScheme.onSurfaceVariant,
         );
@@ -460,15 +515,15 @@ class _FeedCard extends StatelessWidget {
       children: [
         Icon(Icons.thumb_up_outlined, size: 20, color: colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
-        Text('${feed.likeCount}', style: textStyle),
+        Text('${widget.feed.likeCount}', style: textStyle),
         const SizedBox(width: 16),
         Icon(Icons.comment_outlined, size: 20, color: colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
-        Text('${feed.replyCount}', style: textStyle),
+        Text('$replyCount', style: textStyle),
         const SizedBox(width: 16),
         Icon(Icons.visibility_outlined, size: 20, color: colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
-        Text('${feed.viewCount}', style: textStyle),
+        Text('${widget.feed.viewCount}', style: textStyle),
       ],
     );
   }

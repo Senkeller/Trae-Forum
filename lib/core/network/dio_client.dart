@@ -1,4 +1,8 @@
 import 'package:dio/dio.dart' as dio_lib;
+import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:cookie_jar/cookie_jar.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 import '../../config/constants.dart';
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/log_interceptor.dart' as app_log;
@@ -7,6 +11,7 @@ import 'interceptors/error_interceptor.dart';
 /// Dio 客户端配置
 class DioClient {
   static dio_lib.Dio? _dio;
+  static CookieJar? _cookieJar;
 
   /// 获取 Dio 实例
   static dio_lib.Dio get dio {
@@ -14,8 +19,13 @@ class DioClient {
     return _dio!;
   }
 
+  /// 获取 CookieJar 实例
+  static CookieJar? get cookieJar => _cookieJar;
+
   /// 创建 Dio 实例
   static dio_lib.Dio _createDio() {
+    print('🔧 [DioClient] 创建 Dio 实例...');
+
     final dio = dio_lib.Dio(
       dio_lib.BaseOptions(
         baseUrl: AppConstants.baseUrl,
@@ -27,8 +37,15 @@ class DioClient {
           'Accept': 'application/json',
           'User-Agent': _buildUserAgent(),
         },
+        // 允许所有状态码，让 ErrorInterceptor 来处理错误
+        validateStatus: (status) {
+          print('🔍 [DioClient] validateStatus called: $status');
+          return true;
+        },
       ),
     );
+
+    print('✅ [DioClient] Dio 实例创建完成，validateStatus 已配置');
 
     // 添加拦截器
     dio.interceptors.addAll([
@@ -37,7 +54,123 @@ class DioClient {
       ErrorInterceptor(),
     ]);
 
+    // 初始化 CookieManager（如果尚未初始化）
+    _initCookieManager(dio);
+
     return dio;
+  }
+
+  /// 初始化 CookieManager
+  /// 如果 _cookieJar 已经存在（如持久化的 PersistCookieJar），则使用现有的
+  /// 否则创建一个新的内存 CookieJar
+  static void _initCookieManager(dio_lib.Dio dio) {
+    // 如果 _cookieJar 已经存在，说明已经初始化过（如持久化的 CookieJar）
+    if (_cookieJar == null) {
+      // 使用内存 CookieJar 作为默认值
+      _cookieJar = CookieJar();
+    }
+    dio.interceptors.add(CookieManager(_cookieJar!));
+  }
+
+  /// 初始化持久化 CookieManager
+  /// 在应用启动时调用，确保 Cookie 持久化
+  static Future<void> initPersistentCookieManager() async {
+    print('🔧 [DioClient] 初始化持久化 CookieManager...');
+    try {
+      // 如果 Dio 实例已存在，先重置
+      if (_dio != null) {
+        print('🔄 [DioClient] 重置现有 Dio 实例');
+        reset();
+      }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final cookiePath = path.join(directory.path, '.cookies/');
+      print('📁 [DioClient] Cookie 存储路径: $cookiePath');
+
+      // 先设置持久化的 CookieJar
+      _cookieJar = PersistCookieJar(
+        ignoreExpires: true,
+        storage: FileStorage(cookiePath),
+      );
+      print('✅ [DioClient] PersistCookieJar 已创建');
+
+      // 创建新的 Dio 实例
+      // 此时 _createDio 中的 _initCookieManager 会使用已设置的 _cookieJar
+      final dio = DioClient.dio;
+      print('✅ [DioClient] Dio 实例已获取，拦截器数量: ${dio.interceptors.length}');
+
+      print('✅ [DioClient] 持久化 CookieManager 初始化成功');
+    } catch (e) {
+      print('❌ [DioClient] 初始化持久化 CookieManager 失败: $e');
+    }
+  }
+
+  /// 从 WebView Cookie 字符串加载 Cookie 到 CookieJar
+  /// 在 WebView 登录成功后调用，将 WebView 的 Cookie 同步到 Dio
+  static Future<void> loadCookiesFromWebView(String cookieString, String url) async {
+    try {
+      if (_cookieJar == null) {
+        print('⚠️ [DioClient] CookieJar 未初始化');
+        return;
+      }
+
+      final uri = Uri.parse(url);
+      final cookies = <Cookie>[];
+
+      // 解析 Cookie 字符串
+      final pairs = cookieString.split(';');
+      for (final pair in pairs) {
+        final trimmed = pair.trim();
+        if (trimmed.isEmpty) continue;
+
+        final index = trimmed.indexOf('=');
+        if (index > 0) {
+          final name = trimmed.substring(0, index).trim();
+          final value = trimmed.substring(index + 1).trim();
+
+          // 移除可能的引号
+          final cleanValue = value.replaceAll('"', '');
+
+          cookies.add(Cookie(name, cleanValue));
+          print('🍪 [DioClient] 加载 Cookie: $name=${cleanValue.length > 20 ? cleanValue.substring(0, 20) + "..." : cleanValue}');
+        }
+      }
+
+      // 保存 Cookie 到 CookieJar
+      await _cookieJar!.saveFromResponse(uri, cookies);
+      print('✅ [DioClient] WebView Cookie 已同步到 Dio，共 ${cookies.length} 个');
+    } catch (e) {
+      print('❌ [DioClient] 加载 WebView Cookie 失败: $e');
+    }
+  }
+
+  /// 获取指定 URL 的 Cookie 字符串
+  static Future<String> getCookieString(String url) async {
+    try {
+      if (_cookieJar == null) return '';
+
+      final uri = Uri.parse(url);
+      final cookies = await _cookieJar!.loadForRequest(uri);
+
+      if (cookies.isEmpty) return '';
+
+      return cookies.map((c) => '${c.name}=${c.value}').join('; ');
+    } catch (e) {
+      print('❌ [DioClient] 获取 Cookie 字符串失败: $e');
+      return '';
+    }
+  }
+
+  /// 清除所有 Cookie
+  static Future<void> clearCookies() async {
+    try {
+      if (_cookieJar != null) {
+        await _cookieJar!.deleteAll();
+        print('🗑️ [DioClient] 所有 Cookie 已清除');
+      }
+    } catch (e) {
+      print('❌ [DioClient] 清除 Cookie 失败: $e');
+    }
   }
 
   /// 构建 User-Agent

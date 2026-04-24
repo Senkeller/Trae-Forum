@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_service.dart';
+import '../../core/network/dio_client.dart';
+import '../../core/network/cookie_manager.dart';
 import '../../data/models/user.dart';
 
 part 'auth_provider.g.dart';
@@ -86,14 +88,24 @@ class AuthNotifier extends _$AuthNotifier {
 
   /// 用户登出
   ///
-  /// 清除本地用户信息并更新状态为未登录
+  /// 清除本地用户信息、Cookie 并更新状态为未登录
   Future<void> logout() async {
     state = const AsyncLoading();
-    
+
     try {
+      // 清除本地用户信息
       await _clearUserInfo();
+
+      // 清除 Dio Cookie
+      await DioClient.clearCookies();
+
+      // 清除 Trae Cookie
+      await TraeCookieManager.clearCookies();
+
+      debugPrint('✅ [AuthNotifier] 用户登出完成');
       state = const AsyncValue.data(UserInfo(uid: '', username: ''));
     } catch (e, stackTrace) {
+      debugPrint('❌ [AuthNotifier] 登出失败: $e');
       state = AsyncError(e, stackTrace);
     }
   }

@@ -58,6 +58,9 @@ class FeedItem {
   /// 动态ID
   final String id;
 
+  /// 话题ID（用于评论API）
+  final int topicId;
+
   /// 作者UID
   final String uid;
 
@@ -111,6 +114,7 @@ class FeedItem {
 
   const FeedItem({
     required this.id,
+    required this.topicId,
     required this.uid,
     required this.username,
     required this.avatarUrl,
@@ -143,6 +147,7 @@ class FeedItem {
 
     return FeedItem(
       id: json['id']?.toString() ?? '',
+      topicId: _parseInt(json['topicId']),
       uid: json['uid']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
       avatarUrl: json['avatarUrl']?.toString() ?? '',
@@ -172,6 +177,7 @@ class FeedItem {
   /// 复制并修改
   FeedItem copyWith({
     String? id,
+    int? topicId,
     String? uid,
     String? username,
     String? avatarUrl,
@@ -192,6 +198,7 @@ class FeedItem {
   }) {
     return FeedItem(
       id: id ?? this.id,
+      topicId: topicId ?? this.topicId,
       uid: uid ?? this.uid,
       username: username ?? this.username,
       avatarUrl: avatarUrl ?? this.avatarUrl,
@@ -584,6 +591,7 @@ class HomeNotifier extends _$HomeNotifier {
 
     return FeedItem(
       id: (topic['id'] ?? '').toString(),
+      topicId: _parseInt(topic['id']),
       uid: firstPosterUserId > 0 ? firstPosterUserId.toString() : '',
       username: username.isNotEmpty ? username : 'unknown',
       avatarUrl: _formatAvatarUrl(

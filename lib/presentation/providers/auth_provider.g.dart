@@ -69,7 +69,7 @@ final authTokenProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthTokenRef = AutoDisposeProviderRef<String?>;
-String _$authNotifierHash() => r'b3b3efaa4258a5b39c27002c993f0a81fb63116e';
+String _$authNotifierHash() => r'8790c1f717c49d46eaab9f2a083bab855256ca79';
 
 /// 认证状态 Notifier
 ///

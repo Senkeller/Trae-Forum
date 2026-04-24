@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'core/network/dio_client.dart';
 
 /// 应用入口函数
 ///
@@ -74,6 +75,9 @@ class AppInitializer {
     if (_initialized) return;
 
     try {
+      // 初始化持久化 CookieManager
+      await DioClient.initPersistentCookieManager();
+
       // 配置图片缓存
       _configureImageCache();
 

@@ -182,7 +182,7 @@ final traeLoginStatusProvider = AutoDisposeFutureProvider<bool>.internal(
 // ignore: unused_element
 typedef TraeLoginStatusRef = AutoDisposeFutureProviderRef<bool>;
 String _$dashboardStateNotifierHash() =>
-    r'11cf352188efa01dfb948c0ee2e19763c588bf13';
+    r'a1648e490a72b98cbd54eeabf1f7aa35f7d2e90c';
 
 /// Dashboard 状态 Provider
 ///

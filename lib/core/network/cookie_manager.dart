@@ -86,19 +86,21 @@ class TraeCookieManager {
     final prefs = await SharedPreferences.getInstance();
     int savedCount = 0;
 
+    // 打印所有获取到的 Cookie 名称
+    print('🔍 [TraeCookieManager] 获取到的所有 Cookie: ${cookies.keys.toList()}');
+
     for (final entry in cookies.entries) {
-      // 只保存关键 Cookie
-      if (_essentialCookies.contains(entry.key)) {
-        final key = '$_prefix${entry.key}';
-        await prefs.setString(key, entry.value);
-        savedCount++;
-        print('💾 [TraeCookieManager] 保存 Cookie: ${entry.key}=${entry.value.substring(0, entry.value.length > 20 ? 20 : entry.value.length)}...');
-      }
+      // 保存所有 Cookie（不只是关键 Cookie）
+      final key = '$_prefix${entry.key}';
+      await prefs.setString(key, entry.value);
+      savedCount++;
+      print('💾 [TraeCookieManager] 保存 Cookie: ${entry.key}=${entry.value.substring(0, entry.value.length > 20 ? 20 : entry.value.length)}...');
     }
 
     // 记录保存时间
     await prefs.setInt('${_prefix}saved_at', DateTime.now().millisecondsSinceEpoch);
-    print('✅ [TraeCookieManager] Cookie 保存完成，共 $savedCount 个关键 Cookie');
+    print('✅ [TraeCookieManager] Cookie 保存完成，共 $savedCount 个 Cookie');
+    print('🔍 [TraeCookieManager] 关键 Cookie 检查: sessionid=${cookies.containsKey('sessionid')}, ttwid=${cookies.containsKey('ttwid')}');
   }
 
   /// 获取指定名称的 Cookie 值
@@ -117,9 +119,14 @@ class TraeCookieManager {
     final prefs = await SharedPreferences.getInstance();
     final cookies = <String, String>{};
 
-    for (final name in _essentialCookies) {
-      final value = prefs.getString('$_prefix$name');
+    // 获取所有以 _prefix 开头的 key
+    final keys = prefs.getKeys().where((k) => k.startsWith(_prefix) && k != '${_prefix}saved_at');
+    
+    for (final key in keys) {
+      final value = prefs.getString(key);
       if (value != null && value.isNotEmpty) {
+        // 移除前缀获取原始 Cookie 名称
+        final name = key.substring(_prefix.length);
         cookies[name] = value;
       }
     }

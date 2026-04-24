@@ -2,7 +2,32 @@ import 'package:dio/dio.dart';
 import '../dio_client.dart';
 
 /// 错误拦截器
+///
+/// 处理 HTTP 请求中的各种错误情况，包括网络错误、超时、HTTP 状态码错误等
+/// 注意：DioClient 配置了 validateStatus: (status) => true，所以所有状态码都会走 onResponse
 class ErrorInterceptor extends Interceptor {
+  @override
+  void onResponse(Response response, ResponseInterceptorHandler handler) {
+    print('🔍 [ErrorInterceptor] onResponse: statusCode=${response.statusCode}');
+
+    // 检查响应状态码，非 2xx 状态码视为错误
+    final statusCode = response.statusCode ?? 0;
+    if (statusCode < 200 || statusCode >= 300) {
+      print('⚠️ [ErrorInterceptor] 非 2xx 状态码: $statusCode, data=${response.data}');
+
+      // 创建 DioException 并通过 onError 处理
+      final error = DioException(
+        requestOptions: response.requestOptions,
+        response: response,
+        type: DioExceptionType.badResponse,
+        error: _createApiException(statusCode, response.data),
+      );
+      handler.reject(error);
+      return;
+    }
+    handler.next(response);
+  }
+
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     final error = _handleError(err);
@@ -66,6 +91,18 @@ class ErrorInterceptor extends Interceptor {
     final statusCode = err.response?.statusCode;
     final data = err.response?.data;
 
+    final apiException = _createApiException(statusCode, data);
+
+    return DioException(
+      requestOptions: err.requestOptions,
+      response: err.response,
+      type: err.type,
+      error: apiException,
+    );
+  }
+
+  /// 根据状态码和数据创建 ApiException
+  ApiException _createApiException(int? statusCode, dynamic data) {
     String message;
     switch (statusCode) {
       case 400:
@@ -75,7 +112,13 @@ class ErrorInterceptor extends Interceptor {
         message = '登录已过期，请重新登录';
         break;
       case 403:
-        message = '没有权限访问';
+        // 403 可能是未登录或权限不足
+        final errors = data?['errors'];
+        if (errors is List && errors.isNotEmpty) {
+          message = errors.first.toString();
+        } else {
+          message = data?['message'] ?? '没有权限访问';
+        }
         break;
       case 404:
         message = '请求的资源不存在';
@@ -90,15 +133,10 @@ class ErrorInterceptor extends Interceptor {
         message = data?['message'] ?? '请求失败: $statusCode';
     }
 
-    return DioException(
-      requestOptions: err.requestOptions,
-      response: err.response,
-      type: err.type,
-      error: ApiException(
-        code: statusCode,
-        message: message,
-        data: data,
-      ),
+    return ApiException(
+      code: statusCode,
+      message: message,
+      data: data,
     );
   }
 }

@@ -9,6 +9,7 @@ import '../../../config/constants.dart';
 import '../../../data/models/user.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../core/network/cookie_manager.dart';
+import '../../../core/network/dio_client.dart';
 
 /// WebView 登录页面
 ///
@@ -275,9 +276,14 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       );
     }
 
-    // 提取并保存 Trae Cookie（用于 Dashboard API）
-    debugPrint('🔍 [WebViewLogin] 开始提取 Trae Cookie...');
+    // 先导航到主站 dashboard 页面提取 Cookie（用于 Dashboard API）
+    debugPrint('🔍 [WebViewLogin] 导航到主站 dashboard 提取 Cookie...');
     try {
+      await _controller.loadRequest(Uri.parse('https://www.trae.cn/dashboard'));
+      // 等待页面加载完成
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // 提取并保存 Trae Cookie
       final cookieSaved = await TraeCookieManager.extractAndSaveCookies(_controller);
       if (cookieSaved) {
         debugPrint('✅ [WebViewLogin] Trae Cookie 提取并保存成功');
@@ -286,6 +292,23 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       }
     } catch (e) {
       debugPrint('❌ [WebViewLogin] 提取 Trae Cookie 时出错: $e');
+    }
+
+    // 同步 WebView Cookie 到 Dio，以便 Discourse API 请求使用
+    debugPrint('🔍 [WebViewLogin] 开始同步 WebView Cookie 到 Dio...');
+    try {
+      final cookieString = await _controller.runJavaScriptReturningResult('document.cookie');
+      if (cookieString != null && cookieString.toString().isNotEmpty) {
+        await DioClient.loadCookiesFromWebView(
+          cookieString.toString(),
+          _forumUrl,
+        );
+        debugPrint('✅ [WebViewLogin] WebView Cookie 已同步到 Dio');
+      } else {
+        debugPrint('⚠️ [WebViewLogin] WebView Cookie 为空，无法同步');
+      }
+    } catch (e) {
+      debugPrint('❌ [WebViewLogin] 同步 WebView Cookie 到 Dio 失败: $e');
     }
 
     // 获取用户名（从 WebView 或传入的参数）

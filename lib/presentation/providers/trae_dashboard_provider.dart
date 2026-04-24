@@ -122,28 +122,43 @@ final traeDashboardNotifierProvider = StateNotifierProvider<TraeDashboardNotifie
 /// Dashboard 状态 Provider
 @riverpod
 class DashboardStateNotifier extends _$DashboardStateNotifier {
+  TraeDashboardRepository? _repository;
+
   @override
   AsyncValue<DashboardData> build() {
+    // 初始化 repository
+    _repository = ref.read(traeDashboardRepositoryProvider);
+    // 立即返回 loading 状态，然后异步加载数据
     _loadData();
     return const AsyncValue.loading();
   }
 
-  late final TraeDashboardRepository _repository;
-
   Future<void> _loadData() async {
-    _repository = ref.read(traeDashboardRepositoryProvider);
+    // 确保 repository 已初始化
+    final repo = _repository ?? ref.read(traeDashboardRepositoryProvider);
+    
+    if (repo == null) {
+      state = AsyncValue.error('Repository 未初始化', StackTrace.current);
+      return;
+    }
 
     try {
-      final stats = await _repository.getUserStats();
-      final userInfo = await _repository.getUserInfo();
+      print('[DashboardStateNotifier] 开始加载数据...');
+      final stats = await repo.getUserStats();
+      print('[DashboardStateNotifier] 获取到 stats: ${stats.userId}');
+      final userInfo = await repo.getUserInfo();
+      print('[DashboardStateNotifier] 获取到 userInfo: ${userInfo.screenName}');
 
       state = AsyncValue.data(DashboardData(
         stats: stats,
         userInfo: userInfo,
       ));
+      print('[DashboardStateNotifier] 数据加载完成');
     } on TraeApiException catch (e) {
+      print('[DashboardStateNotifier] API 错误: ${e.message}');
       state = AsyncValue.error(e, StackTrace.current);
     } catch (e, stackTrace) {
+      print('[DashboardStateNotifier] 错误: $e');
       state = AsyncValue.error(e, stackTrace);
     }
   }

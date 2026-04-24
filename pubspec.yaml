@@ -18,6 +18,8 @@ dependencies:
   
   # 网络请求
   dio: ^5.4.3+1
+  dio_cookie_manager: ^3.4.0
+  cookie_jar: ^4.0.8
   http: ^1.2.1
   
   # 本地存储

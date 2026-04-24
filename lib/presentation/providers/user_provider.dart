@@ -583,6 +583,7 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
     if (item is api_models.HomeFeedData) {
       return FeedItem(
         id: item.id,
+        topicId: 0,
         uid: item.userInfo?.uid ?? '',
         username: item.userInfo?.username ?? '',
         avatarUrl: item.userInfo?.avatar ?? '',
@@ -607,6 +608,7 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
 
     return const FeedItem(
       id: '',
+      topicId: 0,
       uid: '',
       username: '',
       avatarUrl: '',

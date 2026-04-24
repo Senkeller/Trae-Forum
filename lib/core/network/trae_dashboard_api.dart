@@ -60,12 +60,17 @@ class TraeDashboardApi {
     try {
       // 检查是否有有效 Cookie
       final hasCookies = await TraeCookieManager.hasValidCookies();
+      print('[TraeDashboardApi] hasValidCookies: $hasCookies');
+      
       if (!hasCookies) {
         throw TraeApiException(
-          message: '未登录或 Cookie 已过期',
+          message: '未登录或 Cookie 已过期，请先登录 Trae 账号',
           code: 'NO_COOKIES',
         );
       }
+
+      final cookieString = await TraeCookieManager.getCookieString();
+      print('[TraeDashboardApi] Cookie string length: ${cookieString.length}');
 
       final response = await _dio.post(
         '$_apiPrefix/GetUserStasticData',
@@ -73,6 +78,8 @@ class TraeDashboardApi {
           'LocalTime': DateTime.now().toUtc().toIso8601String(),
         },
       );
+
+      print('[TraeDashboardApi] Response status: ${response.statusCode}');
 
       if (response.statusCode != 200) {
         throw TraeApiException(
@@ -82,18 +89,21 @@ class TraeDashboardApi {
       }
 
       final data = response.data as Map<String, dynamic>;
+      print('[TraeDashboardApi] Response data keys: ${data.keys}');
 
       // 检查响应结构
       if (data['Result'] == null) {
         throw TraeApiException(
-          message: '响应数据格式错误',
+          message: '响应数据格式错误: ${data.keys}',
           code: 'INVALID_RESPONSE',
         );
       }
 
       final result = data['Result'] as Map<String, dynamic>;
+      print('[TraeDashboardApi] Result keys: ${result.keys}');
       return TraeUserStats.fromJson(result);
     } on DioException catch (e) {
+      print('[TraeDashboardApi] DioException: ${e.message}, status: ${e.response?.statusCode}');
       if (e.response?.statusCode == 401) {
         throw TraeApiException(
           message: '登录已过期，请重新登录',
@@ -104,7 +114,9 @@ class TraeDashboardApi {
         message: '网络请求失败: ${e.message}',
         code: 'NETWORK_ERROR',
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[TraeDashboardApi] Error: $e');
+      print('[TraeDashboardApi] StackTrace: $stackTrace');
       throw TraeApiException(
         message: '获取统计数据失败: $e',
         code: 'UNKNOWN_ERROR',

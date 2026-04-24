@@ -1014,7 +1014,7 @@ class _ProfileHeader extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
-          if (isOwnProfile)
+          if (isOwnProfile) ...[
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -1022,7 +1022,19 @@ class _ProfileHeader extends StatelessWidget {
                 icon: const Icon(Icons.edit, size: 18),
                 label: const Text('编辑资料'),
               ),
-            )
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () {
+                  context.push(RoutePaths.traeDashboard);
+                },
+                icon: const Icon(Icons.dashboard_outlined, size: 18),
+                label: const Text('TRAE 仪表盘'),
+              ),
+            ),
+          ]
           else
             Row(
               children: [
