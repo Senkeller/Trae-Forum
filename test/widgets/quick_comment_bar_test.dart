@@ -108,9 +108,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authNotifierProvider.overrideWith(
-              (ref) => FakeAuthNotifier(isAuthenticated: true),
-            ),
+            isAuthenticatedProvider.overrideWith((ref) => true),
           ],
           child: MaterialApp(
             home: Scaffold(
@@ -137,9 +135,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authNotifierProvider.overrideWith(
-              (ref) => FakeAuthNotifier(isAuthenticated: false),
-            ),
+            isAuthenticatedProvider.overrideWith((ref) => false),
           ],
           child: MaterialApp(
             home: Scaffold(
@@ -170,9 +166,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authNotifierProvider.overrideWith(
-              (ref) => FakeAuthNotifier(isAuthenticated: false),
-            ),
+            isAuthenticatedProvider.overrideWith((ref) => false),
           ],
           child: MaterialApp(
             home: Scaffold(
@@ -205,9 +199,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authNotifierProvider.overrideWith(
-              (ref) => FakeAuthNotifier(isAuthenticated: false),
-            ),
+            isAuthenticatedProvider.overrideWith((ref) => false),
           ],
           child: MaterialApp(
             home: Scaffold(
@@ -361,28 +353,4 @@ void main() {
       expect(result, isFalse);
     });
   });
-}
-
-/// 伪造的 AuthNotifier 用于测试
-class FakeAuthNotifier extends AuthNotifier {
-  final bool isAuthenticated;
-
-  FakeAuthNotifier({required this.isAuthenticated});
-
-  @override
-  AsyncValue<UserInfo> build() {
-    if (isAuthenticated) {
-      return const AsyncData(
-        UserInfo(
-          uid: 'test_user',
-          username: '测试用户',
-          avatar: 'https://example.com/avatar.jpg',
-        ),
-      );
-    } else {
-      return const AsyncData(
-        UserInfo(uid: '', username: ''),
-      );
-    }
-  }
 }

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../user/user_avatar.dart';
 import '../../providers/auth_provider.dart';
-import '../../../config/routes.dart';
+import '../../../config/constants.dart';
 
 /// 快速评论栏组件
 ///

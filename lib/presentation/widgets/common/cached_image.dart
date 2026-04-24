@@ -92,22 +92,25 @@ class CachedImage extends StatelessWidget {
             ? Colors.grey[200]
             : Colors.grey[800]);
 
-    Widget imageWidget = CachedNetworkImage(
-      imageUrl: imageUrl,
-      width: width,
-      height: height,
-      fit: fit,
-      fadeInDuration: fadeInDuration,
-      fadeOutDuration: const Duration(milliseconds: 100),
-      // 内存缓存配置 - 限制内存占用
-      memCacheWidth: memCacheWidth,
-      memCacheHeight: memCacheHeight,
-      // 占位图 - 骨架屏效果
-      placeholder: (context, url) => _buildPlaceholder(placeholderBgColor!),
-      // 错误处理
-      errorWidget: (context, url, error) => _buildErrorWidget(colorScheme),
-      // 缓存管理配置
-      cacheManager: null, // 使用默认缓存管理器
+    // 使用 RepaintBoundary 优化重绘性能
+    Widget imageWidget = RepaintBoundary(
+      child: CachedNetworkImage(
+        imageUrl: imageUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        fadeInDuration: fadeInDuration,
+        fadeOutDuration: const Duration(milliseconds: 100),
+        // 内存缓存配置 - 限制内存占用
+        memCacheWidth: memCacheWidth,
+        memCacheHeight: memCacheHeight,
+        // 占位图 - 骨架屏效果
+        placeholder: (context, url) => _buildPlaceholder(placeholderBgColor!),
+        // 错误处理
+        errorWidget: (context, url, error) => _buildErrorWidget(colorScheme),
+        // 缓存管理配置
+        cacheManager: null, // 使用默认缓存管理器
+      ),
     );
 
     // 应用圆角或圆形裁剪
@@ -142,7 +145,12 @@ class CachedImage extends StatelessWidget {
       child: Container(
         width: width,
         height: height,
-        color: color,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: borderRadius != null && borderRadius! > 0
+              ? BorderRadius.circular(borderRadius!)
+              : null,
+        ),
       ),
     );
   }
@@ -154,7 +162,12 @@ class CachedImage extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      color: colorScheme.surfaceContainerHighest,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        borderRadius: borderRadius != null && borderRadius! > 0
+            ? BorderRadius.circular(borderRadius!)
+            : null,
+      ),
       child: Icon(
         errorIcon,
         color: colorScheme.onSurfaceVariant,

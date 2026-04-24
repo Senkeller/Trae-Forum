@@ -180,46 +180,77 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   /// 从页面提取用户信息
   Future<Map<String, dynamic>?> _extractUserInfo() async {
     try {
+      debugPrint('🔍 [WebViewLogin] 开始从页面提取用户信息...');
       // 执行 JavaScript 获取用户信息
       final result = await _controller.runJavaScriptReturningResult('''
         (function() {
-          // 尝试从页面获取用户信息
-          // Discourse 通常会在页面中暴露当前用户信息
-          if (typeof Discourse !== 'undefined' && Discourse.User) {
+          // 方法1: 尝试从 Discourse 全局对象获取当前用户信息
+          if (typeof Discourse !== 'undefined' && Discourse.User && Discourse.User.current && Discourse.User.current()) {
+            const user = Discourse.User.current();
             return JSON.stringify({
-              username: Discourse.User.currentProp('username'),
-              name: Discourse.User.currentProp('name'),
-              avatar_template: Discourse.User.currentProp('avatar_template'),
-              id: Discourse.User.currentProp('id')
+              username: user.username || '',
+              name: user.name || '',
+              id: user.id || ''
             });
           }
-          // 尝试从 meta 标签获取
+          // 方法2: 尝试从 meta 标签获取
           const metaUser = document.querySelector('meta[name=discourse-username]');
-          if (metaUser) {
+          if (metaUser && metaUser.content) {
             return JSON.stringify({
               username: metaUser.content
+            });
+          }
+          // 方法3: 尝试从 PreloadStore 获取
+          if (typeof PreloadStore !== 'undefined' && PreloadStore.data && PreloadStore.data.current_user) {
+            const user = PreloadStore.data.current_user;
+            return JSON.stringify({
+              username: user.username || '',
+              name: user.name || '',
+              id: user.id || ''
+            });
+          }
+          // 方法4: 尝试从页面中的当前用户菜单获取
+          const userMenu = document.querySelector('.user-menu .username');
+          if (userMenu && userMenu.textContent) {
+            return JSON.stringify({
+              username: userMenu.textContent.trim()
             });
           }
           return null;
         })()
       ''');
 
-      if (result.toString().isNotEmpty) {
+      debugPrint('🔍 [WebViewLogin] JavaScript 返回原始结果: $result');
+
+      if (result != null && result.toString().isNotEmpty && result.toString() != 'null') {
         // 解析结果
         final String resultStr = result.toString();
-        if (resultStr != 'null') {
-          // 移除 Dart 字符串的引号包裹
-          final cleanJson = resultStr
-              .replaceAll('"{"', '{"')
-              .replaceAll('"}"', '"}')
-              .replaceAll('""', '"');
-          debugPrint('提取到用户信息: $cleanJson');
-          // 这里简化处理，实际应该解析 JSON
-          return {'username': 'user'};
+        // 移除 Dart 字符串的外层引号
+        String cleanJson = resultStr;
+        if (cleanJson.startsWith('"') && cleanJson.endsWith('"')) {
+          cleanJson = cleanJson.substring(1, cleanJson.length - 1);
+        }
+        // 处理转义的引号
+        cleanJson = cleanJson.replaceAll('\\"', '"');
+
+        debugPrint('✅ [WebViewLogin] 提取到用户信息 JSON: $cleanJson');
+
+        // 简单解析 JSON
+        if (cleanJson.contains('username')) {
+          // 提取 username 值
+          final usernameMatch = RegExp(r'"username":"([^"]*)"').firstMatch(cleanJson);
+          if (usernameMatch != null) {
+            final username = usernameMatch.group(1) ?? '';
+            if (username.isNotEmpty) {
+              debugPrint('✅ [WebViewLogin] 解析到用户名: $username');
+              return {'username': username};
+            }
+          }
         }
       }
+      debugPrint('⚠️ [WebViewLogin] 未能从页面提取到有效用户信息');
     } catch (e) {
-      debugPrint('提取用户信息失败: $e');
+      debugPrint('❌ [WebViewLogin] 提取用户信息失败: $e');
     }
     return null;
   }

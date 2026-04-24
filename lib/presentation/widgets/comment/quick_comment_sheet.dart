@@ -278,8 +278,8 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
           maxHeight: 120,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceVariant.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12),
+          color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
         ),
         child: TextField(
           controller: _controller,
@@ -382,8 +382,8 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
         decoration: BoxDecoration(
           color: _hasContent && !_isLoading
               ? colorScheme.primary
-              : colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(20),
+              : colorScheme.surfaceContainerHighest,
+          borderRadius: const BorderRadius.all(Radius.circular(20)),
         ),
         child: _isLoading
             ? SizedBox(
