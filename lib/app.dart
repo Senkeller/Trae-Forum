@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:path_provider/path_provider.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
-import 'data/models/user_activity.dart';
 
 /// 应用入口
 class MyApp extends StatefulWidget {

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:traeu/presentation/widgets/feed/quick_comment_bar.dart';
 import 'package:traeu/presentation/providers/auth_provider.dart';
-import 'package:traeu/data/models/user.dart';
 
 /// QuickCommentBar Widget 测试
 ///
@@ -227,8 +225,6 @@ void main() {
   group('QuickCommentBar 登录弹窗测试', () {
     /// 测试目的：验证登录弹窗静态方法
     testWidgets('showLoginDialog 应正确显示登录弹窗', (WidgetTester tester) async {
-      Future<bool>? dialogResult;
-
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -236,7 +232,7 @@ void main() {
               builder: (context) {
                 return ElevatedButton(
                   onPressed: () {
-                    dialogResult = QuickCommentBar.showLoginDialog(context);
+                    QuickCommentBar.showLoginDialog(context);
                   },
                   child: const Text('Show Dialog'),
                 );

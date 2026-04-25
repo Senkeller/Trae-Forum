@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traeu/data/models/feed.dart';
-import 'package:traeu/data/models/user.dart';
 
 /// Feed 模型单元测试
 ///

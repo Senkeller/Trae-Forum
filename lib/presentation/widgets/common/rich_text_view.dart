@@ -347,7 +347,6 @@ class SimpleRichText extends StatelessWidget {
     String text,
     TextStyle? baseStyle,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
     final spans = <InlineSpan>[];
 
     // 正则表达式匹配 URL、@用户、#话题#

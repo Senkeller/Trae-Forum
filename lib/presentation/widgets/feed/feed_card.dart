@@ -4,7 +4,6 @@ import '../common/cached_image.dart';
 import '../common/loading_widget.dart';
 import '../user/user_name.dart';
 import '../user/follow_button.dart';
-import '../user/user_avatar.dart';
 import '../comment/quick_comment_sheet.dart';
 import 'feed_author.dart';
 import 'feed_content.dart';

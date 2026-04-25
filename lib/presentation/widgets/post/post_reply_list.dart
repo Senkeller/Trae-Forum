@@ -398,7 +398,6 @@ class PostReplyItem extends StatelessWidget {
   /// 构建操作栏
   Widget _buildActionBar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     return Row(
       children: [

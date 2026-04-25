@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/auth_provider.dart';
 
 /// 主页面顶部标题区域（头像 + 搜索）。
@@ -19,43 +20,56 @@ class MainTopAppBarTitle extends ConsumerWidget {
       height: 40,
       child: Row(
         children: [
-          GestureDetector(
+          InkWell(
             onTap: () {
-              if (currentUser != null) {
-                context.push('/profile/${currentUser.uid}');
+              HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+
+              if (currentUser != null &&
+                  (currentUser.uid.isNotEmpty ||
+                      currentUser.username.isNotEmpty)) {
+                final profileId = currentUser.username.isNotEmpty
+                    ? currentUser.username
+                    : currentUser.uid;
+                context.push(
+                  RoutePaths.userProfile.replaceFirst(':uid', profileId),
+                );
               } else {
                 context.push(RoutePaths.login);
               }
             },
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.primaryContainer,
-              ),
-              child: ClipOval(
-                child:
-                    currentUser?.avatar != null &&
-                        currentUser!.avatar!.isNotEmpty
-                    ? Image.network(
-                        currentUser.avatar!,
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.person,
-                            size: 20,
-                            color: colorScheme.onPrimaryContainer,
-                          );
-                        },
-                      )
-                    : Icon(
-                        Icons.person,
-                        size: 20,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colorScheme.primaryContainer,
+                ),
+                child: ClipOval(
+                  child:
+                      currentUser?.avatar != null &&
+                          currentUser!.avatar!.isNotEmpty
+                      ? Image.network(
+                          currentUser.avatar!,
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.person,
+                              size: 20,
+                              color: colorScheme.onPrimaryContainer,
+                            );
+                          },
+                        )
+                      : Icon(
+                          Icons.person,
+                          size: 20,
+                          color: colorScheme.onPrimaryContainer,
+                        ),
+                ),
               ),
             ),
           ),

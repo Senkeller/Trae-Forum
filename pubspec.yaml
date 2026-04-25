@@ -55,6 +55,9 @@ dependencies:
   # 富文本渲染
   flutter_html: ^3.0.0-beta.2
 
+  # HTML 解析
+  html: ^0.15.4
+
   # WebView
   webview_flutter: ^4.8.0
   webview_flutter_android: ^3.16.8

@@ -5,7 +5,6 @@ import 'package:integration_test/integration_test.dart';
 import 'package:traeu/app.dart';
 import 'package:traeu/presentation/widgets/feed/featured_comment.dart';
 import 'package:traeu/presentation/widgets/feed/quick_comment_bar.dart';
-import 'package:traeu/presentation/widgets/feed/feed_content.dart';
 import 'package:traeu/presentation/widgets/feed/feed_card.dart';
 import 'package:traeu/presentation/providers/auth_provider.dart';
 import 'package:traeu/data/models/user.dart';
