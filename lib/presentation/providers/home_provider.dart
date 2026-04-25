@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../config/constants.dart';
@@ -19,6 +18,7 @@ enum FeedType {
   tips,
   showcase,
   discussion,
+  welfare,
   events,
 }
 
@@ -32,6 +32,7 @@ const List<FeedType> homeFeedTabs = [
   FeedType.tips,
   FeedType.showcase,
   FeedType.discussion,
+  FeedType.welfare,
   FeedType.events,
 ];
 
@@ -45,17 +46,22 @@ const Map<FeedType, String> homeFeedTabLabels = {
   FeedType.tips: '技巧',
   FeedType.showcase: '作品',
   FeedType.discussion: '交流',
+  FeedType.welfare: '福利活动',
   FeedType.events: '活动',
 };
 
 const Map<int, String> _categoryLabelById = {
   4: 'Official',
+  17: '产品更新',
+  18: '模型更新',
+  19: '政策公告',
+  20: '社区动态',
   7: 'Help',
   8: 'Suggestions',
   9: 'Tips',
   10: 'Showcase',
   11: 'Discussion',
-  29: 'Events',
+  29: '福利活动',
   35: 'Events',
 };
 
@@ -464,31 +470,7 @@ class HomeNotifier extends _$HomeNotifier {
           );
         }
       case FeedType.official:
-        debugPrint(
-          '🏛️ [HomeProvider] 获取官方公告，分类ID: ${AppConstants.forumCategoryIds['official']}, page: $page',
-        );
-        final response = await _discourseApiService.getTopicsByCategory(
-          AppConstants.forumCategoryIds['official']!,
-          page: page,
-        );
-        debugPrint('🏛️ [HomeProvider] 官方公告API响应状态: ${response.statusCode}');
-        debugPrint(
-          '🏛️ [HomeProvider] 官方公告API响应数据类型: ${response.data.runtimeType}',
-        );
-
-        final raw = response.data;
-        final data = raw is Map<String, dynamic>
-            ? raw
-            : Map<String, dynamic>.from(raw as Map);
-        final topicListMap = data['topic_list'] as Map<String, dynamic>?;
-        final topics = topicListMap?['topics'] as List<dynamic>?;
-        debugPrint('🏛️ [HomeProvider] 官方公告话题数量: ${topics?.length ?? 0}');
-
-        if (topics != null && topics.isNotEmpty) {
-          debugPrint('🏛️ [HomeProvider] 第一个话题标题: ${topics.first['title']}');
-        }
-
-        return _fetchFromResponse(response);
+        return _fetchOfficial(page);
       case FeedType.help:
         return _fetchFromResponse(
           await _discourseApiService.getTopicsByCategory(
@@ -524,6 +506,13 @@ class HomeNotifier extends _$HomeNotifier {
             page: page,
           ),
         );
+      case FeedType.welfare:
+        return _fetchFromResponse(
+          await _discourseApiService.getTopicsByCategory(
+            AppConstants.forumCategoryIds['events']!,
+            page: page,
+          ),
+        );
       case FeedType.events:
         return _fetchEvents(page);
     }
@@ -556,6 +545,41 @@ class HomeNotifier extends _$HomeNotifier {
           )?.compareTo(int.tryParse(a.createTime) ?? 0) ??
           0,
     );
+    return merged;
+  }
+
+  Future<List<FeedItem>> _fetchOfficial(int page) async {
+    // Discourse 分类列表分页从 0 开始，首页刷新使用 page=1 时需要映射到 0。
+    final discoursePage = page > 0 ? page - 1 : 0;
+
+    final responses = await Future.wait(
+      AppConstants.officialSubCategoryIds.map(
+        (categoryId) => _discourseApiService.getTopicsByCategory(
+          categoryId,
+          page: discoursePage,
+        ),
+      ),
+    );
+
+    final merged = <FeedItem>[];
+    final seen = <String>{};
+
+    for (final response in responses) {
+      for (final item in _fetchFromResponse(response)) {
+        if (seen.add(item.id)) {
+          merged.add(item);
+        }
+      }
+    }
+
+    merged.sort(
+      (a, b) =>
+          int.tryParse(
+            b.createTime,
+          )?.compareTo(int.tryParse(a.createTime) ?? 0) ??
+          0,
+    );
+
     return merged;
   }
 

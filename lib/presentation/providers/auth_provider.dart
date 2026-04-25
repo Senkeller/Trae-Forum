@@ -76,30 +76,71 @@ class AuthNotifier extends _$AuthNotifier {
         return null;
       }
 
-      // forum.trae.cn 的 /session/current.json 返回 404，改用 notifications 探活
+      final sessionUser = await _fetchCurrentSessionUser();
+      if (sessionUser != null) {
+        await _saveUserInfo(sessionUser);
+        return sessionUser;
+      }
+
+      // 兜底探活：会话可用但当前接口未返回用户详情时，不写入占位用户名，避免污染展示。
       final probe = await _discourseApiService.getNotifications(
         limit: 1,
         recent: true,
         bumpLastSeen: false,
       );
-      if (probe.statusCode != 200) {
-        return null;
+      if (probe.statusCode == 200) {
+        debugPrint('⚠️ [AuthNotifier] 会话可用但未获取到用户名，保留未登录展示避免脏数据');
       }
-
-      // 若仅凭 Cookie 无法拿到用户详情，也先恢复成“已登录占位用户”，
-      // 避免重启后页面误判为未登录。
-      final userInfo = UserInfo(
-        uid: 'discourse_session',
-        username: '用户',
-        avatar: '',
-      );
-
-      await _saveUserInfo(userInfo);
-      return userInfo;
+      return null;
     } catch (e) {
       debugPrint('⚠️ [AuthNotifier] Discourse 会话恢复失败: $e');
       return null;
     }
+  }
+
+  Future<UserInfo?> _fetchCurrentSessionUser() async {
+    try {
+      final response = await _discourseApiService.getCurrentSession();
+      final data = response.data;
+      if (response.statusCode != 200 || data is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final currentUser = data['current_user'];
+      if (currentUser is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final username = (currentUser['username']?.toString() ?? '').trim();
+      if (username.isEmpty) {
+        return null;
+      }
+
+      final uid = (currentUser['id']?.toString() ?? username).trim();
+      final avatarTemplate = (currentUser['avatar_template']?.toString() ?? '')
+          .trim();
+      final avatar = avatarTemplate.isNotEmpty
+          ? _formatAvatarUrl(username, avatarTemplate)
+          : '';
+
+      return UserInfo(uid: uid, username: username, avatar: avatar);
+    } catch (e) {
+      debugPrint('⚠️ [AuthNotifier] 获取当前会话用户失败: $e');
+      return null;
+    }
+  }
+
+  String _formatAvatarUrl(String username, String avatarTemplate) {
+    var url = avatarTemplate.replaceAll('{size}', '120');
+    if (url.startsWith('//')) {
+      url = 'https:$url';
+    } else if (url.startsWith('/')) {
+      url = 'https://forum.trae.cn$url';
+    } else if (!url.startsWith('http')) {
+      url =
+          'https://forum.trae.cn/user_avatar/forum.trae.cn/$username/120/0_2.png';
+    }
+    return url;
   }
 
   /// 保存用户信息到本地存储

@@ -320,13 +320,13 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       );
     }
 
-    // 获取用户名（从 WebView 或传入的参数）
-    String username = '用户';
-    String userId = 'webview_user';
+    // 获取用户名（优先：显式提取 -> 会话接口 -> 页面JS）
+    String username = '';
+    String userId = '';
     String avatar = '';
 
     if (userInfo != null && userInfo['username'] != null) {
-      username = userInfo['username'].toString();
+      username = userInfo['username'].toString().trim();
       final id = userInfo['id']?.toString();
       if (id != null && id.isNotEmpty) {
         userId = id;
@@ -334,7 +334,19 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         userId = username;
       }
       debugPrint('✅ [WebViewLogin] 从 userInfo 获取用户名: $username');
-    } else {
+    }
+
+    if (username.isEmpty) {
+      final sessionUser = await _fetchCurrentSessionUser();
+      if (sessionUser != null) {
+        username = sessionUser.username;
+        userId = sessionUser.uid;
+        avatar = sessionUser.avatar ?? '';
+        debugPrint('✅ [WebViewLogin] 从 session/current.json 获取用户名: $username');
+      }
+    }
+
+    if (username.isEmpty) {
       // 尝试从 Cookie 或页面获取用户名
       try {
         debugPrint('🔍 [WebViewLogin] 尝试从页面获取用户名...');
@@ -362,11 +374,17 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           userId = username;
           debugPrint('✅ [WebViewLogin] 解析后的用户名: $username');
         } else {
-          debugPrint('⚠️ [WebViewLogin] JavaScript 返回为空，使用默认用户名');
+          debugPrint('⚠️ [WebViewLogin] JavaScript 返回为空');
         }
       } catch (e) {
         debugPrint('❌ [WebViewLogin] 获取用户名失败: $e');
       }
+    }
+
+    if (username.isEmpty) {
+      username = '用户';
+      userId = 'webview_user';
+      debugPrint('⚠️ [WebViewLogin] 未获取到用户名，回退到占位用户');
     }
 
     // 创建用户信息对象并保存
@@ -399,6 +417,52 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         context.go(RoutePaths.main);
       }
     }
+  }
+
+  Future<UserInfo?> _fetchCurrentSessionUser() async {
+    try {
+      final response = await ref
+          .read(discourseApiServiceProvider)
+          .getCurrentSession();
+      final data = response.data;
+      if (response.statusCode != 200 || data is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final currentUser = data['current_user'];
+      if (currentUser is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final username = (currentUser['username']?.toString() ?? '').trim();
+      if (username.isEmpty) {
+        return null;
+      }
+      final uid = (currentUser['id']?.toString() ?? username).trim();
+      final avatarTemplate = (currentUser['avatar_template']?.toString() ?? '')
+          .trim();
+      final avatar = avatarTemplate.isNotEmpty
+          ? _formatAvatarUrl(username, avatarTemplate)
+          : '';
+
+      return UserInfo(uid: uid, username: username, avatar: avatar);
+    } catch (e) {
+      debugPrint('⚠️ [WebViewLogin] 读取 session/current.json 失败: $e');
+      return null;
+    }
+  }
+
+  String _formatAvatarUrl(String username, String avatarTemplate) {
+    var url = avatarTemplate.replaceAll('{size}', '120');
+    if (url.startsWith('//')) {
+      url = 'https:$url';
+    } else if (url.startsWith('/')) {
+      url = 'https://forum.trae.cn$url';
+    } else if (!url.startsWith('http')) {
+      url =
+          'https://forum.trae.cn/user_avatar/forum.trae.cn/$username/120/0_2.png';
+    }
+    return url;
   }
 
   @override

@@ -14,6 +14,14 @@ DiscourseApiService discourseApiService(Ref ref) {
 
 class DiscourseApiService {
   static const String _baseUrl = 'https://forum.trae.cn';
+  static const Map<int, String> _categoryPathById = {
+    4: 'c/4-category/4',
+    17: 'c/4-category/17-category/17',
+    18: 'c/4-category/18-category/18',
+    19: 'c/4-category/19-category/19',
+    20: 'c/4-category/20-category/20',
+    29: 'c/29-category/29',
+  };
   final Dio _dio;
 
   DiscourseApiService() : _dio = DioClient.dio;
@@ -23,8 +31,7 @@ class DiscourseApiService {
   }
 
   Future<Response> getTopicsByCategory(int categoryId, {int page = 0}) async {
-    // 官方公告分类使用特殊路径 /c/4-category/4
-    final path = categoryId == 4 ? 'c/4-category/4' : 'c/$categoryId';
+    final path = _categoryPathById[categoryId] ?? 'c/$categoryId';
     return _dio.get('$_baseUrl/$path.json', queryParameters: {'page': page});
   }
 

@@ -21,6 +21,10 @@ class AppConstants {
   // TRAE 论坛分类 ID 映射
   static const Map<String, int> forumCategoryIds = {
     'official': 4, // 官方公告
+    'officialProductUpdates': 17, // 官方/产品更新
+    'officialModelUpdates': 18, // 官方/模型更新
+    'officialPolicyAnnouncements': 19, // 官方/政策公告
+    'officialCommunityNews': 20, // 官方/社区动态
     'help': 7, // 帮助与支持
     'suggestions': 8, // 产品建议
     'tips': 9, // 技巧分享
@@ -30,6 +34,8 @@ class AppConstants {
     'partners': 33, // 社区伙伴
     'solo': 35, // SOLO挑战赛专区
   };
+
+  static const List<int> officialSubCategoryIds = [17, 18, 19, 20];
 
   // 分页配置
   static const int pageSize = 20;

@@ -64,6 +64,7 @@ class TraeCookieManager {
   ///
   /// 返回是否成功获取到任意 Cookie
   static Future<bool> syncCookiesFromNativeBridge() async {
+    final mergedCookies = <String, String>{};
     var hasAny = false;
 
     for (final url in _traeCookieUrls) {
@@ -74,7 +75,7 @@ class TraeCookieManager {
         final cookies = _parseCookieString(cookieString);
         if (cookies.isEmpty) continue;
 
-        await _saveCookies(cookies);
+        mergedCookies.addAll(cookies);
         hasAny = true;
         print('✅ [TraeCookieManager] 从 NativeBridge 同步 Cookie 成功: $url');
       } catch (e) {
@@ -82,6 +83,11 @@ class TraeCookieManager {
           '⚠️ [TraeCookieManager] 从 NativeBridge 同步 Cookie 失败: $url, error=$e',
         );
       }
+    }
+
+    // 用最新抓取结果覆盖本地缓存，避免旧账号 Cookie 残留导致串号。
+    if (mergedCookies.isNotEmpty) {
+      await _replaceCookies(mergedCookies);
     }
 
     return hasAny;
@@ -145,6 +151,20 @@ class TraeCookieManager {
     print(
       '🔍 [TraeCookieManager] 关键 Cookie 检查: sessionid=${cookies.containsKey('sessionid')}, ttwid=${cookies.containsKey('ttwid')}',
     );
+  }
+
+  /// 全量替换 Cookie 集合
+  ///
+  /// 会先清理本地已有 Trae Cookie，再写入最新抓取到的 Cookie。
+  static Future<void> _replaceCookies(Map<String, String> cookies) async {
+    final prefs = await SharedPreferences.getInstance();
+    final oldKeys = prefs.getKeys().where(
+      (k) => k.startsWith(_prefix) && k != '${_prefix}saved_at',
+    );
+    for (final key in oldKeys) {
+      await prefs.remove(key);
+    }
+    await _saveCookies(cookies);
   }
 
   /// 获取指定名称的 Cookie 值

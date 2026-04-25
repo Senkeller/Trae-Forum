@@ -114,6 +114,8 @@ class _HomePageState extends ConsumerState<HomePage>
         return AppConstants.forumCategoryIds['showcase'];
       case FeedType.discussion:
         return AppConstants.forumCategoryIds['discussion'];
+      case FeedType.welfare:
+        return AppConstants.forumCategoryIds['events'];
       case FeedType.events:
         return AppConstants.forumCategoryIds['events'];
       case FeedType.recommended:
@@ -191,6 +193,14 @@ class _HomePageState extends ConsumerState<HomePage>
 }
 
 class _FeedListView extends ConsumerWidget {
+  static const List<int> _officialSectionOrder = [17, 18, 19, 20];
+  static const Map<int, String> _officialSectionTitles = {
+    17: '产品更新',
+    18: '模型更新',
+    19: '政策公告',
+    20: '社区动态',
+  };
+
   final int tabIndex;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onLoading;
@@ -213,6 +223,7 @@ class _FeedListView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedType = homeFeedTabs[tabIndex];
+    final isOfficialTab = feedType == FeedType.official;
     final tabState = ref.watch(
       homeNotifierProvider.select(
         (homeState) => homeState.tabStates[feedType] ?? const TabFeedState(),
@@ -244,7 +255,6 @@ class _FeedListView extends ConsumerWidget {
     }
 
     if (feedList.isEmpty) {
-      final isOfficialTab = feedType == FeedType.official;
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -271,6 +281,9 @@ class _FeedListView extends ConsumerWidget {
       );
     }
 
+    final officialRows = isOfficialTab ? _buildOfficialRows(feedList) : null;
+    final contentCount = isOfficialTab ? officialRows!.length : feedList.length;
+
     return SmartRefresher(
       controller: refreshController,
       enablePullDown: true,
@@ -290,7 +303,7 @@ class _FeedListView extends ConsumerWidget {
       child: ListView.builder(
         controller: scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: feedList.length + (showBanner ? 1 : 0),
+        itemCount: contentCount + (showBanner ? 1 : 0),
         cacheExtent: 250,
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
@@ -303,6 +316,24 @@ class _FeedListView extends ConsumerWidget {
 
           // 计算实际的feed索引
           final feedIndex = showBanner ? index - 1 : index;
+          if (isOfficialTab) {
+            final row = officialRows![feedIndex];
+            if (row.isHeader) {
+              return _OfficialSectionHeader(title: row.headerTitle!);
+            }
+
+            final rowFeed = row.feed!;
+            return RepaintBoundary(
+              child: _FeedCard(
+                key: ValueKey('${feedType.name}_${rowFeed.id}'),
+                feed: rowFeed,
+                onTap: () {
+                  context.push('/feed/${rowFeed.id}');
+                },
+              ),
+            );
+          }
+
           final feed = feedList[feedIndex];
 
           return RepaintBoundary(
@@ -319,12 +350,93 @@ class _FeedListView extends ConsumerWidget {
     );
   }
 
+  List<_OfficialFeedRow> _buildOfficialRows(List<FeedItem> feedList) {
+    final grouped = <int, List<FeedItem>>{
+      for (final categoryId in _officialSectionOrder) categoryId: <FeedItem>[],
+    };
+    final others = <FeedItem>[];
+
+    for (final feed in feedList) {
+      final bucket = grouped[feed.categoryId];
+      if (bucket != null) {
+        bucket.add(feed);
+      } else {
+        others.add(feed);
+      }
+    }
+
+    final rows = <_OfficialFeedRow>[];
+    for (final categoryId in _officialSectionOrder) {
+      final sectionFeeds = grouped[categoryId]!;
+      if (sectionFeeds.isEmpty) continue;
+
+      rows.add(
+        _OfficialFeedRow.header(_officialSectionTitles[categoryId] ?? '官方'),
+      );
+      rows.addAll(sectionFeeds.map(_OfficialFeedRow.feed));
+    }
+
+    if (others.isNotEmpty) {
+      rows.add(const _OfficialFeedRow.header('其他官方内容'));
+      rows.addAll(others.map(_OfficialFeedRow.feed));
+    }
+
+    return rows;
+  }
+
   /// 构建骨架屏列表
   Widget _buildSkeletonList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: 5,
       itemBuilder: (context, index) => const _FeedSkeletonCard(),
+    );
+  }
+}
+
+class _OfficialFeedRow {
+  final String? headerTitle;
+  final FeedItem? feed;
+
+  const _OfficialFeedRow._({this.headerTitle, this.feed});
+  const _OfficialFeedRow.header(String title) : this._(headerTitle: title);
+  const _OfficialFeedRow.feed(FeedItem item) : this._(feed: item);
+
+  bool get isHeader => headerTitle != null;
+}
+
+class _OfficialSectionHeader extends StatelessWidget {
+  final String title;
+
+  const _OfficialSectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 16,
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

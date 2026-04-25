@@ -164,6 +164,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     final profile = userState.profile;
     final summary = ref.watch(userStatsSummaryProvider).valueOrNull;
     final registerDays = summary?.registerDays ?? 1;
+    final displayName = _resolveDisplayName(user.username, summary?.screenName);
 
     return Container(
       decoration: BoxDecoration(
@@ -211,7 +212,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hello! ${user.username}',
+                      'Hello! $displayName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -304,6 +305,23 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
         ],
       ),
     );
+  }
+
+  String _resolveDisplayName(String username, String? dashboardScreenName) {
+    final name = username.trim();
+    if (name.isNotEmpty &&
+        name != '用户' &&
+        name != 'discourse_session' &&
+        name != '-') {
+      return name;
+    }
+
+    final dashboardName = dashboardScreenName?.trim() ?? '';
+    if (dashboardName.isNotEmpty) {
+      return dashboardName;
+    }
+
+    return name.isNotEmpty ? name : '用户';
   }
 
   /// 未登录用户卡片
