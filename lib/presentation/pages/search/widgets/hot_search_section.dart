@@ -25,39 +25,61 @@ class HotSearchSection extends ConsumerWidget {
           children: [
             Text(
               '热门搜索',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
             ),
-            IconButton(
-              icon: const Icon(Icons.refresh, size: 20),
-              onPressed: () {
+            InkWell(
+              onTap: () {
                 ref.read(searchNotifierProvider.notifier).loadHotSearches();
               },
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.refresh,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         // 热门搜索标签
         if (searchState.isLoadingHotSearches)
           const Center(
             child: Padding(
-              padding: EdgeInsets.all(16),
-              child: CircularProgressIndicator(),
+              padding: EdgeInsets.all(12),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             ),
           )
         else if (searchState.hotSearches.isEmpty)
-          const Text('暂无热门搜索')
+          Text(
+            '暂无热门搜索',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+          )
         else
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 6,
             children: searchState.hotSearches.map((keyword) {
               return ActionChip(
-                avatar: const Icon(Icons.trending_up, size: 16),
-                label: Text(keyword),
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                avatar: const Icon(Icons.trending_up, size: 14),
+                label: Text(
+                  keyword,
+                  style: const TextStyle(fontSize: 12),
+                ),
                 onPressed: () => onSearch(keyword),
-                backgroundColor: colorScheme.secondaryContainer.withOpacity(0.5),
+                backgroundColor: colorScheme.secondaryContainer.withValues(alpha: 0.5),
               );
             }).toList(),
           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../config/routes.dart';
 import '../../../providers/search_provider.dart';
 
 /// 榜单区域组件
@@ -23,7 +22,7 @@ class RankingSection extends ConsumerWidget {
             children: RankingType.values.map((type) {
               final isSelected = searchState.rankingType == type;
               return Padding(
-                padding: const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.only(right: 12),
                 child: InkWell(
                   onTap: () {
                     ref.read(searchNotifierProvider.notifier).setRankingType(type);
@@ -33,21 +32,21 @@ class RankingSection extends ConsumerWidget {
                       Text(
                         _getRankingTypeName(type),
                         style: TextStyle(
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                           color: isSelected
                               ? colorScheme.primary
                               : colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       if (isSelected)
                         Container(
-                          width: 20,
-                          height: 3,
+                          width: 16,
+                          height: 2,
                           decoration: BoxDecoration(
                             color: colorScheme.primary,
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: BorderRadius.circular(1),
                           ),
                         ),
                     ],
@@ -57,27 +56,36 @@ class RankingSection extends ConsumerWidget {
             }).toList(),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 8),
         // 榜单内容
         if (searchState.isLoadingRanking)
           const Center(
             child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
+              padding: EdgeInsets.all(20),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             ),
           )
         else if (searchState.rankingTopics.isEmpty)
-          const Center(
+          Center(
             child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Text('暂无榜单数据'),
+              padding: const EdgeInsets.all(20),
+              child: Text(
+                '暂无榜单数据',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              ),
             ),
           )
         else
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: searchState.rankingTopics.length,
+            itemCount: searchState.rankingTopics.take(20).length,
             itemBuilder: (context, index) {
               final topic = searchState.rankingTopics[index];
               return _RankingListItem(
@@ -133,29 +141,29 @@ class _RankingListItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         child: Row(
           children: [
             // 排名
             Container(
-              width: 28,
-              height: 28,
+              width: 22,
+              height: 22,
               decoration: BoxDecoration(
-                color: topic.rank <= 3 ? rankColor.withOpacity(0.1) : null,
-                borderRadius: BorderRadius.circular(4),
+                color: topic.rank <= 3 ? rankColor.withValues(alpha: 0.1) : null,
+                borderRadius: BorderRadius.circular(3),
               ),
               child: Center(
                 child: Text(
                   '${topic.rank}',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: rankColor,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             // 内容
             Expanded(
               child: Column(
@@ -164,20 +172,20 @@ class _RankingListItem extends StatelessWidget {
                   Text(
                     topic.title,
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       if (topic.categoryName.isNotEmpty)
                         Text(
                           topic.categoryName,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
@@ -185,34 +193,20 @@ class _RankingListItem extends StatelessWidget {
                         Text(
                           ' · ',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
                       Icon(
                         Icons.comment_outlined,
-                        size: 12,
+                        size: 11,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 2),
                       Text(
                         '${topic.replyCount}',
                         style: TextStyle(
-                          fontSize: 12,
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Icon(
-                        Icons.visibility_outlined,
-                        size: 12,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${topic.views}',
-                        style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
@@ -226,14 +220,14 @@ class _RankingListItem extends StatelessWidget {
               children: [
                 Icon(
                   Icons.local_fire_department,
-                  size: 16,
+                  size: 14,
                   color: Colors.orange[400],
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 2),
                 Text(
                   _formatHeatValue(topic.heatValue),
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     color: Colors.orange[400],
                     fontWeight: FontWeight.w500,
                   ),

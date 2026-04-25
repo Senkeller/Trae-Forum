@@ -120,7 +120,7 @@ final homeErrorMessageProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef HomeErrorMessageRef = AutoDisposeProviderRef<String?>;
-String _$homeNotifierHash() => r'626bfb5808b7dbc1cb64710ba222b645de34a020';
+String _$homeNotifierHash() => r'cf45a5f319cbefd2e0b731f62a2cd54556a09595';
 
 /// 首页状态 Notifier
 ///

@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../config/constants.dart';
 import '../../core/network/discourse_api_service.dart';
+import '../../core/recommendation/recommendation_engine.dart';
 import '../../data/models/feed.dart';
 
 part 'home_provider.g.dart';
@@ -307,10 +308,12 @@ class HomeState {
 @riverpod
 class HomeNotifier extends _$HomeNotifier {
   late DiscourseApiService _discourseApiService;
+  late RecommendationEngine _recommendationEngine;
 
   @override
   HomeState build() {
     _discourseApiService = ref.read(discourseApiServiceProvider);
+    _recommendationEngine = RecommendationEngine(_discourseApiService);
     return const HomeState();
   }
 
@@ -452,8 +455,10 @@ class HomeNotifier extends _$HomeNotifier {
   Future<List<FeedItem>> _fetchFeedItems(FeedType type, int page) async {
     switch (type) {
       case FeedType.recommended:
-        return _fetchFromResponse(
-          await _discourseApiService.getLatestTopics(page: page),
+        // 使用推荐引擎获取混合推荐内容
+        return _recommendationEngine.getRecommendedFeeds(
+          page: page,
+          pageSize: AppConstants.pageSize,
         );
       case FeedType.latest:
         return _fetchFromResponse(

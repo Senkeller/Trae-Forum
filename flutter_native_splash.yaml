@@ -3,20 +3,24 @@
 #
 # 使用方法:
 # 1. 配置此文件
-# 2. 运行: flutter pub run flutter_native_splash:create
-# 3. 如需移除: flutter pub run flutter_native_splash:remove
+# 2. 运行: dart run flutter_native_splash:create
+# 3. 如需移除: dart run flutter_native_splash:remove
 
 flutter_native_splash:
-  # 背景颜色 (必需)
-  color: "#2196F3"
+  # 背景颜色 (必需) - 使用深蓝作为基础色
+  color: "#0F172A"
 
-  # 背景图片 (可选，会覆盖 color)
-  # background_image: "assets/icons/splash_background.png"
+  # 背景图片 (可选，会覆盖 color) - 使用渐变背景
+  background_image: "assets/icons/splash_background.png"
 
-  # 启动页图片 (可选)
-  image: "assets/icons/app_icon.png"
+  # 启动页图片 (可选) - 使用高分辨率图标
+  image: "assets/icons/splash_icon_xxxhdpi.png"
 
   # 图片模式: contain, cover, stretch, center, repeat
+  # contain - 保持比例，完整显示
+  # cover - 保持比例，填充屏幕
+  # stretch - 拉伸填充
+  # center - 居中显示
   android_gravity: center
   ios_content_mode: center
 
@@ -26,17 +30,20 @@ flutter_native_splash:
   # Android 12+ 配置
   android_12:
     # Android 12+ 使用原生 Splash API
-    image: "assets/icons/app_icon.png"
-    icon_background_color: "#2196F3"
-    # 品牌图片 (显示在底部)
+    # 主图标 - 使用高分辨率版本
+    image: "assets/icons/app_icon_2k.png"
+
+    # 图标背景色
+    icon_background_color: "#0F172A"
+
+    # 品牌图片 (显示在底部) - 可选
     # branding: "assets/icons/branding.png"
     # branding_mode: bottom
 
   # Web 配置
   web: false
 
-  # 颜色配置
-  color_dark: "#1565C0" # 深色模式背景色
-  image_dark: "assets/icons/app_icon.png" # 深色模式图片
-  android_gravity_dark: center
-  ios_content_mode_dark: center
+  # 深色模式配置
+  color_dark: "#0F172A"
+  background_image_dark: "assets/icons/splash_background.png"
+  image_dark: "assets/icons/splash_icon_xxxhdpi.png"

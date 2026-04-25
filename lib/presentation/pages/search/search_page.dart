@@ -270,49 +270,66 @@ class _SearchBody extends StatelessWidget {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 搜索历史
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '搜索历史',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
               ),
               if (state.searchHistory.isNotEmpty)
-                TextButton.icon(
-                  onPressed: onClearHistory,
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('清除'),
+                InkWell(
+                  onTap: onClearHistory,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           if (state.searchHistory.isEmpty)
-            const Text('暂无搜索历史，输入关键词后会自动保存')
+            Text(
+              '暂无搜索历史',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            )
           else
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 6,
+              runSpacing: 6,
               children: state.searchHistory.map((keyword) {
-                return InputChip(
-                  avatar: const Icon(Icons.history, size: 16),
-                  label: Text(keyword),
+                return ActionChip(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  avatar: const Icon(Icons.history, size: 14),
+                  label: Text(
+                    keyword,
+                    style: const TextStyle(fontSize: 12),
+                  ),
                   onPressed: () => onHistoryTap(keyword),
-                  onDeleted: () => onDeleteHistoryItem(keyword),
                 );
               }).toList(),
             ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           // 热门搜索
           HotSearchSection(
             onSearch: onSearch,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           // 榜单区域
           const RankingSection(),
         ],
