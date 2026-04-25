@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../data/adapters/discourse_adapter.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 
 class UserEditPage extends ConsumerStatefulWidget {
   const UserEditPage({super.key});
@@ -16,16 +18,10 @@ class _UserEditPageState extends ConsumerState<UserEditPage> {
   final TextEditingController _nicknameController = TextEditingController();
   final TextEditingController _bioController = TextEditingController();
 
-  bool _isLoading = false;
   bool _isSaving = false;
   String? _errorMessage;
   String _avatarUrl = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
+  String _username = '';
 
   @override
   void dispose() {
@@ -34,39 +30,22 @@ class _UserEditPageState extends ConsumerState<UserEditPage> {
     super.dispose();
   }
 
-  Future<void> _loadUserData() async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || currentUser.uid.isEmpty) {
-      setState(() {
-        _errorMessage = '未登录';
-      });
-      return;
-    }
+  void _initializeFromUserData(Map<String, dynamic>? userData) {
+    if (userData == null) return;
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-      _nicknameController.text = currentUser.username;
-      _avatarUrl = currentUser.avatar ?? '';
-    });
+    if (_username.isEmpty) {
+      _username = userData['username'] ?? '';
+      _nicknameController.text = userData['name'] ?? userData['username'] ?? '';
+      _bioController.text = userData['bio_raw'] ?? userData['bio'] ?? '';
 
-    try {
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      setState(() {
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '加载失败: $e';
-      });
+      final avatarTemplate = userData['avatar_template'] as String?;
+      _avatarUrl = DiscourseAdapter.formatAvatarUrl(avatarTemplate ?? '', _username);
     }
   }
 
   Future<void> _saveProfile() async {
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || currentUser.uid.isEmpty) {
+    if (currentUser == null || currentUser.username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('请先登录'),
@@ -76,14 +55,6 @@ class _UserEditPageState extends ConsumerState<UserEditPage> {
           ),
         ),
       );
-      return;
-    }
-
-    final nickname = _nicknameController.text.trim();
-    if (nickname.isEmpty) {
-      setState(() {
-        _errorMessage = '昵称不能为空';
-      });
       return;
     }
 
@@ -98,7 +69,7 @@ class _UserEditPageState extends ConsumerState<UserEditPage> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('资料更新功能开发中')),
+        const SnackBar(content: Text('资料更新功能开发中，受 Discourse 权限约束')),
       );
 
       context.pop();
@@ -113,7 +84,7 @@ class _UserEditPageState extends ConsumerState<UserEditPage> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
-    final isLoggedIn = currentUser != null && currentUser.uid.isNotEmpty;
+    final isLoggedIn = currentUser != null && currentUser.username.isNotEmpty;
     final colorScheme = Theme.of(context).colorScheme;
 
     if (!isLoggedIn) {
@@ -131,6 +102,8 @@ class _UserEditPageState extends ConsumerState<UserEditPage> {
       );
     }
 
+    final userProfileAsync = ref.watch(discourseUserProfileProvider(currentUser.username));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('编辑资料'),
@@ -147,116 +120,162 @@ class _UserEditPageState extends ConsumerState<UserEditPage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Center(
-                    child: Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundImage: _avatarUrl.isNotEmpty
-                              ? NetworkImage(_avatarUrl)
-                              : null,
-                          child: _avatarUrl.isEmpty
-                              ? const Icon(Icons.person, size: 50)
-                              : null,
+      body: userProfileAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => _StateView(
+          icon: Icons.error_outline,
+          title: '加载失败',
+          message: error.toString(),
+          actionLabel: '重试',
+          onAction: () => ref.invalidate(discourseUserProfileProvider(currentUser.username)),
+        ),
+        data: (userData) {
+          _initializeFromUserData(userData);
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Center(
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundImage: _avatarUrl.isNotEmpty
+                            ? NetworkImage(_avatarUrl)
+                            : null,
+                        child: _avatarUrl.isEmpty
+                            ? const Icon(Icons.person, size: 50)
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: CircleAvatar(
+                          radius: 18,
+                          backgroundColor: colorScheme.primary,
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.camera_alt,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('头像修改功能受 Discourse 权限约束'),
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: colorScheme.primary,
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.camera_alt,
-                                size: 18,
-                                color: Colors.white,
-                              ),
-                              onPressed: () {},
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '@$_username',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _nicknameController,
+                  decoration: const InputDecoration(
+                    labelText: '显示名称',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLength: 20,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _bioController,
+                  decoration: const InputDecoration(
+                    labelText: '简介',
+                    hintText: '介绍一下自己',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                  maxLines: 4,
+                  maxLength: 200,
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          color: colorScheme.onErrorContainer,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(
+                              color: colorScheme.onErrorContainer,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    onPressed: () {},
-                    child: const Text('修改头像'),
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: _nicknameController,
-                    decoration: const InputDecoration(
-                      labelText: '昵称',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLength: 20,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _bioController,
-                    decoration: const InputDecoration(
-                      labelText: '简介',
-                      hintText: '介绍一下自己',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
-                    maxLines: 4,
-                    maxLength: 200,
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            color: colorScheme.onErrorContainer,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(
-                                color: colorScheme.onErrorContainer,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('保存修改'),
-                    ),
-                  ),
                 ],
-              ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: colorScheme.tertiaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        color: colorScheme.onTertiaryContainer,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '资料修改功能受 Discourse 权限约束，部分功能可能不可用。',
+                          style: TextStyle(
+                            color: colorScheme.onTertiaryContainer,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _isSaving ? null : _saveProfile,
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('保存修改'),
+                  ),
+                ),
+              ],
             ),
+          );
+        },
+      ),
     );
   }
 }

@@ -106,7 +106,7 @@ class FeedRepository {
   }) async {
     try {
       final response = await _apiService.postLikeFeed(
-        url: '/v6/feed/like',
+        url: '',
         id: id,
       );
       return response;
@@ -127,7 +127,7 @@ class FeedRepository {
   }) async {
     try {
       final response = await _apiService.postLikeFeed(
-        url: '/v6/feed/unlike',
+        url: '',
         id: id,
       );
       return response;
@@ -148,7 +148,7 @@ class FeedRepository {
   }) async {
     try {
       final response = await _apiService.postDelete(
-        url: '/v6/feed/deleteFeed',
+        url: '',
         id: id,
       );
       return response;
@@ -169,7 +169,7 @@ class FeedRepository {
   }) async {
     try {
       final response = await _apiService.postLikeFeed(
-        url: '/v6/feed/forward',
+        url: '',
         id: id,
       );
       return response;
@@ -190,7 +190,7 @@ class FeedRepository {
   }) async {
     try {
       final response = await _apiService.postLikeFeed(
-        url: '/v6/feed/favorite',
+        url: '',
         id: id,
       );
       return response;
@@ -211,7 +211,7 @@ class FeedRepository {
   }) async {
     try {
       final response = await _apiService.postLikeFeed(
-        url: '/v6/feed/unfavorite',
+        url: '',
         id: id,
       );
       return response;
@@ -258,4 +258,45 @@ class FeedRepository {
         );
     }
   }
+}
+
+/// API 异常类
+class ApiException implements Exception {
+  final int? code;
+  final String message;
+  final dynamic data;
+
+  ApiException({
+    this.code,
+    required this.message,
+    this.data,
+  });
+
+  @override
+  String toString() => 'ApiException: $message (code: $code)';
+}
+
+/// 网络异常类
+class NetworkException implements Exception {
+  final NetworkExceptionType type;
+  final String message;
+  final dynamic error;
+
+  NetworkException({
+    required this.type,
+    required this.message,
+    this.error,
+  });
+
+  @override
+  String toString() => 'NetworkException: $message';
+}
+
+/// 网络异常类型枚举
+enum NetworkExceptionType {
+  connectTimeout,
+  sendTimeout,
+  receiveTimeout,
+  cancel,
+  other,
 }

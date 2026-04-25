@@ -317,12 +317,13 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
   }
 
   void _navigateToNotificationDetail(DiscourseNotification notification) {
-    // 根据通知类型跳转到不同页面
     if (notification.topicId != null) {
-      context.push('/topic/${notification.topicId}');
-    } else if (notification.data?.chatChannelId != null) {
-      // TODO: 跳转到聊天页面
-      // context.push('/chat/${notification.data?.chatChannelId}');
+      final path = '/feed/${notification.topicId}';
+      if (notification.postNumber != null && notification.postNumber! > 1) {
+        context.push('$path?postNumber=${notification.postNumber}');
+      } else {
+        context.push(path);
+      }
     }
   }
 }

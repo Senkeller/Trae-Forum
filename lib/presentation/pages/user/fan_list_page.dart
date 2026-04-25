@@ -5,6 +5,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 
 class FanListPage extends ConsumerStatefulWidget {
   final String uid;
@@ -20,19 +21,7 @@ class FanListPage extends ConsumerStatefulWidget {
 
 class _FanListPageState extends ConsumerState<FanListPage> {
   final RefreshController _refreshController = RefreshController();
-
-  List<Map<String, String>> _fanList = [];
   final Set<String> _followingSet = {};
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFanList();
-  }
 
   @override
   void dispose() {
@@ -40,58 +29,18 @@ class _FanListPageState extends ConsumerState<FanListPage> {
     super.dispose();
   }
 
-  Future<void> _loadFanList() async {
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      setState(() {
-        _isLoading = false;
-        _fanList = [];
-        _hasMore = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '加载失败: $e';
-      });
-    }
-  }
-
   Future<void> _onRefresh() async {
-    await _loadFanList();
+    await ref.read(discourseFollowListProvider(widget.uid, FollowType.followers).notifier).refresh(widget.uid, FollowType.followers);
     _refreshController.refreshCompleted();
   }
 
   Future<void> _onLoading() async {
-    if (_isLoadingMore || !_hasMore) {
-      _refreshController.loadComplete();
-      return;
-    }
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _isLoadingMore = false;
-      _hasMore = false;
-    });
-
     _refreshController.loadComplete();
   }
 
   Future<void> _toggleFollow(String username) async {
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || currentUser.uid.isEmpty) {
+    if (currentUser == null || currentUser.username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('请先登录'),
@@ -105,22 +54,23 @@ class _FanListPageState extends ConsumerState<FanListPage> {
     }
 
     try {
-      final isFollowing = _followingSet.contains(username);
-
+      await ref.read(userFollowStatusProvider(username).notifier).toggleFollow(username);
+      if (!mounted) return;
+      final isFollowing = !_followingSet.contains(username);
       setState(() {
         if (isFollowing) {
-          _followingSet.remove(username);
-        } else {
           _followingSet.add(username);
+        } else {
+          _followingSet.remove(username);
         }
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isFollowing ? '已取消关注 @$username' : '已关注 @$username'),
+          content: Text(isFollowing ? '已关注 @$username' : '已取消关注 @$username'),
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('操作失败: $e')),
       );
@@ -130,66 +80,61 @@ class _FanListPageState extends ConsumerState<FanListPage> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
-    final isOwnProfile = currentUser?.username == widget.uid ||
-        currentUser?.uid == widget.uid;
+    final isOwnProfile = currentUser?.username == widget.uid;
+
+    final fanListAsync = ref.watch(discourseFollowListProvider(widget.uid, FollowType.followers));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isOwnProfile ? '我的粉丝' : '粉丝列表'),
       ),
-      body: _buildBody(),
-    );
-  }
+      body: fanListAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => _StateView(
+          icon: Icons.error_outline,
+          title: '加载失败',
+          message: error.toString(),
+          actionLabel: '重试',
+          onAction: () => ref.invalidate(discourseFollowListProvider(widget.uid, FollowType.followers)),
+        ),
+        data: (users) {
+          if (users.isEmpty) {
+            return _StateView(
+              icon: Icons.people_outline,
+              title: '暂无粉丝',
+              message: '还没有粉丝关注你',
+            );
+          }
 
-  Widget _buildBody() {
-    if (_isLoading && _fanList.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
+          return SmartRefresher(
+            controller: _refreshController,
+            enablePullDown: true,
+            enablePullUp: false,
+            onRefresh: _onRefresh,
+            onLoading: _onLoading,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                final username = user.username;
+                final isFollowing = _followingSet.contains(username);
+                final currentUsername = ref.read(currentUserProvider)?.username;
+                final isSelf = currentUsername == username;
 
-    if (_errorMessage != null && _fanList.isEmpty) {
-      return _StateView(
-        icon: Icons.error_outline,
-        title: '加载失败',
-        message: _errorMessage!,
-        actionLabel: '重试',
-        onAction: _loadFanList,
-      );
-    }
-
-    if (_fanList.isEmpty) {
-      return _StateView(
-        icon: Icons.people_outline,
-        title: '暂无粉丝',
-        message: '还没有粉丝关注你',
-      );
-    }
-
-    return SmartRefresher(
-      controller: _refreshController,
-      enablePullDown: true,
-      enablePullUp: _hasMore,
-      onRefresh: _onRefresh,
-      onLoading: _hasMore ? _onLoading : null,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _fanList.length,
-        itemBuilder: (context, index) {
-          final user = _fanList[index];
-          final username = user['username'] ?? '';
-          final isFollowing = _followingSet.contains(username);
-          final currentUsername = ref.read(currentUserProvider)?.username;
-          final isSelf = currentUsername == username;
-
-          return _FanCard(
-            username: username,
-            avatarUrl: user['avatarUrl'] ?? '',
-            bio: user['bio'] ?? '',
-            isFollowing: isFollowing,
-            isSelf: isSelf,
-            onTap: () {
-              context.push(RoutePaths.userProfile.replaceFirst(':uid', username));
-            },
-            onToggleFollow: () => _toggleFollow(username),
+                return _FanCard(
+                  username: username,
+                  avatarUrl: user.avatarUrl,
+                  bio: user.name ?? '',
+                  isFollowing: isFollowing,
+                  isSelf: isSelf,
+                  onTap: () {
+                    context.push(RoutePaths.userProfile.replaceFirst(':uid', username));
+                  },
+                  onToggleFollow: () => _toggleFollow(username),
+                );
+              },
+            ),
           );
         },
       ),

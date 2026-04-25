@@ -10,6 +10,8 @@ import '../../../data/models/user.dart';
 import '../../../presentation/providers/auth_provider.dart';
 import '../../../core/network/cookie_manager.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/network/discourse_api_service.dart';
+import '../../../core/network/native_cookie_bridge.dart';
 
 /// WebView 登录页面
 ///
@@ -20,10 +22,7 @@ class WebViewLoginPage extends ConsumerStatefulWidget {
   final String? redirectPath;
 
   /// 构造函数
-  const WebViewLoginPage({
-    super.key,
-    this.redirectPath,
-  });
+  const WebViewLoginPage({super.key, this.redirectPath});
 
   @override
   ConsumerState<WebViewLoginPage> createState() => _WebViewLoginPageState();
@@ -109,13 +108,8 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           },
           onNavigationRequest: (NavigationRequest request) {
             debugPrint('导航请求: ${request.url}');
-
-            // 检查是否是登录成功后的跳转
-            if (_isLoginSuccessUrl(request.url)) {
-              _handleLoginSuccess();
-              return NavigationDecision.prevent;
-            }
-
+            // 关键：不要拦截 forum 的 /session/sso_login 回调，
+            // 必须让页面完成跳转，服务端才能写入论坛会话 Cookie。
             return NavigationDecision.navigate;
           },
         ),
@@ -134,30 +128,31 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     _controller = controller;
   }
 
-  /// 检查 URL 是否是登录成功后的跳转
-  bool _isLoginSuccessUrl(String url) {
-    // 如果跳转回论坛首页或用户页面，说明登录成功
-    final isSuccess = url.startsWith(_forumUrl) &&
-        (url.contains('/session/sso_login') ||
-            url == _forumUrl ||
-            url == '$_forumUrl/');
-    debugPrint('🔍 [WebViewLogin] 检查URL: $url');
-    debugPrint('🔍 [WebViewLogin] 是否登录成功URL: $isSuccess');
-    return isSuccess;
-  }
-
   /// 检查登录状态
   Future<void> _checkLoginStatus(String url) async {
     debugPrint('🔍 [WebViewLogin] 页面加载完成: $url');
     try {
       // 检测登录成功的几种情况：
-      // 1. 跳转到论坛页面（已登录状态）
-      // 2. 跳转到 TRAE 主站的 dashboard（登录成功后的页面）
-      final isForumPage = url.startsWith(_forumUrl) && !url.contains('/login');
-      final isTraeDashboard = url.startsWith('https://www.trae.cn') &&
-          (url.contains('/dashboard') || url.contains('/console') || url == 'https://www.trae.cn/');
+      // 1. 命中论坛 SSO 回调页 /session/sso_login（需要等待回调完成）
+      // 2. 跳转到论坛普通页面（已登录状态）
+      // 3. 跳转到 TRAE 主站 dashboard（登录成功后的页面）
+      final isForumSsoCallback =
+          url.startsWith(_forumUrl) && url.contains('/session/sso_login');
+      final isForumPage =
+          url.startsWith(_forumUrl) &&
+          !url.contains('/login') &&
+          !url.contains('/session/sso_login');
+      final isTraeDashboard =
+          url.startsWith('https://www.trae.cn') &&
+          (url.contains('/dashboard') ||
+              url.contains('/console') ||
+              url == 'https://www.trae.cn/');
 
-      if (isForumPage) {
+      if (isForumSsoCallback) {
+        debugPrint('✅ [WebViewLogin] 命中 SSO 回调页，等待完成后进入论坛首页');
+        await Future.delayed(const Duration(milliseconds: 800));
+        await _controller.loadRequest(Uri.parse(_forumUrl));
+      } else if (isForumPage) {
         debugPrint('✅ [WebViewLogin] 检测到论坛页面，尝试提取用户信息');
         // 尝试提取用户信息
         final userInfo = await _extractUserInfo();
@@ -224,7 +219,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
       debugPrint('🔍 [WebViewLogin] JavaScript 返回原始结果: $result');
 
-      if (result != null && result.toString().isNotEmpty && result.toString() != 'null') {
+      if (result.toString().isNotEmpty && result.toString() != 'null') {
         // 解析结果
         final String resultStr = result.toString();
         // 移除 Dart 字符串的外层引号
@@ -240,12 +235,16 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         // 简单解析 JSON
         if (cleanJson.contains('username')) {
           // 提取 username 值
-          final usernameMatch = RegExp(r'"username":"([^"]*)"').firstMatch(cleanJson);
+          final usernameMatch = RegExp(
+            r'"username":"([^"]*)"',
+          ).firstMatch(cleanJson);
           if (usernameMatch != null) {
             final username = usernameMatch.group(1) ?? '';
             if (username.isNotEmpty) {
+              final idMatch = RegExp(r'"id":"?(\d+)"?').firstMatch(cleanJson);
+              final userId = idMatch?.group(1) ?? '';
               debugPrint('✅ [WebViewLogin] 解析到用户名: $username');
-              return {'username': username};
+              return {'username': username, 'id': userId};
             }
           }
         }
@@ -264,53 +263,47 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       debugPrint('⚠️ [WebViewLogin] 已经处理过登录成功，跳过');
       return; // 防止重复处理
     }
-    _isLoginSuccess = true;
-
-    // 显示成功提示
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('登录成功'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
 
     // 同步论坛 WebView Cookie 到 Dio
-    debugPrint('🔍 [WebViewLogin] 开始同步论坛 Cookie 到 Dio...');
-    try {
-      final cookieString = await _controller.runJavaScriptReturningResult('document.cookie');
-      if (cookieString != null && cookieString.toString().isNotEmpty) {
-        await DioClient.loadCookiesFromWebView(
-          cookieString.toString(),
-          _forumUrl,
-        );
-        debugPrint('✅ [WebViewLogin] 论坛 Cookie 已同步到 Dio');
-      }
-    } catch (e) {
-      debugPrint('❌ [WebViewLogin] 同步论坛 Cookie 失败: $e');
-    }
+    await _syncForumCookiesToDio();
 
-    // 打开主站 dashboard 页面来提取 Dashboard API 所需的 Cookie
-    debugPrint('🔍 [WebViewLogin] 打开主站 dashboard 提取 Cookie...');
-    if (mounted) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => _DashboardLoginPage(
-            onCookieExtracted: (success) {
-              debugPrint('✅ [WebViewLogin] Dashboard Cookie 提取结果: $success');
-            },
+    // 再次同步一次论坛 Cookie，确保 SSO 最终状态已落到 Dio CookieJar
+    await _syncForumCookiesToDio();
+
+    // 校验论坛会话，避免 UI 显示已登录但接口仍 403
+    final isForumSessionReady = await _validateForumSession();
+    if (!isForumSessionReady) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('论坛会话同步失败，请重试登录'),
+            backgroundColor: Colors.red,
           ),
-        ),
+        );
+      }
+      return;
+    }
+    _isLoginSuccess = true;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('登录成功'), backgroundColor: Colors.green),
       );
     }
 
     // 获取用户名（从 WebView 或传入的参数）
     String username = '用户';
     String userId = 'webview_user';
+    String avatar = '';
 
     if (userInfo != null && userInfo['username'] != null) {
       username = userInfo['username'].toString();
+      final id = userInfo['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        userId = id;
+      } else {
+        userId = username;
+      }
       debugPrint('✅ [WebViewLogin] 从 userInfo 获取用户名: $username');
     } else {
       // 尝试从 Cookie 或页面获取用户名
@@ -333,10 +326,10 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
             return '';
           })()
         ''');
-        final resultStr = cookieResult.toString();
+        final resultStr = cookieResult.toString().replaceAll('"', '').trim();
         debugPrint('✅ [WebViewLogin] JavaScript 返回: $resultStr');
-        if (resultStr.isNotEmpty && resultStr != 'null' && resultStr != '""') {
-          username = resultStr.replaceAll('"', '');
+        if (resultStr.isNotEmpty && resultStr != 'null') {
+          username = resultStr;
           userId = username;
           debugPrint('✅ [WebViewLogin] 解析后的用户名: $username');
         } else {
@@ -348,12 +341,10 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     }
 
     // 创建用户信息对象并保存
-    debugPrint('💾 [WebViewLogin] 创建 UserInfo: uid=$userId, username=$username');
-    final userData = UserInfo(
-      uid: userId,
-      username: username,
-      avatar: '',
+    debugPrint(
+      '💾 [WebViewLogin] 创建 UserInfo: uid=$userId, username=$username',
     );
+    final userData = UserInfo(uid: userId, username: username, avatar: avatar);
 
     // 保存到本地存储并更新状态
     debugPrint('💾 [WebViewLogin] 调用 setUserInfo...');
@@ -364,7 +355,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     final prefs = await SharedPreferences.getInstance();
     final savedUid = prefs.getString('uid');
     final savedUsername = prefs.getString('username');
-    debugPrint('🔍 [WebViewLogin] 验证保存结果: uid=$savedUid, username=$savedUsername');
+    debugPrint(
+      '🔍 [WebViewLogin] 验证保存结果: uid=$savedUid, username=$savedUsername',
+    );
 
     // 延迟后返回或跳转
     await Future.delayed(const Duration(milliseconds: 500));
@@ -383,6 +376,57 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   void dispose() {
     _controller.clearCache();
     super.dispose();
+  }
+
+  Future<void> _syncForumCookiesToDio() async {
+    debugPrint('🔍 [WebViewLogin] 开始同步论坛 Cookie 到 Dio...');
+    try {
+      final syncedByNative = await NativeCookieBridge.syncCookiesToDio(
+        _forumUrl,
+      );
+      debugPrint('🔍 [WebViewLogin] 原生 Cookie 同步结果: $syncedByNative');
+
+      final cookieString = await _controller.runJavaScriptReturningResult(
+        'document.cookie',
+      );
+      if (cookieString.toString().isNotEmpty) {
+        await DioClient.loadCookiesFromWebView(
+          cookieString.toString(),
+          _forumUrl,
+        );
+        debugPrint('✅ [WebViewLogin] document.cookie 已补充同步到 Dio');
+      }
+    } catch (e) {
+      debugPrint('❌ [WebViewLogin] 同步论坛 Cookie 失败: $e');
+    }
+  }
+
+  Future<bool> _validateForumSession() async {
+    for (var attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await _syncForumCookiesToDio();
+
+        final hasSessionCookie = await DioClient.hasDiscourseSession();
+        final cookieNames = await DioClient.getCookieNames(_forumUrl);
+        final probeResponse = await ref
+            .read(discourseApiServiceProvider)
+            .getNotifications(limit: 1, recent: true, bumpLastSeen: false);
+        final apiReady = probeResponse.statusCode == 200;
+
+        debugPrint(
+          '🔍 [WebViewLogin] 会话校验(第$attempt次): hasSessionCookie=$hasSessionCookie, apiReady=$apiReady, cookies=$cookieNames',
+        );
+        if (hasSessionCookie && apiReady) {
+          return true;
+        }
+      } catch (e) {
+        debugPrint('❌ [WebViewLogin] 会话校验失败(第$attempt次): $e');
+      }
+
+      await Future.delayed(const Duration(milliseconds: 600));
+    }
+
+    return false;
   }
 
   @override
@@ -431,9 +475,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(
-                    color: colorScheme.primary,
-                  ),
+                  CircularProgressIndicator(color: colorScheme.primary),
                   const SizedBox(height: 16),
                   Text(
                     '正在加载登录页面...',
@@ -506,10 +548,12 @@ class _DashboardLoginPageState extends State<_DashboardLoginPage> {
     try {
       // 等待页面完全加载
       await Future.delayed(const Duration(seconds: 2));
-      
-      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(_controller);
+
+      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(
+        _controller,
+      );
       widget.onCookieExtracted(cookieSaved);
-      
+
       if (cookieSaved) {
         debugPrint('✅ [DashboardLogin] Cookie 提取成功');
         // 检查是否有有效的 Cookie
@@ -544,10 +588,7 @@ class _DashboardLoginPageState extends State<_DashboardLoginPage> {
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
-            ),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

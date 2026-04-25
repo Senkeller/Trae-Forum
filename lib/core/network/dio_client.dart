@@ -110,7 +110,10 @@ class DioClient {
 
   /// 从 WebView Cookie 字符串加载 Cookie 到 CookieJar
   /// 在 WebView 登录成功后调用，将 WebView 的 Cookie 同步到 Dio
-  static Future<void> loadCookiesFromWebView(String cookieString, String url) async {
+  static Future<void> loadCookiesFromWebView(
+    String cookieString,
+    String url,
+  ) async {
     try {
       if (_cookieJar == null) {
         print('⚠️ [DioClient] CookieJar 未初始化');
@@ -119,9 +122,16 @@ class DioClient {
 
       final uri = Uri.parse(url);
       final cookies = <Cookie>[];
+      var normalized = cookieString.trim();
+      if (normalized.startsWith('"') &&
+          normalized.endsWith('"') &&
+          normalized.length >= 2) {
+        normalized = normalized.substring(1, normalized.length - 1);
+      }
+      normalized = normalized.replaceAll(r'\"', '"');
 
       // 解析 Cookie 字符串
-      final pairs = cookieString.split(';');
+      final pairs = normalized.split(';');
       for (final pair in pairs) {
         final trimmed = pair.trim();
         if (trimmed.isEmpty) continue;
@@ -134,8 +144,17 @@ class DioClient {
           // 移除可能的引号
           final cleanValue = value.replaceAll('"', '');
 
+          if (name.contains('"') ||
+              name.contains('\n') ||
+              name.contains('\r')) {
+            print('⚠️ [DioClient] 跳过非法 Cookie 名称: $name');
+            continue;
+          }
+
           cookies.add(Cookie(name, cleanValue));
-          print('🍪 [DioClient] 加载 Cookie: $name=${cleanValue.length > 20 ? cleanValue.substring(0, 20) + "..." : cleanValue}');
+          print(
+            '🍪 [DioClient] 加载 Cookie: $name=${cleanValue.length > 20 ? cleanValue.substring(0, 20) + "..." : cleanValue}',
+          );
         }
       }
 
@@ -161,6 +180,19 @@ class DioClient {
     } catch (e) {
       print('❌ [DioClient] 获取 Cookie 字符串失败: $e');
       return '';
+    }
+  }
+
+  /// 获取指定 URL 的 Cookie 名称列表（调试用）
+  static Future<List<String>> getCookieNames(String url) async {
+    try {
+      if (_cookieJar == null) return const [];
+      final uri = Uri.parse(url);
+      final cookies = await _cookieJar!.loadForRequest(uri);
+      return cookies.map((c) => c.name).toList();
+    } catch (e) {
+      print('❌ [DioClient] 获取 Cookie 名称失败: $e');
+      return const [];
     }
   }
 
@@ -210,11 +242,13 @@ class DioClient {
       final cookies = await _cookieJar!.loadForRequest(uri);
 
       // 检查是否有 Discourse 的 session cookie（_t 是 Discourse 的主要 session cookie）
-      final hasSession = cookies.any((cookie) =>
-        cookie.name == '_t' || cookie.name == '_forum_session'
+      final hasSession = cookies.any(
+        (cookie) => cookie.name == '_t' || cookie.name == '_forum_session',
       );
 
-      print('🔍 [DioClient] Discourse session check: $hasSession, cookies: ${cookies.map((c) => c.name).join(', ')}');
+      print(
+        '🔍 [DioClient] Discourse session check: $hasSession, cookies: ${cookies.map((c) => c.name).join(', ')}',
+      );
       return hasSession;
     } catch (e) {
       print('❌ [DioClient] 检查 Discourse session 失败: $e');
@@ -229,28 +263,30 @@ class ApiException implements Exception {
   final String message;
   final dynamic data;
 
-  ApiException({
-    this.code,
-    required this.message,
-    this.data,
-  });
+  ApiException({this.code, required this.message, this.data});
 
   @override
-  String toString() => 'ApiException(code: $code, message: $message, data: $data)';
+  String toString() =>
+      'ApiException(code: $code, message: $message, data: $data)';
 }
 
 /// 网络异常类型
 enum NetworkExceptionType {
   /// 连接超时
   connectTimeout,
+
   /// 发送超时
   sendTimeout,
+
   /// 接收超时
   receiveTimeout,
+
   /// 响应错误
   response,
+
   /// 取消请求
   cancel,
+
   /// 其他错误
   other,
 }
@@ -261,14 +297,11 @@ class NetworkException implements Exception {
   final String message;
   final dynamic error;
 
-  NetworkException({
-    required this.type,
-    required this.message,
-    this.error,
-  });
+  NetworkException({required this.type, required this.message, this.error});
 
   @override
-  String toString() => 'NetworkException(type: $type, message: $message, error: $error)';
+  String toString() =>
+      'NetworkException(type: $type, message: $message, error: $error)';
 }
 
 /// 业务错误码

@@ -22,7 +22,7 @@ class ApiService extends _$ApiService {
   // ==================== 首页 Feed (Discourse) ====================
 
   /// 获取首页 Feed 列表
-  /// 
+  ///
   /// 调用 Discourse /latest.json API
   Future<HomeFeedResponse> getHomeFeed({
     required int page,
@@ -35,13 +35,13 @@ class ApiService extends _$ApiService {
     try {
       final discourseResponse = await _discourseApi.getLatestTopics(page: page);
       final Map<String, dynamic> data = discourseResponse.data;
-      
+
       final topicListMap = data['topic_list'] as Map<String, dynamic>?;
       final topics = topicListMap?['topics'] as List<dynamic>? ?? [];
       final users = data['users'] as List<dynamic>? ?? [];
-      
+
       final feeds = _adaptTopicsToFeeds(topics, users);
-      
+
       return HomeFeedResponse(
         status: 200,
         message: 'success',
@@ -60,9 +60,7 @@ class ApiService extends _$ApiService {
   /// 获取热门 Feed 列表
   ///
   /// 调用 Discourse /hot.json API
-  Future<HomeFeedResponse> getHotFeed({
-    required int page,
-  }) async {
+  Future<HomeFeedResponse> getHotFeed({required int page}) async {
     try {
       final discourseResponse = await _discourseApi.getHotTopics(page: page);
       final Map<String, dynamic> data = discourseResponse.data;
@@ -91,9 +89,7 @@ class ApiService extends _$ApiService {
   /// 获取排行 Feed 列表
   ///
   /// 调用 Discourse /top.json API
-  Future<HomeFeedResponse> getTopFeed({
-    required int page,
-  }) async {
+  Future<HomeFeedResponse> getTopFeed({required int page}) async {
     try {
       final discourseResponse = await _discourseApi.getTopTopics(page: page);
       final Map<String, dynamic> data = discourseResponse.data;
@@ -127,7 +123,10 @@ class ApiService extends _$ApiService {
     required int page,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getTopicsByCategory(categoryId, page: page);
+      final discourseResponse = await _discourseApi.getTopicsByCategory(
+        categoryId,
+        page: page,
+      );
       final Map<String, dynamic> data = discourseResponse.data;
 
       final topicListMap = data['topic_list'] as Map<String, dynamic>?;
@@ -151,7 +150,10 @@ class ApiService extends _$ApiService {
     }
   }
 
-  List<HomeFeedData> _adaptTopicsToFeeds(List<dynamic> topics, List<dynamic> users) {
+  List<HomeFeedData> _adaptTopicsToFeeds(
+    List<dynamic> topics,
+    List<dynamic> users,
+  ) {
     final userList = users.map((u) {
       final map = u as Map<String, dynamic>;
       return DiscourseUserBasic(
@@ -162,11 +164,11 @@ class ApiService extends _$ApiService {
         trustLevel: map['trust_level'],
       );
     }).toList();
-    
+
     return topics.map((topic) {
       final map = topic as Map<String, dynamic>;
       final posters = map['posters'] as List<dynamic>? ?? [];
-      
+
       final topicModel = DiscourseTopic(
         id: map['id'] ?? 0,
         title: map['title'] ?? '',
@@ -194,7 +196,7 @@ class ApiService extends _$ApiService {
           );
         }).toList(),
       );
-      
+
       return TopicAdapter.adaptTopicToFeed(topicModel, userList);
     }).toList();
   }
@@ -202,30 +204,28 @@ class ApiService extends _$ApiService {
   // ==================== 动态详情 (Discourse) ====================
 
   /// 获取动态详情
-  /// 
+  ///
   /// 调用 Discourse /t/{id}.json API
   Future<FeedContentResponse> getFeedContent({
     required String id,
     String? rid,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getTopicDetail(int.parse(id));
+      final discourseResponse = await _discourseApi.getTopicDetail(
+        int.parse(id),
+      );
       final Map<String, dynamic> data = discourseResponse.data;
-      
+
       final postStreamMap = data['post_stream'] as Map<String, dynamic>?;
       final posts = postStreamMap?['posts'] as List<dynamic>? ?? [];
-      
+
       if (posts.isEmpty) {
-        return FeedContentResponse(
-          status: 200,
-          message: 'success',
-          data: null,
-        );
+        return FeedContentResponse(status: 200, message: 'success', data: null);
       }
-      
+
       final firstPost = posts.first as Map<String, dynamic>;
       final userInfo = _adaptUserInfo(firstPost);
-      
+
       final feedData = FeedContentData(
         id: data['id']?.toString() ?? '0',
         entityType: 'feed',
@@ -233,12 +233,14 @@ class ApiService extends _$ApiService {
         message: DiscourseAdapter.processHtmlContent(firstPost['cooked'] ?? ''),
         picArr: [],
         userInfo: userInfo,
-        dateline: DiscourseAdapter.parseIso8601ToTimestamp(data['created_at'] ?? '').toString(),
+        dateline: DiscourseAdapter.parseIso8601ToTimestamp(
+          data['created_at'] ?? '',
+        ).toString(),
         replyNum: data['reply_count'] ?? 0,
         forwardNum: 0,
         isTop: data['pinned'] ?? false,
       );
-      
+
       return FeedContentResponse(
         status: 200,
         message: 'success',
@@ -251,7 +253,7 @@ class ApiService extends _$ApiService {
       );
     }
   }
-  
+
   UserInfo _adaptUserInfo(Map<String, dynamic> post) {
     return UserInfo(
       uid: post['user_id']?.toString() ?? '0',
@@ -267,7 +269,7 @@ class ApiService extends _$ApiService {
   // ==================== 评论列表 (Discourse) ====================
 
   /// 获取评论列表
-  /// 
+  ///
   /// 调用 Discourse /t/{id}/posts.json API
   Future<TotalReplyResponse> getFeedContentReply({
     required String id,
@@ -281,12 +283,15 @@ class ApiService extends _$ApiService {
     int fromFeedAuthor = 0,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getTopicPosts(int.parse(id), page: page);
+      final discourseResponse = await _discourseApi.getTopicPosts(
+        int.parse(id),
+        page: page,
+      );
       final Map<String, dynamic> data = discourseResponse.data;
-      
+
       final posts = data['post_stream']?['posts'] as List<dynamic>? ?? [];
       final replies = _adaptPostsToReplies(posts, id);
-      
+
       return TotalReplyResponse(
         status: 200,
         message: 'success',
@@ -301,7 +306,7 @@ class ApiService extends _$ApiService {
       );
     }
   }
-  
+
   List<ReplyData> _adaptPostsToReplies(List<dynamic> posts, String topicId) {
     return posts.map((post) {
       final map = post as Map<String, dynamic>;
@@ -314,7 +319,9 @@ class ApiService extends _$ApiService {
           map['username'] ?? '',
         ),
         message: DiscourseAdapter.processHtmlContent(map['cooked'] ?? ''),
-        dateline: DiscourseAdapter.parseIso8601ToTimestamp(map['created_at'] ?? '').toString(),
+        dateline: DiscourseAdapter.parseIso8601ToTimestamp(
+          map['created_at'] ?? '',
+        ).toString(),
         likeNum: map['like_count'] ?? 0,
         replyNum: map['reply_count'] ?? 0,
         replyTo: map['reply_to_user']?['username'],
@@ -335,7 +342,7 @@ class ApiService extends _$ApiService {
   // ==================== 搜索 (Discourse) ====================
 
   /// 搜索
-  /// 
+  ///
   /// 调用 Discourse /search.json API
   Future<HomeFeedResponse> getSearch({
     required String type,
@@ -351,17 +358,13 @@ class ApiService extends _$ApiService {
     try {
       final discourseResponse = await _discourseApi.searchTopics(keyWord);
       final Map<String, dynamic> data = discourseResponse.data;
-      
+
       final topics = data['topics'] as List<dynamic>? ?? [];
       final users = data['users'] as List<dynamic>? ?? [];
-      
+
       final feeds = _adaptTopicsToFeeds(topics, users);
-      
-      return HomeFeedResponse(
-        status: 200,
-        message: 'success',
-        data: feeds,
-      );
+
+      return HomeFeedResponse(status: 200, message: 'success', data: feeds);
     } catch (e) {
       return HomeFeedResponse(
         status: 500,
@@ -374,15 +377,13 @@ class ApiService extends _$ApiService {
   // ==================== 用户相关 ====================
 
   /// 获取用户空间信息
-  /// 
+  ///
   /// 调用 Discourse /u/{username}.json API
-  Future<UserProfileResponse> getUserSpace({
-    required String uid,
-  }) async {
+  Future<UserProfileResponse> getUserSpace({required String uid}) async {
     try {
       final discourseResponse = await _discourseApi.getUserInfo(uid);
       final Map<String, dynamic> data = discourseResponse.data;
-      
+
       final userMap = data['user'] as Map<String, dynamic>?;
       final userInfo = userMap != null
           ? UserInfo(
@@ -395,7 +396,7 @@ class ApiService extends _$ApiService {
               level: userMap['trust_level'] ?? 1,
             )
           : UserInfo(uid: '0', username: uid);
-      
+
       return UserProfileResponse(
         status: 200,
         message: 'success',
@@ -410,9 +411,7 @@ class ApiService extends _$ApiService {
   }
 
   /// 获取用户资料
-  Future<UserProfileResponse> getProfile({
-    required String uid,
-  }) async {
+  Future<UserProfileResponse> getProfile({required String uid}) async {
     return getUserSpace(uid: uid);
   }
 
@@ -423,7 +422,10 @@ class ApiService extends _$ApiService {
     String? lastItem,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getUserTopics(uid, page: page);
+      final discourseResponse = await _discourseApi.getUserTopics(
+        uid,
+        page: page,
+      );
       final Map<String, dynamic> data = discourseResponse.data;
 
       final topicListMap = data['topic_list'] as Map<String, dynamic>?;
@@ -458,9 +460,7 @@ class ApiService extends _$ApiService {
   }
 
   /// 获取用户总结
-  Future<UserSummaryResponse> getUserSummary({
-    required String username,
-  }) async {
+  Future<UserSummaryResponse> getUserSummary({required String username}) async {
     try {
       final discourseResponse = await _discourseApi.getUserSummary(username);
       final Map<String, dynamic> data = discourseResponse.data;
@@ -479,7 +479,10 @@ class ApiService extends _$ApiService {
     int page = 0,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getUserActivity(username, page: page);
+      final discourseResponse = await _discourseApi.getUserActivity(
+        username,
+        page: page,
+      );
       final List<dynamic> data = discourseResponse.data as List<dynamic>;
       final activities = data.map((item) {
         return UserActivity.fromJson(item as Map<String, dynamic>);
@@ -503,7 +506,10 @@ class ApiService extends _$ApiService {
     int page = 0,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getUserActivityTopics(username, page: page);
+      final discourseResponse = await _discourseApi.getUserActivityTopics(
+        username,
+        page: page,
+      );
       final List<dynamic> data = discourseResponse.data as List<dynamic>;
       final activities = data.map((item) {
         return UserActivity.fromJson(item as Map<String, dynamic>);
@@ -527,7 +533,10 @@ class ApiService extends _$ApiService {
     int page = 0,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getUserActivityReplies(username, page: page);
+      final discourseResponse = await _discourseApi.getUserActivityReplies(
+        username,
+        page: page,
+      );
       final List<dynamic> data = discourseResponse.data as List<dynamic>;
       final activities = data.map((item) {
         return UserActivity.fromJson(item as Map<String, dynamic>);
@@ -551,7 +560,10 @@ class ApiService extends _$ApiService {
     int page = 0,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getUserActivityLikes(username, page: page);
+      final discourseResponse = await _discourseApi.getUserActivityLikes(
+        username,
+        page: page,
+      );
       final List<dynamic> data = discourseResponse.data as List<dynamic>;
       final activities = data.map((item) {
         return UserActivity.fromJson(item as Map<String, dynamic>);
@@ -575,7 +587,10 @@ class ApiService extends _$ApiService {
     int page = 0,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getUserActivitySolved(username, page: page);
+      final discourseResponse = await _discourseApi.getUserActivitySolved(
+        username,
+        page: page,
+      );
       final List<dynamic> data = discourseResponse.data as List<dynamic>;
       final activities = data.map((item) {
         return UserActivity.fromJson(item as Map<String, dynamic>);
@@ -599,7 +614,10 @@ class ApiService extends _$ApiService {
     int page = 0,
   }) async {
     try {
-      final discourseResponse = await _discourseApi.getUserActivityVotes(username, page: page);
+      final discourseResponse = await _discourseApi.getUserActivityVotes(
+        username,
+        page: page,
+      );
       final List<dynamic> data = discourseResponse.data as List<dynamic>;
       final activities = data.map((item) {
         return UserActivity.fromJson(item as Map<String, dynamic>);
@@ -624,7 +642,10 @@ class ApiService extends _$ApiService {
     required String id,
     int installed = 1,
   }) async {
-    return FeedContentResponse(status: 404, message: 'Not implemented for Discourse');
+    return FeedContentResponse(
+      status: 404,
+      message: 'Not implemented for Discourse',
+    );
   }
 
   /// 获取应用下载链接
@@ -637,31 +658,32 @@ class ApiService extends _$ApiService {
   }
 
   /// 检查应用更新
-  Future<UpdateCheckResponse> getAppsUpdate({
-    required FormData data,
-  }) async {
+  Future<UpdateCheckResponse> getAppsUpdate({required FormData data}) async {
     return UpdateCheckResponse(status: 404, data: null);
   }
 
   // ==================== 话题/数码 ====================
 
   /// 获取话题详情
-  Future<FeedContentResponse> getTopicLayout({
-    required String tag,
-  }) async {
+  Future<FeedContentResponse> getTopicLayout({required String tag}) async {
     return getFeedContent(id: tag);
   }
 
   /// 获取数码详情
-  Future<FeedContentResponse> getProductLayout({
-    required String id,
-  }) async {
-    return FeedContentResponse(status: 404, message: 'Not implemented for Discourse');
+  Future<FeedContentResponse> getProductLayout({required String id}) async {
+    return FeedContentResponse(
+      status: 404,
+      message: 'Not implemented for Discourse',
+    );
   }
 
   /// 获取数码分类列表
   Future<HomeFeedResponse> getProductList() async {
-    return HomeFeedResponse(status: 404, message: 'Not implemented for Discourse', data: []);
+    return HomeFeedResponse(
+      status: 404,
+      message: 'Not implemented for Discourse',
+      data: [],
+    );
   }
 
   // ==================== 消息 ====================
@@ -708,11 +730,7 @@ class ApiService extends _$ApiService {
         }).toList();
       }
 
-      return MessageResponse(
-        status: 200,
-        message: 'success',
-        data: messages,
-      );
+      return MessageResponse(status: 200, message: 'success', data: messages);
     } catch (e) {
       return MessageResponse(
         status: 500,
@@ -731,15 +749,9 @@ class ApiService extends _$ApiService {
       );
       final Map<String, dynamic> data = discourseResponse.data;
       final totalRows = data['total_rows_notifications'] ?? 0;
-      return CheckCountResponse(
-        status: 200,
-        data: {'count': totalRows},
-      );
+      return CheckCountResponse(status: 200, data: {'count': totalRows});
     } catch (e) {
-      return CheckCountResponse(
-        status: 200,
-        data: {'count': 0},
-      );
+      return CheckCountResponse(status: 200, data: {'count': 0});
     }
   }
 
@@ -771,10 +783,7 @@ class ApiService extends _$ApiService {
           message: 'Failed to like feed: $e',
         );
       }
-      return LikeFeedResponse(
-        status: 500,
-        message: 'Failed to like feed: $e',
-      );
+      return LikeFeedResponse(status: 500, message: 'Failed to like feed: $e');
     }
   }
 
@@ -856,9 +865,11 @@ class ApiService extends _$ApiService {
   }) async {
     try {
       final topicId = int.parse(id);
-      final content = data['content'] ?? '';
+      final content = (data['content'] ?? data['message'] ?? '').trim();
       final replyToPostNumberStr = data['reply_to_post_number'];
-      final replyToPostNumber = replyToPostNumberStr != null ? int.tryParse(replyToPostNumberStr) : null;
+      final replyToPostNumber = replyToPostNumberStr != null
+          ? int.tryParse(replyToPostNumberStr)
+          : null;
 
       await _discourseApi.createPost(
         topicId: topicId,
@@ -958,19 +969,14 @@ class ApiService extends _$ApiService {
           message: 'Failed to delete: $e',
         );
       }
-      return LikeReplyResponse(
-        status: 500,
-        message: 'Failed to delete: $e',
-      );
+      return LikeReplyResponse(status: 500, message: 'Failed to delete: $e');
     }
   }
 
   // ==================== 登录 ====================
 
   /// 预获取登录参数
-  Future<Response> preGetLoginParam({
-    String type = 'mobile',
-  }) async {
+  Future<Response> preGetLoginParam({String type = 'mobile'}) async {
     throw UnimplementedError('Login not implemented for Discourse');
   }
 
@@ -980,9 +986,7 @@ class ApiService extends _$ApiService {
   }
 
   /// 尝试登录
-  Future<Response> tryLogin({
-    required Map<String, String?> data,
-  }) async {
+  Future<Response> tryLogin({required Map<String, String?> data}) async {
     throw UnimplementedError('Login not implemented for Discourse');
   }
 
@@ -1041,7 +1045,8 @@ class UserProfileResponse {
 
   UserProfileResponse({this.status, this.message, this.data});
 
-  factory UserProfileResponse.fromJson(Map<String, dynamic> json) => UserProfileResponse(
+  factory UserProfileResponse.fromJson(Map<String, dynamic> json) =>
+      UserProfileResponse(
         status: json['status'],
         message: json['message'],
         data: json['data'] != null ? UserProfile.fromJson(json['data']) : null,
@@ -1067,7 +1072,8 @@ class MessageResponse {
 
   MessageResponse({this.status, this.message, this.data});
 
-  factory MessageResponse.fromJson(Map<String, dynamic> json) => MessageResponse(
+  factory MessageResponse.fromJson(Map<String, dynamic> json) =>
+      MessageResponse(
         status: json['status'],
         message: json['message'],
         data: json['data'],
@@ -1093,7 +1099,8 @@ class LikeFeedResponse {
 
   LikeFeedResponse({this.status, this.message, this.data});
 
-  factory LikeFeedResponse.fromJson(Map<String, dynamic> json) => LikeFeedResponse(
+  factory LikeFeedResponse.fromJson(Map<String, dynamic> json) =>
+      LikeFeedResponse(
         status: json['status'],
         message: json['message'],
         data: json['data'],
@@ -1108,7 +1115,8 @@ class LikeReplyResponse {
 
   LikeReplyResponse({this.status, this.message, this.data});
 
-  factory LikeReplyResponse.fromJson(Map<String, dynamic> json) => LikeReplyResponse(
+  factory LikeReplyResponse.fromJson(Map<String, dynamic> json) =>
+      LikeReplyResponse(
         status: json['status'],
         message: json['message'],
         data: json['data'],
@@ -1123,7 +1131,8 @@ class PostReplyResponse {
 
   PostReplyResponse({this.status, this.message, this.data});
 
-  factory PostReplyResponse.fromJson(Map<String, dynamic> json) => PostReplyResponse(
+  factory PostReplyResponse.fromJson(Map<String, dynamic> json) =>
+      PostReplyResponse(
         status: json['status'],
         message: json['message'],
         data: json['data'],
@@ -1138,7 +1147,8 @@ class CreateFeedResponse {
 
   CreateFeedResponse({this.status, this.message, this.data});
 
-  factory CreateFeedResponse.fromJson(Map<String, dynamic> json) => CreateFeedResponse(
+  factory CreateFeedResponse.fromJson(Map<String, dynamic> json) =>
+      CreateFeedResponse(
         status: json['status'],
         message: json['message'],
         data: json['data'],
@@ -1154,10 +1164,10 @@ class CheckResponse {
   CheckResponse({this.status, this.message, this.data});
 
   factory CheckResponse.fromJson(Map<String, dynamic> json) => CheckResponse(
-        status: json['status'],
-        message: json['message'],
-        data: json['data'],
-      );
+    status: json['status'],
+    message: json['message'],
+    data: json['data'],
+  );
 }
 
 /// 加载 URL 响应
@@ -1168,7 +1178,8 @@ class LoadUrlResponse {
 
   LoadUrlResponse({this.status, this.message, this.data});
 
-  factory LoadUrlResponse.fromJson(Map<String, dynamic> json) => LoadUrlResponse(
+  factory LoadUrlResponse.fromJson(Map<String, dynamic> json) =>
+      LoadUrlResponse(
         status: json['status'],
         message: json['message'],
         data: json['data'],
@@ -1243,11 +1254,13 @@ class UserSummary {
       postsReadCount: json['posts_read_count'] ?? 0,
       daysVisited: json['days_visited'] ?? 0,
       timeRead: json['time_read'] ?? 0,
-      topics: (json['topics'] as List<dynamic>?)
+      topics:
+          (json['topics'] as List<dynamic>?)
               ?.map((e) => UserSummaryTopic.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      replies: (json['replies'] as List<dynamic>?)
+      replies:
+          (json['replies'] as List<dynamic>?)
               ?.map((e) => UserSummaryReply.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -1324,11 +1337,7 @@ class UserActivityResponse {
   final String? message;
   final List<UserActivity> data;
 
-  UserActivityResponse({
-    this.status,
-    this.message,
-    this.data = const [],
-  });
+  UserActivityResponse({this.status, this.message, this.data = const []});
 }
 
 /// 用户活动数据

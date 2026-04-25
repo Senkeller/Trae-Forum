@@ -18,10 +18,7 @@ class DiscourseApiService {
   DiscourseApiService() : _dio = DioClient.dio;
 
   Future<Response> getLatestTopics({int page = 0}) async {
-    return _dio.get(
-      '$_baseUrl/latest.json',
-      queryParameters: {'page': page},
-    );
+    return _dio.get('$_baseUrl/latest.json', queryParameters: {'page': page});
   }
 
   Future<Response> getTopicsByCategory(int categoryId, {int page = 0}) async {
@@ -48,10 +45,7 @@ class DiscourseApiService {
 
   /// 基础搜索 - 仅关键词
   Future<Response> searchTopics(String query) async {
-    return _dio.get(
-      '$_baseUrl/search.json',
-      queryParameters: {'q': query},
-    );
+    return _dio.get('$_baseUrl/search.json', queryParameters: {'q': query});
   }
 
   /// 高级搜索 - 完整参数支持
@@ -70,14 +64,18 @@ class DiscourseApiService {
   /// [term] 输入的关键词前缀
   /// 返回话题、用户、分类的建议列表
   Future<Response> getSearchSuggestions(String term) async {
-    return _dio.get(
-      '$_baseUrl/search/query',
-      queryParameters: {'term': term},
-    );
+    return _dio.get('$_baseUrl/search/query', queryParameters: {'term': term});
   }
 
   Future<Response> getUserInfo(String username) async {
     return _dio.get('$_baseUrl/u/$username.json');
+  }
+
+  /// 获取当前会话用户信息
+  ///
+  /// 已登录时返回 current_user，未登录时通常为 null
+  Future<Response> getCurrentSession() async {
+    return _dio.get('$_baseUrl/session/current.json');
   }
 
   Future<Response> getUserTopics(String username, {int page = 0}) async {
@@ -98,14 +96,20 @@ class DiscourseApiService {
     );
   }
 
-  Future<Response> getUserActivityTopics(String username, {int page = 0}) async {
+  Future<Response> getUserActivityTopics(
+    String username, {
+    int page = 0,
+  }) async {
     return _dio.get(
       '$_baseUrl/u/$username/activity/topics.json',
       queryParameters: {'page': page},
     );
   }
 
-  Future<Response> getUserActivityReplies(String username, {int page = 0}) async {
+  Future<Response> getUserActivityReplies(
+    String username, {
+    int page = 0,
+  }) async {
     return _dio.get(
       '$_baseUrl/u/$username/activity/replies.json',
       queryParameters: {'page': page},
@@ -119,7 +123,10 @@ class DiscourseApiService {
     );
   }
 
-  Future<Response> getUserActivitySolved(String username, {int page = 0}) async {
+  Future<Response> getUserActivitySolved(
+    String username, {
+    int page = 0,
+  }) async {
     return _dio.get(
       '$_baseUrl/u/$username/activity/solved.json',
       queryParameters: {'page': page},
@@ -134,17 +141,11 @@ class DiscourseApiService {
   }
 
   Future<Response> getHotTopics({int page = 0}) async {
-    return _dio.get(
-      '$_baseUrl/hot.json',
-      queryParameters: {'page': page},
-    );
+    return _dio.get('$_baseUrl/hot.json', queryParameters: {'page': page});
   }
 
   Future<Response> getTopTopics({int page = 0}) async {
-    return _dio.get(
-      '$_baseUrl/top.json',
-      queryParameters: {'page': page},
-    );
+    return _dio.get('$_baseUrl/top.json', queryParameters: {'page': page});
   }
 
   // ==================== 通知相关 API ====================
@@ -166,15 +167,12 @@ class DiscourseApiService {
       'recent': recent,
       'bump_last_seen_reviewable': bumpLastSeen,
     };
-    
+
     if (filterByTypes != null && filterByTypes.isNotEmpty) {
       queryParams['filter_by_types'] = filterByTypes;
     }
 
-    return _dio.get(
-      '$_baseUrl/notifications',
-      queryParameters: queryParams,
-    );
+    return _dio.get('$_baseUrl/notifications', queryParameters: queryParams);
   }
 
   /// 获取私信菜单数据
@@ -194,7 +192,9 @@ class DiscourseApiService {
 
   /// 获取私信追踪状态
   Future<Response> getPrivateMessageTrackingState(String username) async {
-    return _dio.get('$_baseUrl/u/$username/private-message-topic-tracking-state');
+    return _dio.get(
+      '$_baseUrl/u/$username/private-message-topic-tracking-state',
+    );
   }
 
   /// 标记通知已读
@@ -253,10 +253,7 @@ class DiscourseApiService {
     required String raw,
     int? replyToPostNumber,
   }) async {
-    final data = <String, dynamic>{
-      'raw': raw,
-      'topic_id': topicId,
-    };
+    final data = <String, dynamic>{'raw': raw, 'topic_id': topicId};
 
     if (replyToPostNumber != null) {
       data['reply_to_post_number'] = replyToPostNumber;
@@ -339,9 +336,7 @@ class DiscourseApiService {
     required String raw,
     String? editReason,
   }) async {
-    final data = <String, dynamic>{
-      'raw': raw,
-    };
+    final data = <String, dynamic>{'raw': raw};
 
     if (editReason != null && editReason.isNotEmpty) {
       data['edit_reason'] = editReason;
@@ -371,9 +366,7 @@ class DiscourseApiService {
   }) async {
     return _dio.delete(
       '$_baseUrl/posts/$postId',
-      queryParameters: {
-        if (forceDestroy) 'force_destroy': 'true',
-      },
+      queryParameters: {if (forceDestroy) 'force_destroy': 'true'},
       options: Options(
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
@@ -399,11 +392,7 @@ class DiscourseApiService {
   }) async {
     return _dio.post(
       '$_baseUrl/drafts',
-      data: {
-        'draft_key': draftKey,
-        'data': data,
-        'sequence': sequence,
-      },
+      data: {'draft_key': draftKey, 'data': data, 'sequence': sequence},
       options: Options(
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
@@ -443,9 +432,7 @@ class DiscourseApiService {
   }) async {
     return _dio.delete(
       '$_baseUrl/drafts/$draftKey',
-      queryParameters: {
-        'sequence': sequence,
-      },
+      queryParameters: {'sequence': sequence},
       options: Options(
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
@@ -492,6 +479,22 @@ class DiscourseApiService {
     );
   }
 
+  /// 获取用户关注列表
+  ///
+  /// [username] 用户名
+  /// 调用 Discourse GET /u/{username}/following.json API
+  Future<Response> getUserFollowing(String username) async {
+    return _dio.get('$_baseUrl/u/$username/following.json');
+  }
+
+  /// 获取用户粉丝列表
+  ///
+  /// [username] 用户名
+  /// 调用 Discourse GET /u/{username}/followers.json API
+  Future<Response> getUserFollowers(String username) async {
+    return _dio.get('$_baseUrl/u/$username/followers.json');
+  }
+
   // ==================== 创建话题相关 API ====================
 
   /// 创建新话题
@@ -507,10 +510,7 @@ class DiscourseApiService {
     int? category,
     int? replyToPostNumber,
   }) async {
-    final data = <String, dynamic>{
-      'title': title,
-      'raw': raw,
-    };
+    final data = <String, dynamic>{'title': title, 'raw': raw};
 
     if (category != null) {
       data['category'] = category;

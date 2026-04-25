@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/api_service.dart';
+import '../../core/network/discourse_api_service.dart';
 import '../../data/models/feed.dart' as api_models;
 import 'auth_provider.dart';
 import 'home_provider.dart';
@@ -659,4 +660,155 @@ bool isUserFeedsLoading(IsUserFeedsLoadingRef ref, String uid) {
 @riverpod
 bool isFollowingUser(IsFollowingUserRef ref, String uid) {
   return ref.watch(userSpaceNotifierProvider(uid)).profile?.isFollowing ?? false;
+}
+
+enum FollowType {
+  following,
+  followers,
+}
+
+class FollowStatus {
+  final bool isFollowing;
+  final bool isLoggedIn;
+  FollowStatus({required this.isFollowing, required this.isLoggedIn});
+
+  FollowStatus copyWith({bool? isFollowing, bool? isLoggedIn}) =>
+      FollowStatus(
+        isFollowing: isFollowing ?? this.isFollowing,
+        isLoggedIn: isLoggedIn ?? this.isLoggedIn,
+      );
+}
+
+class UserBasic {
+  final int id;
+  final String username;
+  final String? avatarTemplate;
+  final String? name;
+
+  String get avatarUrl {
+    if (avatarTemplate == null || avatarTemplate!.isEmpty) {
+      return 'https://forum.trae.cn/user_avatar/forum.trae.cn/$username/120/0_2.png';
+    }
+    String url = avatarTemplate!;
+    url = url.replaceAll('{username}', username);
+    url = url.replaceAll('{size}', '120');
+    if (!url.startsWith('http')) {
+      url = 'https://forum.trae.cn$url';
+    }
+    return url;
+  }
+
+  const UserBasic({
+    required this.id,
+    required this.username,
+    this.avatarTemplate,
+    this.name,
+  });
+
+  factory UserBasic.fromJson(Map<String, dynamic> json) {
+    return UserBasic(
+      id: json['id'] ?? 0,
+      username: json['username'] ?? '',
+      avatarTemplate: json['avatar_template'],
+      name: json['name'],
+    );
+  }
+}
+
+@riverpod
+class UserFollowStatus extends _$UserFollowStatus {
+  @override
+  Future<FollowStatus> build(String username) async {
+    final discourseApi = ref.read(discourseApiServiceProvider);
+    final user = ref.read(currentUserProvider);
+
+    if (user == null || user.username.isEmpty) {
+      return FollowStatus(isFollowing: false, isLoggedIn: false);
+    }
+
+    if (user.username == username) {
+      return FollowStatus(isFollowing: false, isLoggedIn: true);
+    }
+
+    try {
+      final response = await discourseApi.getUserInfo(username);
+      final userData = response.data['user'];
+      final canSendPrivateMessageToUser =
+          userData['can_send_private_message_to_user'] ?? false;
+      return FollowStatus(
+        isFollowing: canSendPrivateMessageToUser,
+        isLoggedIn: true,
+      );
+    } catch (e) {
+      return FollowStatus(isFollowing: false, isLoggedIn: false);
+    }
+  }
+
+  Future<void> toggleFollow(String username) async {
+    final discourseApi = ref.read(discourseApiServiceProvider);
+    final currentStatus = state.valueOrNull;
+
+    if (currentStatus == null || !currentStatus.isLoggedIn) {
+      return;
+    }
+
+    final previousStatus = currentStatus;
+
+    state = AsyncData(currentStatus.copyWith(
+      isFollowing: !currentStatus.isFollowing,
+    ));
+
+    try {
+      if (currentStatus.isFollowing) {
+        await discourseApi.unfollowUser(username);
+      } else {
+        await discourseApi.followUser(username);
+      }
+    } catch (e) {
+      state = AsyncData(previousStatus);
+      rethrow;
+    }
+  }
+}
+
+@riverpod
+class DiscourseFollowList extends _$DiscourseFollowList {
+  @override
+  Future<List<UserBasic>> build(String username, FollowType type) async {
+    final discourseApi = ref.read(discourseApiServiceProvider);
+
+    try {
+      if (type == FollowType.following) {
+        final response = await discourseApi.getUserFollowing(username);
+        final users = response.data['users'] as List? ?? [];
+        return users.map((u) => UserBasic.fromJson(u as Map<String, dynamic>)).toList();
+      } else {
+        final response = await discourseApi.getUserFollowers(username);
+        final users = response.data['users'] as List? ?? [];
+        return users.map((u) => UserBasic.fromJson(u as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> refresh(String username, FollowType type) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => build(username, type));
+  }
+}
+
+@riverpod
+class DiscourseUserProfile extends _$DiscourseUserProfile {
+  @override
+  Future<Map<String, dynamic>?> build(String username) async {
+    final discourseApi = ref.read(discourseApiServiceProvider);
+
+    try {
+      final response = await discourseApi.getUserInfo(username);
+      return response.data['user'] as Map<String, dynamic>?;
+    } catch (e) {
+      return null;
+    }
+  }
 }

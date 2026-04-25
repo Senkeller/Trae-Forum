@@ -5,6 +5,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 
 class FollowListPage extends ConsumerStatefulWidget {
   final String uid;
@@ -21,76 +22,24 @@ class FollowListPage extends ConsumerStatefulWidget {
 class _FollowListPageState extends ConsumerState<FollowListPage> {
   final RefreshController _refreshController = RefreshController();
 
-  List<Map<String, String>> _followList = [];
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFollowList();
-  }
-
   @override
   void dispose() {
     _refreshController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadFollowList() async {
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      setState(() {
-        _isLoading = false;
-        _followList = [];
-        _hasMore = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '加载失败: $e';
-      });
-    }
-  }
-
   Future<void> _onRefresh() async {
-    await _loadFollowList();
+    await ref.read(discourseFollowListProvider(widget.uid, FollowType.following).notifier).refresh(widget.uid, FollowType.following);
     _refreshController.refreshCompleted();
   }
 
   Future<void> _onLoading() async {
-    if (_isLoadingMore || !_hasMore) {
-      _refreshController.loadComplete();
-      return;
-    }
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _isLoadingMore = false;
-      _hasMore = false;
-    });
-
     _refreshController.loadComplete();
   }
 
   Future<void> _unfollow(String username) async {
     final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || currentUser.uid.isEmpty) {
+    if (currentUser == null || currentUser.username.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('请先登录'),
@@ -104,14 +53,14 @@ class _FollowListPageState extends ConsumerState<FollowListPage> {
     }
 
     try {
+      await ref.read(userFollowStatusProvider(username).notifier).toggleFollow(username);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('取消关注 @$username')),
+        SnackBar(content: Text('已取消关注 @$username')),
       );
-
-      setState(() {
-        _followList.removeWhere((user) => user['username'] == username);
-      });
+      ref.invalidate(discourseFollowListProvider(widget.uid, FollowType.following));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('操作失败: $e')),
       );
@@ -121,59 +70,54 @@ class _FollowListPageState extends ConsumerState<FollowListPage> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
-    final isOwnProfile = currentUser?.username == widget.uid ||
-        currentUser?.uid == widget.uid;
+    final isOwnProfile = currentUser?.username == widget.uid;
+
+    final followListAsync = ref.watch(discourseFollowListProvider(widget.uid, FollowType.following));
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isOwnProfile ? '我的关注' : '关注列表'),
       ),
-      body: _buildBody(),
-    );
-  }
+      body: followListAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => _StateView(
+          icon: Icons.error_outline,
+          title: '加载失败',
+          message: error.toString(),
+          actionLabel: '重试',
+          onAction: () => ref.invalidate(discourseFollowListProvider(widget.uid, FollowType.following)),
+        ),
+        data: (users) {
+          if (users.isEmpty) {
+            return _StateView(
+              icon: Icons.people_outline,
+              title: '暂无关注',
+              message: '还没有关注任何人',
+            );
+          }
 
-  Widget _buildBody() {
-    if (_isLoading && _followList.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage != null && _followList.isEmpty) {
-      return _StateView(
-        icon: Icons.error_outline,
-        title: '加载失败',
-        message: _errorMessage!,
-        actionLabel: '重试',
-        onAction: _loadFollowList,
-      );
-    }
-
-    if (_followList.isEmpty) {
-      return _StateView(
-        icon: Icons.people_outline,
-        title: '暂无关注',
-        message: '还没有关注任何人',
-      );
-    }
-
-    return SmartRefresher(
-      controller: _refreshController,
-      enablePullDown: true,
-      enablePullUp: _hasMore,
-      onRefresh: _onRefresh,
-      onLoading: _hasMore ? _onLoading : null,
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _followList.length,
-        itemBuilder: (context, index) {
-          final user = _followList[index];
-          return _UserCard(
-            username: user['username'] ?? '',
-            avatarUrl: user['avatarUrl'] ?? '',
-            bio: user['bio'] ?? '',
-            onTap: () {
-              context.push(RoutePaths.userProfile.replaceFirst(':uid', user['username'] ?? ''));
-            },
-            onUnfollow: () => _unfollow(user['username'] ?? ''),
+          return SmartRefresher(
+            controller: _refreshController,
+            enablePullDown: true,
+            enablePullUp: false,
+            onRefresh: _onRefresh,
+            onLoading: _onLoading,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: users.length,
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return _UserCard(
+                  username: user.username,
+                  avatarUrl: user.avatarUrl,
+                  bio: user.name ?? '',
+                  onTap: () {
+                    context.push(RoutePaths.userProfile.replaceFirst(':uid', user.username));
+                  },
+                  onUnfollow: () => _unfollow(user.username),
+                );
+              },
+            ),
           );
         },
       ),

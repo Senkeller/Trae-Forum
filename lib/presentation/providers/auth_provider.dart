@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_service.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/network/cookie_manager.dart';
+import '../../core/network/discourse_api_service.dart';
+import '../../core/network/native_cookie_bridge.dart';
 import '../../data/models/user.dart';
 
 part 'auth_provider.g.dart';
@@ -12,11 +14,13 @@ part 'auth_provider.g.dart';
 @riverpod
 class AuthNotifier extends _$AuthNotifier {
   late ApiService _apiService;
+  late DiscourseApiService _discourseApiService;
 
   /// 构建认证状态
   @override
   AsyncValue<UserInfo> build() {
     _apiService = ref.read(apiServiceProvider);
+    _discourseApiService = ref.read(discourseApiServiceProvider);
     _loadUserInfo();
     return const AsyncValue.loading();
   }
@@ -40,12 +44,61 @@ class AuthNotifier extends _$AuthNotifier {
         debugPrint('✅ [AuthNotifier] 加载用户信息成功: ${userInfo.username}');
         state = AsyncData(userInfo);
       } else {
-        debugPrint('ℹ️ [AuthNotifier] 本地无用户信息，设置为未登录');
+        debugPrint('ℹ️ [AuthNotifier] 本地无用户信息，尝试从 Discourse 会话恢复');
+        final restoredUser = await _restoreUserInfoFromDiscourseSession();
+        if (restoredUser != null) {
+          debugPrint(
+            '✅ [AuthNotifier] Discourse 会话恢复成功: ${restoredUser.username}',
+          );
+          state = AsyncData(restoredUser);
+          return;
+        }
+
+        debugPrint('ℹ️ [AuthNotifier] 未检测到可用会话，设置为未登录');
         state = const AsyncValue.data(UserInfo(uid: '', username: ''));
       }
     } catch (e, stackTrace) {
       debugPrint('❌ [AuthNotifier] 加载用户信息失败: $e');
       state = AsyncError(e, stackTrace);
+    }
+  }
+
+  /// 从 Discourse Cookie 会话恢复用户信息
+  ///
+  /// 当本地用户信息丢失但 Cookie 仍有效时，避免页面误判为未登录
+  Future<UserInfo?> _restoreUserInfoFromDiscourseSession() async {
+    try {
+      // 先尝试从系统 WebView CookieManager 同步完整 Cookie（含 HttpOnly）
+      await NativeCookieBridge.syncCookiesToDio('https://forum.trae.cn');
+
+      final hasSession = await DioClient.hasDiscourseSession();
+      if (!hasSession) {
+        return null;
+      }
+
+      // forum.trae.cn 的 /session/current.json 返回 404，改用 notifications 探活
+      final probe = await _discourseApiService.getNotifications(
+        limit: 1,
+        recent: true,
+        bumpLastSeen: false,
+      );
+      if (probe.statusCode != 200) {
+        return null;
+      }
+
+      // 若仅凭 Cookie 无法拿到用户详情，也先恢复成“已登录占位用户”，
+      // 避免重启后页面误判为未登录。
+      final userInfo = UserInfo(
+        uid: 'discourse_session',
+        username: '用户',
+        avatar: '',
+      );
+
+      await _saveUserInfo(userInfo);
+      return userInfo;
+    } catch (e) {
+      debugPrint('⚠️ [AuthNotifier] Discourse 会话恢复失败: $e');
+      return null;
     }
   }
 
@@ -76,7 +129,7 @@ class AuthNotifier extends _$AuthNotifier {
   /// 返回登录是否成功
   Future<bool> loginWithCoolApk(String coolApkId, String coolApkToken) async {
     state = const AsyncLoading();
-    
+
     try {
       // Discourse API 暂不支持登录，返回 false
       return false;
@@ -139,11 +192,12 @@ class AuthNotifier extends _$AuthNotifier {
 
     try {
       final response = await _apiService.getProfile(uid: currentUser.uid);
-      if (response.status == 1 && response.data != null && response.data!.userInfo != null) {
-        await _saveUserInfo(response.data!.userInfo!);
-        state = AsyncData(response.data!.userInfo!);
+      final userInfo = response.data?.userInfo;
+      if (response.status == 1 && userInfo != null) {
+        await _saveUserInfo(userInfo);
+        state = AsyncData(userInfo);
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       // 刷新失败，保持原有状态
       state = AsyncData(currentUser);
     }
@@ -205,7 +259,9 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
 
   // 2. 检查 Discourse 登录状态（通过检查 Cookie）
   final hasDiscourseCookie = await DioClient.hasDiscourseSession();
-  debugPrint('🔍 [isAuthenticatedAsync] Discourse session: $hasDiscourseCookie');
+  debugPrint(
+    '🔍 [isAuthenticatedAsync] Discourse session: $hasDiscourseCookie',
+  );
   return hasDiscourseCookie;
 }
 

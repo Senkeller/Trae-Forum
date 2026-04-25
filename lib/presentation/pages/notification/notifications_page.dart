@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+import 'package:intl/intl.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/discourse_image_url_resolver.dart';
+import '../../../data/models/discourse/discourse_notification.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
+import '../../widgets/user/user_avatar.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -15,110 +20,86 @@ class NotificationsPage extends ConsumerStatefulWidget {
 
 class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   final RefreshController _refreshController = RefreshController();
-
-  List<Map<String, dynamic>> _notifications = [];
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  String? _errorMessage;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
+    _scrollController.addListener(_onScroll);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(notificationNotifierProvider.notifier).loadNotifications();
+    });
   }
 
   @override
   void dispose() {
     _refreshController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadNotifications() async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || currentUser.uid.isEmpty) {
-      setState(() {
-        _errorMessage = '请先登录';
-      });
-      return;
-    }
-
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      setState(() {
-        _isLoading = false;
-        _notifications = [];
-        _hasMore = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '加载失败: $e';
-      });
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      ref.read(notificationNotifierProvider.notifier).loadMoreNotifications();
     }
   }
 
   Future<void> _onRefresh() async {
-    await _loadNotifications();
+    await ref.read(notificationNotifierProvider.notifier).refreshNotifications();
     _refreshController.refreshCompleted();
   }
 
-  Future<void> _onLoading() async {
-    if (_isLoadingMore || !_hasMore) {
-      _refreshController.loadComplete();
-      return;
-    }
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _isLoadingMore = false;
-      _hasMore = false;
-    });
-
-    _refreshController.loadComplete();
-  }
-
-  Future<void> _markAsRead(String notificationId) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('标记已读功能开发中')),
-    );
+  Future<void> _markAsRead(int notificationId) async {
+    await ref.read(notificationNotifierProvider.notifier).markAsRead(notificationId);
   }
 
   Future<void> _markAllAsRead() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('全部已读功能开发中')),
-    );
+    await ref.read(notificationNotifierProvider.notifier).markAsRead();
+  }
+
+  void _handleNotificationTap(DiscourseNotification notification) {
+    if (!notification.read) {
+      ref.read(notificationNotifierProvider.notifier).markAsRead(notification.id);
+    }
+
+    if (notification.topicId != null) {
+      final path = '/feed/${notification.topicId}';
+      if (notification.postNumber != null && notification.postNumber! > 1) {
+        context.push('$path?postNumber=${notification.postNumber}');
+      } else {
+        context.push(path);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
     final isLoggedIn = currentUser != null && currentUser.uid.isNotEmpty;
+    final notificationState = ref.watch(notificationNotifierProvider);
 
     if (!isLoggedIn) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('通知'),
         ),
-        body: _StateView(
-          icon: Icons.account_circle_outlined,
-          title: '未登录',
-          message: '登录后可查看通知',
-          actionLabel: '去登录',
-          onAction: () => context.push(RoutePaths.login),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.account_circle_outlined, size: 56),
+              const SizedBox(height: 16),
+              const Text('未登录'),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.push(RoutePaths.login),
+                child: const Text('去登录'),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -129,100 +110,94 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.done_all),
-            onPressed: _notifications.isNotEmpty ? _markAllAsRead : null,
+            onPressed: notificationState.notifications.isNotEmpty ? _markAllAsRead : null,
             tooltip: '全部标为已读',
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push(RoutePaths.settings),
-            tooltip: '通知设置',
           ),
         ],
       ),
-      body: _buildBody(),
+      body: _buildBody(notificationState),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading && _notifications.isEmpty) {
+  Widget _buildBody(NotificationState notificationState) {
+    if (notificationState.isLoading && notificationState.notifications.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_errorMessage != null && _notifications.isEmpty) {
-      return _StateView(
-        icon: Icons.error_outline,
-        title: '加载失败',
-        message: _errorMessage!,
-        actionLabel: '重试',
-        onAction: _loadNotifications,
+    if (notificationState.errorMessage != null &&
+        notificationState.notifications.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 56),
+            const SizedBox(height: 16),
+            Text(notificationState.errorMessage!),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () {
+                ref.read(notificationNotifierProvider.notifier).loadNotifications();
+              },
+              child: const Text('重试'),
+            ),
+          ],
+        ),
       );
     }
 
-    if (_notifications.isEmpty) {
-      return _StateView(
-        icon: Icons.notifications_outlined,
-        title: '暂无通知',
-        message: '还没有任何通知',
+    if (notificationState.notifications.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.notifications_outlined, size: 56),
+            SizedBox(height: 16),
+            Text('暂无通知'),
+          ],
+        ),
       );
     }
-
-    final unreadCount = _notifications.where((n) => n['isRead'] != true).length;
 
     return SmartRefresher(
       controller: _refreshController,
       enablePullDown: true,
-      enablePullUp: _hasMore,
+      enablePullUp: notificationState.hasMore,
       onRefresh: _onRefresh,
-      onLoading: _hasMore ? _onLoading : null,
+      onLoading: notificationState.hasMore
+          ? () {
+              ref.read(notificationNotifierProvider.notifier).loadMoreNotifications();
+              _refreshController.loadComplete();
+            }
+          : null,
       child: ListView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _notifications.length + 1,
+        itemCount: notificationState.notifications.length +
+            (notificationState.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index == 0 && unreadCount > 0) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  Text(
-                    '未读通知 ($unreadCount)',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: _markAllAsRead,
-                    child: const Text('全部已读'),
-                  ),
-                ],
+          if (index >= notificationState.notifications.length) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: CircularProgressIndicator(),
               ),
             );
           }
 
-          final notificationIndex = index - (unreadCount > 0 ? 1 : 0);
-          if (notificationIndex < 0) return const SizedBox.shrink();
-
-          final notification = _notifications[notificationIndex];
+          final notification = notificationState.notifications[index];
           return _NotificationCard(
             notification: notification,
             onTap: () => _handleNotificationTap(notification),
-            onMarkAsRead: () => _markAsRead(notification['id']?.toString() ?? ''),
+            onMarkAsRead: () => _markAsRead(notification.id),
           );
         },
       ),
     );
   }
-
-  void _handleNotificationTap(Map<String, dynamic> notification) {
-    final topicId = notification['topicId']?.toString();
-    if (topicId != null && topicId.isNotEmpty) {
-      context.push(RoutePaths.feedDetail.replaceFirst(':id', topicId));
-    }
-  }
 }
 
 class _NotificationCard extends StatelessWidget {
-  final Map<String, dynamic> notification;
+  final DiscourseNotification notification;
   final VoidCallback onTap;
   final VoidCallback onMarkAsRead;
 
@@ -234,16 +209,23 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final avatarUrl = notification['avatarUrl']?.toString() ?? '';
-    final content = notification['content']?.toString() ?? '';
-    final time = notification['time']?.toString() ?? '';
-    final isRead = notification['isRead'] == true;
-    final type = notification['type']?.toString() ?? 'system';
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isUnread = !notification.read;
+
+    final avatarUrl = notification.actingUserAvatarTemplate != null
+        ? DiscourseImageUrlResolver.resolveAvatarUrl(
+            notification.actingUserAvatarTemplate!,
+            size: 96,
+          )
+        : null;
+
+    final iconData = _getIconData();
+    final iconColor = _getIconColor();
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: isRead ? null : colorScheme.primaryContainer.withValues(alpha: 0.3),
+      color: isUnread ? colorScheme.primaryContainer.withValues(alpha: 0.3) : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -254,16 +236,14 @@ class _NotificationCard extends StatelessWidget {
             children: [
               Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundImage: avatarUrl.isNotEmpty
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    child: avatarUrl.isEmpty
-                        ? Icon(_getTypeIcon(type), size: 22)
-                        : null,
+                  UserAvatar(
+                    avatarUrl: avatarUrl,
+                    size: 48,
+                    fallbackIcon: iconData,
+                    fallbackBackgroundColor: iconColor.withValues(alpha: 0.2),
+                    fallbackIconColor: iconColor,
                   ),
-                  if (!isRead)
+                  if (isUnread)
                     Positioned(
                       right: 0,
                       top: 0,
@@ -289,27 +269,60 @@ class _NotificationCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        _buildTypeChip(context, type),
+                        _buildTypeChip(context),
                         const Spacer(),
                         Text(
-                          time,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          _formatTime(notification.createdAt),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      content.isNotEmpty ? content : '通知内容',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      _getContent(),
+                      style: theme.textTheme.bodyMedium,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (notification.topicTitle != null ||
+                        notification.fancyTitle != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.article_outlined,
+                              size: 16,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                notification.topicTitle ??
+                                    notification.fancyTitle ??
+                                    '相关内容',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              if (!isRead)
+              if (!isUnread)
                 IconButton(
                   icon: const Icon(Icons.check_circle_outline, size: 20),
                   onPressed: onMarkAsRead,
@@ -322,106 +335,139 @@ class _NotificationCard extends StatelessWidget {
     );
   }
 
-  IconData _getTypeIcon(String type) {
-    switch (type) {
-      case 'reply':
-        return Icons.reply;
-      case 'like':
-        return Icons.thumb_up;
-      case 'mention':
+  IconData _getIconData() {
+    final iconName = DiscourseNotificationType.getTypeIcon(
+      notification.notificationType,
+    );
+    return _getIconFromName(iconName);
+  }
+
+  Color _getIconColor() {
+    final colorHex = DiscourseNotificationType.getTypeColor(
+      notification.notificationType,
+    );
+    return Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+  }
+
+  IconData _getIconFromName(String iconName) {
+    switch (iconName) {
+      case 'alternate_email':
         return Icons.alternate_email;
-      case 'follow':
+      case 'comment':
+        return Icons.comment;
+      case 'format_quote':
+        return Icons.format_quote;
+      case 'favorite':
+        return Icons.favorite;
+      case 'emoji_emotions':
+        return Icons.emoji_emotions;
+      case 'edit':
+        return Icons.edit;
+      case 'mail':
+        return Icons.mail;
+      case 'move':
+        return Icons.move_up;
+      case 'link':
+        return Icons.link;
+      case 'emoji_events':
+        return Icons.emoji_events;
+      case 'visibility':
+        return Icons.visibility;
+      case 'alarm':
+        return Icons.alarm;
+      case 'check_circle':
+        return Icons.check_circle;
+      case 'person_add':
         return Icons.person_add;
+      case 'how_to_vote':
+        return Icons.how_to_vote;
+      case 'chat':
+        return Icons.chat;
+      case 'assignment_ind':
+        return Icons.assignment_ind;
+      case 'person':
+        return Icons.person;
+      case 'new_releases':
+        return Icons.new_releases;
+      case 'warning':
+        return Icons.warning;
       default:
         return Icons.notifications;
     }
   }
 
-  Widget _buildTypeChip(BuildContext context, String type) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    String label;
-    switch (type) {
-      case 'reply':
-        label = '回复';
-        break;
-      case 'like':
-        label = '赞';
-        break;
-      case 'mention':
-        label = '@';
-        break;
-      case 'follow':
-        label = '关注';
-        break;
-      default:
-        label = '通知';
-    }
+  Widget _buildTypeChip(BuildContext context) {
+    final typeName = DiscourseNotificationType.getTypeName(
+      notification.notificationType,
+    );
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        label,
+        typeName,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colorScheme.primary,
+              color: Theme.of(context).colorScheme.primary,
             ),
       ),
     );
   }
-}
 
-class _StateView extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
-
-  const _StateView({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.actionLabel,
-    this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: theme.textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
-            ],
-          ],
-        ),
-      ),
+  String _getContent() {
+    final typeName = DiscourseNotificationType.getTypeName(
+      notification.notificationType,
     );
+    final username = notification.actingUserName ??
+        notification.displayUsername ??
+        '用户';
+
+    switch (notification.notificationType) {
+      case DiscourseNotificationType.mentioned:
+      case DiscourseNotificationType.groupMentioned:
+        return '$username 在话题中提到了你';
+      case DiscourseNotificationType.replied:
+        return '$username 回复了你的帖子';
+      case DiscourseNotificationType.quoted:
+        return '$username 引用了你的内容';
+      case DiscourseNotificationType.liked:
+      case DiscourseNotificationType.likedConsolidated:
+        final count = notification.data?.count ?? 1;
+        return count > 1 ? '等$count人赞了你' : '$username 赞了你';
+      case DiscourseNotificationType.reaction:
+        return '$username 对你的内容做出了回应';
+      case DiscourseNotificationType.grantedBadge:
+        return '你获得了徽章：${notification.data?.badgeName ?? ''}';
+      default:
+        return username == '用户' ? typeName : '$username $typeName';
+    }
+  }
+
+  String _formatTime(String? timeString) {
+    if (timeString == null || timeString.isEmpty) {
+      return '';
+    }
+
+    try {
+      final dateTime = DateTime.parse(timeString);
+      final now = DateTime.now();
+      final difference = now.difference(dateTime);
+
+      if (difference.inMinutes < 1) {
+        return '刚刚';
+      } else if (difference.inHours < 1) {
+        return '${difference.inMinutes}分钟前';
+      } else if (difference.inDays < 1) {
+        return '${difference.inHours}小时前';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays}天前';
+      } else {
+        return DateFormat('MM-dd').format(dateTime);
+      }
+    } catch (e) {
+      return timeString;
+    }
   }
 }

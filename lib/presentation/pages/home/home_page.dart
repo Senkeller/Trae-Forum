@@ -7,6 +7,7 @@ import '../../../config/constants.dart';
 import '../../../core/utils/performance_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
+import '../../widgets/common/like_button.dart';
 import '../../widgets/feed/featured_comment.dart';
 import '../../widgets/feed/quick_comment_bar.dart';
 import '../../widgets/comment/quick_comment_sheet.dart';
@@ -590,9 +591,13 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
 
     return Row(
       children: [
-        Icon(Icons.thumb_up_outlined, size: 20, color: colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
-        Text('${widget.feed.likeCount}', style: textStyle),
+        LikeButton(
+          postId: widget.feed.topicId,
+          initialLikeCount: widget.feed.likeCount,
+          initialIsLiked: widget.feed.isLiked,
+          iconSize: 20,
+          fontSize: 12,
+        ),
         const SizedBox(width: 16),
         Icon(Icons.comment_outlined, size: 20, color: colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),

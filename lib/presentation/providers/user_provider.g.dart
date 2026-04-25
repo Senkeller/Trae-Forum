@@ -881,5 +881,448 @@ class _UserSpaceNotifierProviderElement
   String get uid => (origin as UserSpaceNotifierProvider).uid;
 }
 
+String _$userFollowStatusHash() => r'11cb4cb63a98750b6395bfc084f6b5e7128e7c96';
+
+abstract class _$UserFollowStatus
+    extends BuildlessAutoDisposeAsyncNotifier<FollowStatus> {
+  late final String username;
+
+  FutureOr<FollowStatus> build(String username);
+}
+
+/// See also [UserFollowStatus].
+@ProviderFor(UserFollowStatus)
+const userFollowStatusProvider = UserFollowStatusFamily();
+
+/// See also [UserFollowStatus].
+class UserFollowStatusFamily extends Family<AsyncValue<FollowStatus>> {
+  /// See also [UserFollowStatus].
+  const UserFollowStatusFamily();
+
+  /// See also [UserFollowStatus].
+  UserFollowStatusProvider call(String username) {
+    return UserFollowStatusProvider(username);
+  }
+
+  @override
+  UserFollowStatusProvider getProviderOverride(
+    covariant UserFollowStatusProvider provider,
+  ) {
+    return call(provider.username);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'userFollowStatusProvider';
+}
+
+/// See also [UserFollowStatus].
+class UserFollowStatusProvider
+    extends
+        AutoDisposeAsyncNotifierProviderImpl<UserFollowStatus, FollowStatus> {
+  /// See also [UserFollowStatus].
+  UserFollowStatusProvider(String username)
+    : this._internal(
+        () => UserFollowStatus()..username = username,
+        from: userFollowStatusProvider,
+        name: r'userFollowStatusProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$userFollowStatusHash,
+        dependencies: UserFollowStatusFamily._dependencies,
+        allTransitiveDependencies:
+            UserFollowStatusFamily._allTransitiveDependencies,
+        username: username,
+      );
+
+  UserFollowStatusProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.username,
+  }) : super.internal();
+
+  final String username;
+
+  @override
+  FutureOr<FollowStatus> runNotifierBuild(covariant UserFollowStatus notifier) {
+    return notifier.build(username);
+  }
+
+  @override
+  Override overrideWith(UserFollowStatus Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: UserFollowStatusProvider._internal(
+        () => create()..username = username,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        username: username,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeAsyncNotifierProviderElement<UserFollowStatus, FollowStatus>
+  createElement() {
+    return _UserFollowStatusProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is UserFollowStatusProvider && other.username == username;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, username.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin UserFollowStatusRef on AutoDisposeAsyncNotifierProviderRef<FollowStatus> {
+  /// The parameter `username` of this provider.
+  String get username;
+}
+
+class _UserFollowStatusProviderElement
+    extends
+        AutoDisposeAsyncNotifierProviderElement<UserFollowStatus, FollowStatus>
+    with UserFollowStatusRef {
+  _UserFollowStatusProviderElement(super.provider);
+
+  @override
+  String get username => (origin as UserFollowStatusProvider).username;
+}
+
+String _$discourseFollowListHash() =>
+    r'a07a0d20c872d121184810e31eae0eea2d9891e4';
+
+abstract class _$DiscourseFollowList
+    extends BuildlessAutoDisposeAsyncNotifier<List<UserBasic>> {
+  late final String username;
+  late final FollowType type;
+
+  FutureOr<List<UserBasic>> build(String username, FollowType type);
+}
+
+/// See also [DiscourseFollowList].
+@ProviderFor(DiscourseFollowList)
+const discourseFollowListProvider = DiscourseFollowListFamily();
+
+/// See also [DiscourseFollowList].
+class DiscourseFollowListFamily extends Family<AsyncValue<List<UserBasic>>> {
+  /// See also [DiscourseFollowList].
+  const DiscourseFollowListFamily();
+
+  /// See also [DiscourseFollowList].
+  DiscourseFollowListProvider call(String username, FollowType type) {
+    return DiscourseFollowListProvider(username, type);
+  }
+
+  @override
+  DiscourseFollowListProvider getProviderOverride(
+    covariant DiscourseFollowListProvider provider,
+  ) {
+    return call(provider.username, provider.type);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'discourseFollowListProvider';
+}
+
+/// See also [DiscourseFollowList].
+class DiscourseFollowListProvider
+    extends
+        AutoDisposeAsyncNotifierProviderImpl<
+          DiscourseFollowList,
+          List<UserBasic>
+        > {
+  /// See also [DiscourseFollowList].
+  DiscourseFollowListProvider(String username, FollowType type)
+    : this._internal(
+        () => DiscourseFollowList()
+          ..username = username
+          ..type = type,
+        from: discourseFollowListProvider,
+        name: r'discourseFollowListProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$discourseFollowListHash,
+        dependencies: DiscourseFollowListFamily._dependencies,
+        allTransitiveDependencies:
+            DiscourseFollowListFamily._allTransitiveDependencies,
+        username: username,
+        type: type,
+      );
+
+  DiscourseFollowListProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.username,
+    required this.type,
+  }) : super.internal();
+
+  final String username;
+  final FollowType type;
+
+  @override
+  FutureOr<List<UserBasic>> runNotifierBuild(
+    covariant DiscourseFollowList notifier,
+  ) {
+    return notifier.build(username, type);
+  }
+
+  @override
+  Override overrideWith(DiscourseFollowList Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: DiscourseFollowListProvider._internal(
+        () => create()
+          ..username = username
+          ..type = type,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        username: username,
+        type: type,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeAsyncNotifierProviderElement<DiscourseFollowList, List<UserBasic>>
+  createElement() {
+    return _DiscourseFollowListProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DiscourseFollowListProvider &&
+        other.username == username &&
+        other.type == type;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, username.hashCode);
+    hash = _SystemHash.combine(hash, type.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin DiscourseFollowListRef
+    on AutoDisposeAsyncNotifierProviderRef<List<UserBasic>> {
+  /// The parameter `username` of this provider.
+  String get username;
+
+  /// The parameter `type` of this provider.
+  FollowType get type;
+}
+
+class _DiscourseFollowListProviderElement
+    extends
+        AutoDisposeAsyncNotifierProviderElement<
+          DiscourseFollowList,
+          List<UserBasic>
+        >
+    with DiscourseFollowListRef {
+  _DiscourseFollowListProviderElement(super.provider);
+
+  @override
+  String get username => (origin as DiscourseFollowListProvider).username;
+  @override
+  FollowType get type => (origin as DiscourseFollowListProvider).type;
+}
+
+String _$discourseUserProfileHash() =>
+    r'cc66ac3359753a0947c897f0cc3e086ce6421daa';
+
+abstract class _$DiscourseUserProfile
+    extends BuildlessAutoDisposeAsyncNotifier<Map<String, dynamic>?> {
+  late final String username;
+
+  FutureOr<Map<String, dynamic>?> build(String username);
+}
+
+/// See also [DiscourseUserProfile].
+@ProviderFor(DiscourseUserProfile)
+const discourseUserProfileProvider = DiscourseUserProfileFamily();
+
+/// See also [DiscourseUserProfile].
+class DiscourseUserProfileFamily
+    extends Family<AsyncValue<Map<String, dynamic>?>> {
+  /// See also [DiscourseUserProfile].
+  const DiscourseUserProfileFamily();
+
+  /// See also [DiscourseUserProfile].
+  DiscourseUserProfileProvider call(String username) {
+    return DiscourseUserProfileProvider(username);
+  }
+
+  @override
+  DiscourseUserProfileProvider getProviderOverride(
+    covariant DiscourseUserProfileProvider provider,
+  ) {
+    return call(provider.username);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'discourseUserProfileProvider';
+}
+
+/// See also [DiscourseUserProfile].
+class DiscourseUserProfileProvider
+    extends
+        AutoDisposeAsyncNotifierProviderImpl<
+          DiscourseUserProfile,
+          Map<String, dynamic>?
+        > {
+  /// See also [DiscourseUserProfile].
+  DiscourseUserProfileProvider(String username)
+    : this._internal(
+        () => DiscourseUserProfile()..username = username,
+        from: discourseUserProfileProvider,
+        name: r'discourseUserProfileProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$discourseUserProfileHash,
+        dependencies: DiscourseUserProfileFamily._dependencies,
+        allTransitiveDependencies:
+            DiscourseUserProfileFamily._allTransitiveDependencies,
+        username: username,
+      );
+
+  DiscourseUserProfileProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.username,
+  }) : super.internal();
+
+  final String username;
+
+  @override
+  FutureOr<Map<String, dynamic>?> runNotifierBuild(
+    covariant DiscourseUserProfile notifier,
+  ) {
+    return notifier.build(username);
+  }
+
+  @override
+  Override overrideWith(DiscourseUserProfile Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: DiscourseUserProfileProvider._internal(
+        () => create()..username = username,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        username: username,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeAsyncNotifierProviderElement<
+    DiscourseUserProfile,
+    Map<String, dynamic>?
+  >
+  createElement() {
+    return _DiscourseUserProfileProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DiscourseUserProfileProvider && other.username == username;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, username.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin DiscourseUserProfileRef
+    on AutoDisposeAsyncNotifierProviderRef<Map<String, dynamic>?> {
+  /// The parameter `username` of this provider.
+  String get username;
+}
+
+class _DiscourseUserProfileProviderElement
+    extends
+        AutoDisposeAsyncNotifierProviderElement<
+          DiscourseUserProfile,
+          Map<String, dynamic>?
+        >
+    with DiscourseUserProfileRef {
+  _DiscourseUserProfileProviderElement(super.provider);
+
+  @override
+  String get username => (origin as DiscourseUserProfileProvider).username;
+}
+
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

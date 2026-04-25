@@ -207,6 +207,12 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
               onSendMessage: () {
                 _showMessageDialog(context, username);
               },
+              onFollowersTap: () {
+                context.push(RoutePaths.fanList.replaceFirst(':uid', username));
+              },
+              onFollowingTap: () {
+                context.push(RoutePaths.followList.replaceFirst(':uid', username));
+              },
             ),
           ),
           SliverToBoxAdapter(
@@ -944,6 +950,8 @@ class _ProfileHeader extends StatelessWidget {
   final VoidCallback onEditProfile;
   final VoidCallback onToggleFollow;
   final VoidCallback onSendMessage;
+  final VoidCallback? onFollowersTap;
+  final VoidCallback? onFollowingTap;
 
   const _ProfileHeader({
     required this.profile,
@@ -951,6 +959,8 @@ class _ProfileHeader extends StatelessWidget {
     required this.onEditProfile,
     required this.onToggleFollow,
     required this.onSendMessage,
+    this.onFollowersTap,
+    this.onFollowingTap,
   });
 
   @override
@@ -984,10 +994,12 @@ class _ProfileHeader extends StatelessWidget {
                     _StatItem(
                       count: profile.followCount.toString(),
                       label: '关注',
+                      onTap: onFollowingTap,
                     ),
                     _StatItem(
                       count: profile.fansCount.toString(),
                       label: '粉丝',
+                      onTap: onFollowersTap,
                     ),
                   ],
                 ),
@@ -1061,27 +1073,33 @@ class _ProfileHeader extends StatelessWidget {
 class _StatItem extends StatelessWidget {
   final String count;
   final String label;
+  final VoidCallback? onTap;
 
   const _StatItem({
     required this.count,
     required this.label,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Column(
-        children: [
-          Text(
-            count,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          children: [
+            Text(
+              count,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
       ),
     );
   }

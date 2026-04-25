@@ -11,6 +11,7 @@ import '../../../data/models/feed.dart';
 import '../../../data/repositories/comment_repository.dart';
 import '../../../data/repositories/feed_repository.dart';
 import '../../pages/common/image_preview_page.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/common/cached_image.dart';
 import '../../widgets/common/rich_text_view.dart';
 import '../../widgets/detail/topic_magazine_renderer.dart';
@@ -18,10 +19,7 @@ import '../../widgets/detail/topic_magazine_renderer.dart';
 class FeedDetailPage extends ConsumerStatefulWidget {
   final String feedId;
 
-  const FeedDetailPage({
-    super.key,
-    required this.feedId,
-  });
+  const FeedDetailPage({super.key, required this.feedId});
 
   @override
   ConsumerState<FeedDetailPage> createState() => _FeedDetailPageState();
@@ -29,6 +27,7 @@ class FeedDetailPage extends ConsumerStatefulWidget {
 
 class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
   FeedContentData? _topicDetail;
@@ -38,7 +37,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   bool _isTopicLoading = true;
   bool _isCommentsLoading = true;
   bool _isLoadingMoreComments = false;
+  bool _isSendingComment = false;
   bool _hasMoreComments = true;
+  String? _replyToUsername;
 
   int _commentsPage = 1;
   String _commentSortType = '';
@@ -54,6 +55,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
@@ -94,9 +96,12 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       final detailResponse = responses[0] as FeedContentResponse;
       final commentResponse = responses[1] as TotalReplyResponse;
 
-      if (!_isSuccessStatus(detailResponse.status) || detailResponse.data == null) {
+      if (!_isSuccessStatus(detailResponse.status) ||
+          detailResponse.data == null) {
         throw Exception(
-          detailResponse.message.isNotEmpty ? detailResponse.message : '加载话题详情失败',
+          detailResponse.message.isNotEmpty
+              ? detailResponse.message
+              : '加载话题详情失败',
         );
       }
 
@@ -122,7 +127,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         _isCommentsLoading = false;
         _errorMessage = _isSuccessStatus(commentResponse.status)
             ? null
-            : (commentResponse.message.isNotEmpty ? commentResponse.message : '回复加载失败');
+            : (commentResponse.message.isNotEmpty
+                  ? commentResponse.message
+                  : '回复加载失败');
       });
     } catch (error) {
       if (!mounted) {
@@ -178,7 +185,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       } else {
         setState(() {
           _isCommentsLoading = false;
-          _errorMessage = response.message.isNotEmpty ? response.message : '回复加载失败';
+          _errorMessage = response.message.isNotEmpty
+              ? response.message
+              : '回复加载失败';
         });
       }
     } catch (error) {
@@ -231,7 +240,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         setState(() {
           _isLoadingMoreComments = false;
           _hasMoreComments = false;
-          _errorMessage = response.message.isNotEmpty ? response.message : '加载更多回复失败';
+          _errorMessage = response.message.isNotEmpty
+              ? response.message
+              : '加载更多回复失败';
         });
       }
     } catch (error) {
@@ -255,7 +266,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
     final first = replies.first;
     final topicAuthorId = topicDetail.userInfo?.uid;
-    final sameAuthor = topicAuthorId != null && topicAuthorId.isNotEmpty && first.uid == topicAuthorId;
+    final sameAuthor =
+        topicAuthorId != null &&
+        topicAuthorId.isNotEmpty &&
+        first.uid == topicAuthorId;
 
     if (!sameAuthor) {
       return replies;
@@ -276,10 +290,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   }
 
   String _normalizeHtml(String html) {
-    return html
-        .replaceAll(RegExp(r'\s+'), '')
-        .replaceAll('&nbsp;', '')
-        .trim();
+    return html.replaceAll(RegExp(r'\s+'), '').replaceAll('&nbsp;', '').trim();
   }
 
   Future<void> _openExternalLink(String url) async {
@@ -296,13 +307,111 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     }
   }
 
+  void _startReplyTo(String username) {
+    setState(() {
+      _replyToUsername = username;
+    });
+
+    final prefix = '@$username ';
+    if (!_commentController.text.trim().startsWith(prefix.trim())) {
+      _commentController.value = TextEditingValue(
+        text: prefix,
+        selection: TextSelection.collapsed(offset: prefix.length),
+      );
+    }
+    _commentFocusNode.requestFocus();
+  }
+
+  Future<void> _sendComment() async {
+    final user = ref.read(currentUserProvider);
+    if (user == null || user.uid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('请先登录后再回复'),
+          action: SnackBarAction(
+            label: '登录',
+            onPressed: () => context.push(RoutePaths.login),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final content = _commentController.text.trim();
+    if (content.isEmpty || _isSendingComment) {
+      return;
+    }
+
+    setState(() {
+      _isSendingComment = true;
+    });
+
+    final commentRepository = ref.read(commentRepositoryProvider);
+
+    try {
+      final response = await commentRepository.sendComment(
+        id: widget.feedId,
+        message: content,
+        type: 'feed',
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final ok = response.status == 200 || response.status == 1;
+      if (ok) {
+        setState(() {
+          _commentController.clear();
+          _replyToUsername = null;
+          if (_topicDetail != null) {
+            _topicDetail = _topicDetail!.copyWith(
+              replyNum: _topicDetail!.replyNum + 1,
+            );
+          }
+        });
+
+        await _reloadComments();
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('回复发送成功')));
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(response.message ?? '回复发送失败')));
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('回复发送失败: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingComment = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final detail = _topicDetail;
+    final currentUser = ref.watch(currentUserProvider);
+    final isLoggedIn = currentUser != null && currentUser.uid.isNotEmpty;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(detail?.title?.trim().isNotEmpty == true ? detail!.title!.trim() : '话题详情'),
+        title: Text(
+          detail?.title?.trim().isNotEmpty == true
+              ? detail!.title!.trim()
+              : '话题详情',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.more_vert),
@@ -320,11 +429,17 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
           ),
           _BottomCommentBar(
             controller: _commentController,
-            onSend: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('当前为只读模式，回复功能暂未开放')),
-              );
+            focusNode: _commentFocusNode,
+            isLoggedIn: isLoggedIn,
+            isSending: _isSendingComment,
+            replyingToUsername: _replyToUsername,
+            onCancelReply: () {
+              setState(() {
+                _replyToUsername = null;
+              });
             },
+            onSend: _sendComment,
+            onLoginTap: () => context.push(RoutePaths.login),
           ),
         ],
       ),
@@ -357,10 +472,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 14),
-          FilledButton(
-            onPressed: _loadInitialData,
-            child: const Text('重试'),
-          ),
+          FilledButton(onPressed: _loadInitialData, child: const Text('重试')),
         ],
       );
     }
@@ -385,15 +497,15 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                 Text(
                   '回复',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   '${detail.replyNum}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const Spacer(),
                 _CommentSortButton(
@@ -409,7 +521,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.errorContainer,
                   borderRadius: BorderRadius.circular(10),
@@ -426,8 +541,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                       child: Text(
                         _errorMessage!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onErrorContainer,
-                            ),
+                          color: Theme.of(context).colorScheme.onErrorContainer,
+                        ),
                       ),
                     ),
                   ],
@@ -461,6 +576,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                 floor: index + 1,
                 topicAuthorUid: detail.userInfo?.uid,
                 onLinkTap: _openExternalLink,
+                onReplyTap: () => _startReplyTo(reply.username),
               );
             },
           ),
@@ -475,11 +591,11 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : (!_hasMoreComments && _comments.isNotEmpty)
-                      ? Text(
-                          '没有更多回复了',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        )
-                      : const SizedBox.shrink(),
+                  ? Text(
+                      '没有更多回复了',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  : const SizedBox.shrink(),
             ),
           ),
         ),
@@ -500,9 +616,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
               onTap: () {
                 Navigator.of(context).pop();
                 final topicUrl = 'https://forum.trae.cn/t/${widget.feedId}';
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(content: Text('链接: $topicUrl')),
-                );
+                ScaffoldMessenger.of(
+                  this.context,
+                ).showSnackBar(SnackBar(content: Text('链接: $topicUrl')));
               },
             ),
             ListTile(
@@ -554,11 +670,12 @@ class _TopicHeaderSection extends StatelessWidget {
             Text(
               detail.title!.trim(),
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    height: 1.25,
-                  ),
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
             ),
-          if (detail.title?.trim().isNotEmpty == true) const SizedBox(height: 16),
+          if (detail.title?.trim().isNotEmpty == true)
+            const SizedBox(height: 16),
           Row(
             children: [
               _AuthorAvatar(avatar: avatar, username: username),
@@ -574,22 +691,25 @@ class _TopicHeaderSection extends StatelessWidget {
                             username,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                         if (detail.isTop) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: colorScheme.primaryContainer,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               '置顶',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
                                     color: colorScheme.onPrimaryContainer,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -602,18 +722,15 @@ class _TopicHeaderSection extends StatelessWidget {
                     Text(
                       _formatTimestamp(detail.dateline),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          TopicMagazineRenderer(
-            blocks: blocks,
-            onLinkTap: onLinkTap,
-          ),
+          TopicMagazineRenderer(blocks: blocks, onLinkTap: onLinkTap),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -626,8 +743,8 @@ class _TopicHeaderSection extends StatelessWidget {
               Text(
                 '${detail.replyNum} 条回复',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -649,10 +766,7 @@ class _AuthorAvatar extends StatelessWidget {
   final String? avatar;
   final String username;
 
-  const _AuthorAvatar({
-    required this.avatar,
-    required this.username,
-  });
+  const _AuthorAvatar({required this.avatar, required this.username});
 
   @override
   Widget build(BuildContext context) {
@@ -670,9 +784,7 @@ class _AuthorAvatar extends StatelessWidget {
 
     return CircleAvatar(
       radius: 22,
-      child: Text(
-        username.isNotEmpty ? username[0].toUpperCase() : '?',
-      ),
+      child: Text(username.isNotEmpty ? username[0].toUpperCase() : '?'),
     );
   }
 }
@@ -693,14 +805,8 @@ class _CommentSortButton extends StatelessWidget {
       initialValue: currentSort,
       onSelected: onSortChanged,
       itemBuilder: (context) => const [
-        PopupMenuItem(
-          value: '',
-          child: Text('时间排序'),
-        ),
-        PopupMenuItem(
-          value: 'hot',
-          child: Text('热度排序'),
-        ),
+        PopupMenuItem(value: '', child: Text('时间排序')),
+        PopupMenuItem(value: 'hot', child: Text('热度排序')),
       ],
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -721,12 +827,14 @@ class _ReplyItem extends StatelessWidget {
   final int floor;
   final String? topicAuthorUid;
   final ValueChanged<String> onLinkTap;
+  final VoidCallback? onReplyTap;
 
   const _ReplyItem({
     required this.reply,
     required this.floor,
     required this.topicAuthorUid,
     required this.onLinkTap,
+    this.onReplyTap,
   });
 
   @override
@@ -760,23 +868,25 @@ class _ReplyItem extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     if (isTopicAuthor) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '楼主',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onPrimaryContainer,
-                              ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colorScheme.onPrimaryContainer),
                         ),
                       ),
                     ],
@@ -784,8 +894,8 @@ class _ReplyItem extends StatelessWidget {
                     Text(
                       '#$floor',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -793,8 +903,8 @@ class _ReplyItem extends StatelessWidget {
                 Text(
                   _formatTimestamp(reply.dateline),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 if (reply.replyTo != null && reply.replyTo!.isNotEmpty)
@@ -803,15 +913,12 @@ class _ReplyItem extends StatelessWidget {
                     child: Text(
                       '回复 @${reply.replyTo}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                _ReplyMessage(
-                  htmlContent: reply.message,
-                  onLinkTap: onLinkTap,
-                ),
+                _ReplyMessage(htmlContent: reply.message, onLinkTap: onLinkTap),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -824,8 +931,27 @@ class _ReplyItem extends StatelessWidget {
                     Text(
                       '${reply.likeNum}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    GestureDetector(
+                      onTap: onReplyTap,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.reply_outlined,
+                            size: 16,
                             color: colorScheme.onSurfaceVariant,
                           ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '回复',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -850,17 +976,13 @@ class _ReplyMessage extends StatelessWidget {
   final String htmlContent;
   final ValueChanged<String> onLinkTap;
 
-  const _ReplyMessage({
-    required this.htmlContent,
-    required this.onLinkTap,
-  });
+  const _ReplyMessage({required this.htmlContent, required this.onLinkTap});
 
   @override
   Widget build(BuildContext context) {
-    final imageUrls = TopicCookedParser.extractImages(htmlContent)
-        .map(DiscourseImageUrlResolver.toOriginalUrl)
-        .whereType<String>()
-        .toList();
+    final imageUrls = TopicCookedParser.extractImages(
+      htmlContent,
+    ).map(DiscourseImageUrlResolver.toOriginalUrl).whereType<String>().toList();
 
     return RichTextView(
       htmlContent: htmlContent,
@@ -882,10 +1004,7 @@ class _CommentAvatar extends StatelessWidget {
   final String? avatar;
   final String username;
 
-  const _CommentAvatar({
-    required this.avatar,
-    required this.username,
-  });
+  const _CommentAvatar({required this.avatar, required this.username});
 
   @override
   Widget build(BuildContext context) {
@@ -912,11 +1031,23 @@ class _CommentAvatar extends StatelessWidget {
 
 class _BottomCommentBar extends StatelessWidget {
   final TextEditingController controller;
-  final VoidCallback onSend;
+  final FocusNode focusNode;
+  final bool isLoggedIn;
+  final bool isSending;
+  final String? replyingToUsername;
+  final VoidCallback? onCancelReply;
+  final Future<void> Function() onSend;
+  final VoidCallback onLoginTap;
 
   const _BottomCommentBar({
     required this.controller,
+    required this.focusNode,
+    required this.isLoggedIn,
+    required this.isSending,
+    required this.replyingToUsername,
+    required this.onCancelReply,
     required this.onSend,
+    required this.onLoginTap,
   });
 
   @override
@@ -932,29 +1063,102 @@ class _BottomCommentBar extends StatelessWidget {
         ),
       ),
       child: SafeArea(
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: TextField(
-                controller: controller,
-                enabled: false,
-                decoration: InputDecoration(
-                  hintText: '登录后可回复（暂未开放）',
-                  filled: true,
-                  fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(18),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            if (replyingToUsername != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.reply_rounded,
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '正在回复 @$replyingToUsername',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: colorScheme.primary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: onCancelReply,
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              onPressed: onSend,
-              icon: const Icon(Icons.info_outline),
-              color: colorScheme.primary,
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                final hasText = value.text.trim().isNotEmpty;
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        enabled: isLoggedIn && !isSending,
+                        decoration: InputDecoration(
+                          hintText: isLoggedIn ? '写下你的回复...' : '登录后参与回复',
+                          filled: true,
+                          fillColor: colorScheme.surfaceContainerHighest
+                              .withValues(alpha: 0.6),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(18),
+                            borderSide: BorderSide.none,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                        ),
+                        minLines: 1,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) {
+                          if (isLoggedIn && hasText && !isSending) {
+                            onSend();
+                          } else if (!isLoggedIn) {
+                            onLoginTap();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: isSending
+                          ? null
+                          : (isLoggedIn
+                                ? (hasText ? onSend : null)
+                                : onLoginTap),
+                      icon: isSending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              isLoggedIn
+                                  ? Icons.send_rounded
+                                  : Icons.login_rounded,
+                            ),
+                      color: colorScheme.primary,
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
