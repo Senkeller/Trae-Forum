@@ -8,6 +8,7 @@ part 'home_provider.g.dart';
 
 enum FeedType {
   recommended,
+  latest,
   hot,
   official,
   help,
@@ -21,6 +22,7 @@ enum FeedType {
 
 const List<FeedType> homeFeedTabs = [
   FeedType.recommended,
+  FeedType.latest,
   FeedType.hot,
   FeedType.official,
   FeedType.help,
@@ -34,6 +36,7 @@ const List<FeedType> homeFeedTabs = [
 
 const Map<FeedType, String> homeFeedTabLabels = {
   FeedType.recommended: '推荐',
+  FeedType.latest: '最新',
   FeedType.hot: '热门',
   FeedType.official: '官方',
   FeedType.help: '求助',
@@ -451,6 +454,10 @@ class HomeNotifier extends _$HomeNotifier {
       case FeedType.recommended:
         return _fetchFromResponse(
           await _discourseApiService.getLatestTopics(page: page),
+        );
+      case FeedType.latest:
+        return _fetchFromResponse(
+          await _discourseApiService.getNewTopics(page: page),
         );
       case FeedType.hot:
         try {

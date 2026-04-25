@@ -149,6 +149,14 @@ class DiscourseApiService {
     return _dio.get('$_baseUrl/top.json', queryParameters: {'page': page});
   }
 
+  /// 获取最新话题（按创建时间排序）
+  ///
+  /// [page] 页码，从0开始
+  /// 调用 Discourse GET /new.json API
+  Future<Response> getNewTopics({int page = 0}) async {
+    return _dio.get('$_baseUrl/new.json', queryParameters: {'page': page});
+  }
+
   /// 根据标签获取话题列表
   ///
   /// [tag] 标签名称
