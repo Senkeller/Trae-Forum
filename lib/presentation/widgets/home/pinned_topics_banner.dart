@@ -61,7 +61,7 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
       children: [
         // Banner内容
         SizedBox(
-          height: 100,
+          height: 152,
           child: isLoading && pinnedTopics.isEmpty
               ? _buildLoadingPlaceholder()
               : errorMessage != null && pinnedTopics.isEmpty
@@ -190,7 +190,7 @@ class _PinnedTopicCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: Container(
             width: 300,
-            height: 140,
+            height: 152,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
