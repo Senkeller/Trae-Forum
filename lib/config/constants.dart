@@ -124,6 +124,7 @@ class RoutePaths {
   
   // 话题相关
   static const String topicList = '/topics';
+  static const String topics = '/topics/category';
   static const String topicDetail = '/topic/:tag';
   static const String tagDetail = '/tag/:tag';
   static const String productDetail = '/product/:id';

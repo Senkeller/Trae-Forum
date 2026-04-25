@@ -16,6 +16,7 @@ enum FeedType {
   showcase,
   discussion,
   events,
+  topics,
 }
 
 const List<FeedType> homeFeedTabs = [
@@ -28,6 +29,7 @@ const List<FeedType> homeFeedTabs = [
   FeedType.showcase,
   FeedType.discussion,
   FeedType.events,
+  FeedType.topics,
 ];
 
 const Map<FeedType, String> homeFeedTabLabels = {
@@ -40,6 +42,7 @@ const Map<FeedType, String> homeFeedTabLabels = {
   FeedType.showcase: '作品',
   FeedType.discussion: '交流',
   FeedType.events: '活动',
+  FeedType.topics: '话题',
 };
 
 const Map<int, String> _categoryLabelById = {
@@ -503,6 +506,11 @@ class HomeNotifier extends _$HomeNotifier {
         );
       case FeedType.events:
         return _fetchEvents(page);
+      case FeedType.topics:
+        // 话题Tab使用推荐数据作为默认
+        return _fetchFromResponse(
+          await _discourseApiService.getLatestTopics(page: page),
+        );
     }
   }
 

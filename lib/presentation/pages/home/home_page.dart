@@ -12,6 +12,7 @@ import '../../widgets/feed/featured_comment.dart';
 import '../../widgets/feed/quick_comment_bar.dart';
 import '../../widgets/comment/quick_comment_sheet.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
+import '../topics/topics_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -150,6 +151,11 @@ class _HomePageState extends ConsumerState<HomePage>
         body: TabBarView(
           controller: _tabController,
           children: List.generate(homeFeedTabs.length, (index) {
+            final feedType = homeFeedTabs[index];
+            // 话题Tab显示独立的话题页面
+            if (feedType == FeedType.topics) {
+              return const TopicsPage();
+            }
             return _FeedListView(
               key: ValueKey('feed_${homeFeedTabs[index].name}'),
               tabIndex: index,

@@ -26,6 +26,7 @@ import '../presentation/pages/auth/register_page.dart';
 import '../presentation/pages/auth/forgot_password_page.dart';
 import '../presentation/pages/topic/topic_list_page.dart';
 import '../presentation/pages/topic/topic_detail_page.dart';
+import '../presentation/pages/topics/topics_page.dart';
 import '../presentation/pages/product/product_detail_page.dart';
 import '../presentation/pages/history/history_page.dart';
 import '../presentation/pages/favorites/favorites_page.dart';
@@ -118,6 +119,12 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.topicList,
         builder: (context, state) => const TopicListPage(),
+      ),
+
+      // 话题分类页面（新版）
+      GoRoute(
+        path: RoutePaths.topics,
+        builder: (context, state) => const TopicsPage(),
       ),
 
       // 话题详情
