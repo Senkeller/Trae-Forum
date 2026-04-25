@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/models/search.dart';
 import 'dio_client.dart';
+import 'interceptors/csrf_token_manager.dart';
 
 part 'discourse_api_service.g.dart';
 
@@ -253,6 +254,13 @@ class DiscourseApiService {
     required String raw,
     int? replyToPostNumber,
   }) async {
+    // 确保 CSRF Token 有效
+    print('🔍 [DiscourseApiService] createPost: 调用 ensureValid');
+    await DiscourseCsrfToken.ensureValid(_dio);
+
+    final csrfToken = DiscourseCsrfToken.token;
+    print('🔍 [DiscourseApiService] createPost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}');
+
     final data = <String, dynamic>{'raw': raw, 'topic_id': topicId};
 
     if (replyToPostNumber != null) {
@@ -267,6 +275,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -280,6 +289,13 @@ class DiscourseApiService {
   /// 调用 Discourse POST /post_actions API
   /// 成功返回200，失败返回相应错误码
   Future<Response> likePost(int postId) async {
+    // 确保 CSRF Token 有效
+    print('🔍 [DiscourseApiService] likePost: 调用 ensureValid');
+    await DiscourseCsrfToken.ensureValid(_dio);
+
+    final csrfToken = DiscourseCsrfToken.token;
+    print('🔍 [DiscourseApiService] likePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}');
+
     return _dio.post(
       '$_baseUrl/post_actions',
       data: {
@@ -291,6 +307,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -302,6 +319,13 @@ class DiscourseApiService {
   /// 调用 Discourse DELETE /post_actions/{postId} API
   /// 成功返回200，失败返回相应错误码
   Future<Response> unlikePost(int postId) async {
+    // 确保 CSRF Token 有效
+    print('🔍 [DiscourseApiService] unlikePost: 调用 ensureValid');
+    await DiscourseCsrfToken.ensureValid(_dio);
+
+    final csrfToken = DiscourseCsrfToken.token;
+    print('🔍 [DiscourseApiService] unlikePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}');
+
     return _dio.delete(
       '$_baseUrl/post_actions/$postId',
       queryParameters: {
@@ -312,6 +336,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -336,6 +361,9 @@ class DiscourseApiService {
     required String raw,
     String? editReason,
   }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
     final data = <String, dynamic>{'raw': raw};
 
     if (editReason != null && editReason.isNotEmpty) {
@@ -350,6 +378,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -364,6 +393,9 @@ class DiscourseApiService {
     required int postId,
     bool forceDestroy = false,
   }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
     return _dio.delete(
       '$_baseUrl/posts/$postId',
       queryParameters: {if (forceDestroy) 'force_destroy': 'true'},
@@ -372,6 +404,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -390,6 +423,9 @@ class DiscourseApiService {
     required String data,
     int sequence = 1,
   }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
     return _dio.post(
       '$_baseUrl/drafts',
       data: {'draft_key': draftKey, 'data': data, 'sequence': sequence},
@@ -398,6 +434,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -430,6 +467,9 @@ class DiscourseApiService {
     required String draftKey,
     int sequence = 1,
   }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
     return _dio.delete(
       '$_baseUrl/drafts/$draftKey',
       queryParameters: {'sequence': sequence},
@@ -438,6 +478,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -450,6 +491,9 @@ class DiscourseApiService {
   /// [username] 要关注的用户名
   /// 调用 Discourse PUT /u/{username}/follow API
   Future<Response> followUser(String username) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
     return _dio.put(
       '$_baseUrl/u/$username/follow',
       options: Options(
@@ -457,6 +501,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -467,6 +512,9 @@ class DiscourseApiService {
   /// [username] 要取消关注的用户名
   /// 调用 Discourse DELETE /u/{username}/follow API
   Future<Response> unfollowUser(String username) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
     return _dio.delete(
       '$_baseUrl/u/$username/follow',
       options: Options(
@@ -474,6 +522,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );
@@ -528,6 +577,116 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+        },
+      ),
+    );
+  }
+
+  // ==================== 收藏/书签相关 API ====================
+
+  /// 添加话题到书签
+  ///
+  /// [topicId] 话题ID
+  /// [bookmarkableType] 收藏类型，默认Topic
+  /// [reminderAt] 提醒时间（可选，ISO8601格式）
+  /// [autoDeletePreference] 自动删除偏好（可选，默认为3）
+  /// 调用 Discourse POST /bookmarks.json API
+  Future<Response> createBookmark({
+    required int topicId,
+    String bookmarkableType = 'Topic',
+    String? reminderAt,
+    int autoDeletePreference = 3,
+  }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
+    final data = <String, dynamic>{
+      'bookmarkable_id': topicId,
+      'bookmarkable_type': bookmarkableType,
+      'auto_delete_preference': autoDeletePreference,
+    };
+
+    if (reminderAt != null && reminderAt.isNotEmpty) {
+      data['reminder_at'] = reminderAt;
+    }
+
+    return _dio.post(
+      '$_baseUrl/bookmarks.json',
+      data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  /// 删除书签
+  ///
+  /// [bookmarkId] 书签ID
+  /// 调用 Discourse DELETE /bookmarks/{id}.json API
+  Future<Response> deleteBookmark(int bookmarkId) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
+    return _dio.delete(
+      '$_baseUrl/bookmarks/$bookmarkId.json',
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  /// 获取当前用户的书签列表
+  ///
+  /// [page] 页码，从0开始
+  /// 调用 Discourse GET /user_activity_bookmarks.json API
+  Future<Response> getUserBookmarks({int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/user_activity_bookmarks.json',
+      queryParameters: {'page': page},
+    );
+  }
+
+  /// 更新书签提醒时间
+  ///
+  /// [bookmarkId] 书签ID
+  /// [reminderAt] 新的提醒时间（ISO8601格式），传空字符串可清除提醒
+  /// [autoDeletePreference] 自动删除偏好
+  /// 调用 Discourse PUT /bookmarks/{id}.json API
+  Future<Response> updateBookmarkReminder({
+    required int bookmarkId,
+    String? reminderAt,
+    int autoDeletePreference = 3,
+  }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
+    final data = <String, dynamic>{
+      'auto_delete_preference': autoDeletePreference,
+    };
+
+    if (reminderAt != null) {
+      data['reminder_at'] = reminderAt;
+    }
+
+    return _dio.put(
+      '$_baseUrl/bookmarks/$bookmarkId.json',
+      data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );

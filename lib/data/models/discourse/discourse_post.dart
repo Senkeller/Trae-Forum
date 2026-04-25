@@ -3,6 +3,26 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'discourse_post.freezed.dart';
 part 'discourse_post.g.dart';
 
+/// 从JSON解析post_number字段
+/// 处理可能是int或String的情况
+int _postNumberFromJson(dynamic value) {
+  if (value == null) return 0;
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value) ?? 0;
+  if (value is num) return value.toInt();
+  return 0;
+}
+
+/// 从JSON解析reply_to_post_number字段
+/// 处理可能是int或String的情况
+int? _replyToPostNumberFromJson(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is String) return int.tryParse(value);
+  if (value is num) return value.toInt();
+  return null;
+}
+
 /// Discourse 帖子模型
 ///
 /// 用于接收 Discourse API 返回的帖子（回复）数据
@@ -73,11 +93,11 @@ class DiscoursePost with _$DiscoursePost {
     @JsonKey(name: 'created_at') required String createdAt,
     @JsonKey(name: 'cooked') String? cooked,
     @JsonKey(name: 'raw') String? raw,
-    @JsonKey(name: 'post_number') required int postNumber,
+    @JsonKey(name: 'post_number', fromJson: _postNumberFromJson) required int postNumber,
     @JsonKey(name: 'post_type') @Default(1) int postType,
     @JsonKey(name: 'updated_at') String? updatedAt,
     @JsonKey(name: 'reply_count') @Default(0) int replyCount,
-    @JsonKey(name: 'reply_to_post_number') int? replyToPostNumber,
+    @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson) int? replyToPostNumber,
     @JsonKey(name: 'quote_count') @Default(0) int quoteCount,
     @JsonKey(name: 'incoming_link_count') @Default(0) int incomingLinkCount,
     @JsonKey(name: 'reads') @Default(0) int reads,

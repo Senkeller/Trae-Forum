@@ -42,7 +42,7 @@ class UserRepository {
   /// 获取用户动态列表
   ///
   /// [uid] 用户 ID
-  Future<api.HomeFeedResponse> getUserFeedList({
+  Future<HomeFeedResponse> getUserFeedList({
     required String uid,
     required int page,
     String? lastItem,
@@ -71,7 +71,7 @@ class UserRepository {
   /// 获取关注列表
   ///
   /// [uid] 用户 ID
-  Future<api.HomeFeedResponse> getFollowList({
+  Future<HomeFeedResponse> getFollowList({
     required String uid,
     required int page,
     String? lastItem,
@@ -87,7 +87,7 @@ class UserRepository {
   /// 获取粉丝列表
   ///
   /// [uid] 用户 ID
-  Future<api.HomeFeedResponse> getFansList({
+  Future<HomeFeedResponse> getFansList({
     required String uid,
     required int page,
     String? lastItem,

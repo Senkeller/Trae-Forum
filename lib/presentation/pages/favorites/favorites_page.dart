@@ -4,7 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/date_util.dart';
+import '../../../core/utils/discourse_image_url_resolver.dart';
+import '../../../data/repositories/bookmark_repository.dart';
 import '../../providers/auth_provider.dart';
+
+enum _FavoritesSortType {
+  bookmarkedAt,
+  lastActive,
+}
 
 class FavoritesPage extends ConsumerStatefulWidget {
   const FavoritesPage({super.key});
@@ -16,11 +24,13 @@ class FavoritesPage extends ConsumerStatefulWidget {
 class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   final RefreshController _refreshController = RefreshController();
 
-  List<Map<String, dynamic>> _favoritesList = [];
+  List<BookmarkTopicItem> _favoritesList = [];
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _errorMessage;
+  int _currentPage = 0;
+  _FavoritesSortType _sortType = _FavoritesSortType.bookmarkedAt;
 
   @override
   void initState() {
@@ -39,6 +49,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     if (currentUser == null || currentUser.uid.isEmpty) {
       setState(() {
         _errorMessage = '请先登录';
+        _favoritesList = [];
+        _hasMore = false;
       });
       return;
     }
@@ -51,12 +63,14 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     });
 
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      final repository = ref.read(bookmarkRepositoryProvider);
+      final result = await repository.getBookmarkedTopics(page: 0);
 
       setState(() {
+        _currentPage = 0;
+        _favoritesList = result.items;
+        _hasMore = result.hasMore;
         _isLoading = false;
-        _favoritesList = [];
-        _hasMore = false;
       });
     } catch (e) {
       setState(() {
@@ -67,8 +81,12 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
   }
 
   Future<void> _onRefresh() async {
-    await _loadFavorites();
-    _refreshController.refreshCompleted();
+    try {
+      await _loadFavorites();
+      _refreshController.refreshCompleted();
+    } catch (_) {
+      _refreshController.refreshFailed();
+    }
   }
 
   Future<void> _onLoading() async {
@@ -81,24 +99,62 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       _isLoadingMore = true;
     });
 
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final nextPage = _currentPage + 1;
+      final repository = ref.read(bookmarkRepositoryProvider);
+      final result = await repository.getBookmarkedTopics(page: nextPage);
+      final existing = _favoritesList.map((item) => item.topicId).toSet();
+      final newItems = result.items
+          .where((item) => !existing.contains(item.topicId))
+          .toList();
 
-    setState(() {
-      _isLoadingMore = false;
-      _hasMore = false;
-    });
+      setState(() {
+        _currentPage = nextPage;
+        _favoritesList = [..._favoritesList, ...newItems];
+        _hasMore = result.hasMore;
+        _isLoadingMore = false;
+      });
 
-    _refreshController.loadComplete();
+      _refreshController.loadComplete();
+    } catch (e) {
+      setState(() {
+        _isLoadingMore = false;
+      });
+      _refreshController.loadFailed();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('加载更多失败: $e')));
+      }
+    }
   }
 
-  Future<void> _removeFavorite(String topicId) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已取消收藏')),
-    );
+  Future<void> _removeFavorite(BookmarkTopicItem item) async {
+    if (item.bookmarkId == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('未找到书签ID，刷新后再试')));
+      return;
+    }
 
-    setState(() {
-      _favoritesList.removeWhere((item) => item['topicId'] == topicId);
-    });
+    final repository = ref.read(bookmarkRepositoryProvider);
+    final result = await repository.deleteBookmark(item.bookmarkId!);
+    if (!mounted) {
+      return;
+    }
+
+    if (result.success) {
+      setState(() {
+        _favoritesList.removeWhere((it) => it.topicId == item.topicId);
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已取消收藏')));
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.errorMessage ?? '取消收藏失败')));
+    }
   }
 
   @override
@@ -124,6 +180,41 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的收藏'),
+        actions: [
+          PopupMenuButton<_FavoritesSortType>(
+            initialValue: _sortType,
+            onSelected: (value) {
+              setState(() {
+                _sortType = value;
+              });
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: _FavoritesSortType.bookmarkedAt,
+                child: Text('最近收藏'),
+              ),
+              PopupMenuItem(
+                value: _FavoritesSortType.lastActive,
+                child: Text('最近活跃'),
+              ),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Text(
+                    _sortType == _FavoritesSortType.bookmarkedAt
+                        ? '最近收藏'
+                        : '最近活跃',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.swap_vert, size: 18),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -131,7 +222,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
   Widget _buildBody() {
     if (_isLoading && _favoritesList.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const _FavoritesSkeletonList();
     }
 
     if (_errorMessage != null && _favoritesList.isEmpty) {
@@ -152,6 +243,8 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       );
     }
 
+    final displayList = _sortedFavorites();
+
     return SmartRefresher(
       controller: _refreshController,
       enablePullDown: true,
@@ -160,27 +253,60 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       onLoading: _hasMore ? _onLoading : null,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _favoritesList.length,
+        itemCount: displayList.length,
         itemBuilder: (context, index) {
-          final item = _favoritesList[index];
+          final item = displayList[index];
           return _FavoriteCard(
             item: item,
             onTap: () {
-              final topicId = item['topicId']?.toString();
-              if (topicId != null && topicId.isNotEmpty) {
-                context.push(RoutePaths.feedDetail.replaceFirst(':id', topicId));
-              }
+              context.push(
+                RoutePaths.feedDetail.replaceFirst(':id', item.topicId.toString()),
+              );
             },
-            onRemove: () => _removeFavorite(item['topicId']?.toString() ?? ''),
+            onRemove: () => _removeFavorite(item),
           );
         },
       ),
     );
   }
+
+  List<BookmarkTopicItem> _sortedFavorites() {
+    final list = List<BookmarkTopicItem>.from(_favoritesList);
+    list.sort((a, b) {
+      final aTime = _parseSortTime(
+        _sortType == _FavoritesSortType.bookmarkedAt
+            ? (a.bookmarkedAt ?? a.createdAt)
+            : (a.lastPostedAt ?? a.createdAt),
+      );
+      final bTime = _parseSortTime(
+        _sortType == _FavoritesSortType.bookmarkedAt
+            ? (b.bookmarkedAt ?? b.createdAt)
+            : (b.lastPostedAt ?? b.createdAt),
+      );
+      return bTime.compareTo(aTime);
+    });
+    return list;
+  }
+
+  int _parseSortTime(String? raw) {
+    if (raw == null || raw.trim().isEmpty) {
+      return 0;
+    }
+    final text = raw.trim();
+    final iso = DateUtil.parseIso(text);
+    if (iso != null) {
+      return iso.millisecondsSinceEpoch;
+    }
+    final seconds = int.tryParse(text);
+    if (seconds != null && seconds > 0) {
+      return seconds * 1000;
+    }
+    return 0;
+  }
 }
 
 class _FavoriteCard extends StatelessWidget {
-  final Map<String, dynamic> item;
+  final BookmarkTopicItem item;
   final VoidCallback onTap;
   final VoidCallback onRemove;
 
@@ -193,11 +319,18 @@ class _FavoriteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final title = item['title']?.toString() ?? '';
-    final username = item['username']?.toString() ?? '';
-    final time = item['time']?.toString() ?? '';
-    final avatarUrl = item['avatarUrl']?.toString() ?? '';
-    final excerpt = item['excerpt']?.toString() ?? '';
+    final title = item.title.trim().isEmpty ? '未命名话题' : item.title.trim();
+    final username = (item.username?.trim().isNotEmpty ?? false)
+        ? item.username!.trim()
+        : '匿名用户';
+    final time = _formatDisplayTime(item.createdAt);
+    final avatarUrl = DiscourseImageUrlResolver.resolveAvatarUrl(
+      item.avatarTemplate ?? '',
+      size: 72,
+    );
+    final avatarUrlValue = avatarUrl ?? '';
+    final hasAvatar = avatarUrlValue.isNotEmpty;
+    final excerpt = item.excerpt;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -213,10 +346,10 @@ class _FavoriteCard extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundImage: avatarUrl.isNotEmpty
-                        ? NetworkImage(avatarUrl)
+                    backgroundImage: hasAvatar
+                        ? NetworkImage(avatarUrlValue)
                         : null,
-                    child: avatarUrl.isEmpty
+                    child: !hasAvatar
                         ? const Icon(Icons.person, size: 18)
                         : null,
                   ),
@@ -280,7 +413,7 @@ class _FavoriteCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${item['likeCount'] ?? 0}',
+                    '${item.likeCount}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(width: 16),
@@ -291,7 +424,7 @@ class _FavoriteCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${item['replyCount'] ?? 0}',
+                    '${item.replyCount}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -301,6 +434,24 @@ class _FavoriteCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatDisplayTime(String? createdAt) {
+    if (createdAt == null || createdAt.trim().isEmpty) {
+      return '未知时间';
+    }
+
+    final parsedIso = DateUtil.parseIso(createdAt.trim());
+    if (parsedIso != null) {
+      return DateUtil.getRelativeTime(parsedIso.toLocal());
+    }
+
+    final seconds = int.tryParse(createdAt.trim());
+    if (seconds != null && seconds > 0) {
+      return DateUtil.getRelativeTimeFromTimestampSeconds(seconds);
+    }
+
+    return createdAt.trim();
   }
 }
 
@@ -351,6 +502,94 @@ class _StateView extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FavoritesSkeletonList extends StatelessWidget {
+  const _FavoritesSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: 6,
+      itemBuilder: (context, index) => const _FavoriteSkeletonCard(),
+    );
+  }
+}
+
+class _FavoriteSkeletonCard extends StatelessWidget {
+  const _FavoriteSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _SkeletonBox(width: 36, height: 36, radius: 18, color: color),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _SkeletonBox(width: 120, height: 12, radius: 6, color: color),
+                      const SizedBox(height: 8),
+                      _SkeletonBox(width: 80, height: 10, radius: 5, color: color),
+                    ],
+                  ),
+                ),
+                _SkeletonBox(width: 24, height: 24, radius: 6, color: color),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _SkeletonBox(width: double.infinity, height: 14, radius: 7, color: color),
+            const SizedBox(height: 8),
+            _SkeletonBox(width: 220, height: 12, radius: 6, color: color),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _SkeletonBox(width: 52, height: 10, radius: 5, color: color),
+                const SizedBox(width: 16),
+                _SkeletonBox(width: 52, height: 10, radius: 5, color: color),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonBox extends StatelessWidget {
+  final double width;
+  final double height;
+  final double radius;
+  final Color color;
+
+  const _SkeletonBox({
+    required this.width,
+    required this.height,
+    required this.radius,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
       ),
     );
   }

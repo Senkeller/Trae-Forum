@@ -65,11 +65,23 @@ class LikeRepository {
 
         if (actionsSummary != null) {
           final likeAction = actionsSummary.firstWhere(
-            (action) => action['id'] == 2,
+            (action) {
+              if (action is! Map<String, dynamic>) return false;
+              final actionId = action['id'];
+              // 处理 id 可能是字符串或整数的情况
+              if (actionId is int) return actionId == 2;
+              if (actionId is String) return int.tryParse(actionId) == 2;
+              return false;
+            },
             orElse: () => null,
           );
-          if (likeAction != null) {
-            likeCount = likeAction['count'] as int?;
+          if (likeAction != null && likeAction is Map<String, dynamic>) {
+            final countValue = likeAction['count'];
+            if (countValue is int) {
+              likeCount = countValue;
+            } else if (countValue is String) {
+              likeCount = int.tryParse(countValue);
+            }
             isLiked = likeAction['acted'] as bool? ?? true;
           }
         }
@@ -114,11 +126,23 @@ class LikeRepository {
 
         if (actionsSummary != null) {
           final likeAction = actionsSummary.firstWhere(
-            (action) => action['id'] == 2,
+            (action) {
+              if (action is! Map<String, dynamic>) return false;
+              final actionId = action['id'];
+              // 处理 id 可能是字符串或整数的情况
+              if (actionId is int) return actionId == 2;
+              if (actionId is String) return int.tryParse(actionId) == 2;
+              return false;
+            },
             orElse: () => null,
           );
-          if (likeAction != null) {
-            likeCount = likeAction['count'] as int?;
+          if (likeAction != null && likeAction is Map<String, dynamic>) {
+            final countValue = likeAction['count'];
+            if (countValue is int) {
+              likeCount = countValue;
+            } else if (countValue is String) {
+              likeCount = int.tryParse(countValue);
+            }
             isLiked = likeAction['acted'] as bool? ?? false;
           }
         }
@@ -166,16 +190,32 @@ class LikeRepository {
     }
 
     final likeAction = actionsSummary.firstWhere(
-      (action) => action['id'] == 2,
+      (action) {
+        if (action is! Map<String, dynamic>) return false;
+        final actionId = action['id'];
+        // 处理 id 可能是字符串或整数的情况
+        if (actionId is int) return actionId == 2;
+        if (actionId is String) return int.tryParse(actionId) == 2;
+        return false;
+      },
       orElse: () => null,
     );
 
-    if (likeAction == null) {
+    if (likeAction == null || likeAction is! Map<String, dynamic>) {
       return {'count': 0, 'isLiked': false};
     }
 
+    // 处理 count 可能是字符串或整数的情况
+    final countValue = likeAction['count'];
+    int count = 0;
+    if (countValue is int) {
+      count = countValue;
+    } else if (countValue is String) {
+      count = int.tryParse(countValue) ?? 0;
+    }
+
     return {
-      'count': likeAction['count'] ?? 0,
+      'count': count,
       'isLiked': likeAction['acted'] ?? false,
     };
   }

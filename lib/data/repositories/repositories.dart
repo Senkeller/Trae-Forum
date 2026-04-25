@@ -18,3 +18,9 @@ export 'search_repository.dart';
 
 // 消息仓库
 export 'message_repository.dart';
+
+// 点赞仓库
+export 'like_repository.dart';
+
+// 收藏/书签仓库
+export 'bookmark_repository.dart';

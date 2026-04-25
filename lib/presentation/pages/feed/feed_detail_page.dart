@@ -8,10 +8,13 @@ import '../../../core/utils/date_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../data/models/comment.dart';
 import '../../../data/models/feed.dart';
+import '../../../data/repositories/bookmark_repository.dart';
 import '../../../data/repositories/comment_repository.dart';
 import '../../../data/repositories/feed_repository.dart';
 import '../../pages/common/image_preview_page.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/bookmark_provider.dart';
+import '../../providers/like_provider.dart';
 import '../../widgets/common/cached_image.dart';
 import '../../widgets/common/rich_text_view.dart';
 import '../../widgets/detail/topic_magazine_renderer.dart';
@@ -40,6 +43,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   bool _isSendingComment = false;
   bool _hasMoreComments = true;
   String? _replyToUsername;
+  int? _replyToPostNumber;
 
   int _commentsPage = 1;
   String _commentSortType = '';
@@ -131,6 +135,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                   ? commentResponse.message
                   : '回复加载失败');
       });
+      _initializeLikeStatesForReplies(comments);
+      _initializeBookmarkState(topicDetail);
     } catch (error) {
       if (!mounted) {
         return;
@@ -182,6 +188,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
           _hasMoreComments = response.data.length >= AppConstants.pageSize;
           _isCommentsLoading = false;
         });
+        _initializeLikeStatesForReplies(normalized);
       } else {
         setState(() {
           _isCommentsLoading = false;
@@ -236,6 +243,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
           _hasMoreComments = response.data.length >= AppConstants.pageSize;
           _isLoadingMoreComments = false;
         });
+        _initializeLikeStatesForReplies(newItems);
       } else {
         setState(() {
           _isLoadingMoreComments = false;
@@ -307,9 +315,11 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     }
   }
 
-  void _startReplyTo(String username) {
+  void _startReplyTo(ReplyData reply) {
+    final username = reply.username;
     setState(() {
       _replyToUsername = username;
+      _replyToPostNumber = int.tryParse(reply.id);
     });
 
     final prefix = '@$username ';
@@ -323,8 +333,11 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   }
 
   Future<void> _sendComment() async {
-    final user = ref.read(currentUserProvider);
-    if (user == null || user.uid.isEmpty) {
+    final hasSession = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (!hasSession) {
+      if (!mounted) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('请先登录后再回复'),
@@ -349,21 +362,26 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     final commentRepository = ref.read(commentRepositoryProvider);
 
     try {
-      final response = await commentRepository.sendComment(
-        id: widget.feedId,
-        message: content,
-        type: 'feed',
+      final topicId = int.tryParse(widget.feedId);
+      if (topicId == null || topicId <= 0) {
+        throw Exception('无效的话题ID: ${widget.feedId}');
+      }
+
+      final response = await commentRepository.createComment(
+        topicId: topicId,
+        content: content,
+        replyToPostNumber: _replyToPostNumber,
       );
 
       if (!mounted) {
         return;
       }
 
-      final ok = response.status == 200 || response.status == 1;
-      if (ok) {
+      if (response.success) {
         setState(() {
           _commentController.clear();
           _replyToUsername = null;
+          _replyToPostNumber = null;
           if (_topicDetail != null) {
             _topicDetail = _topicDetail!.copyWith(
               replyNum: _topicDetail!.replyNum + 1,
@@ -381,7 +399,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       } else {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(response.message ?? '回复发送失败')));
+        ).showSnackBar(
+          SnackBar(content: Text(response.errorMessage ?? '回复发送失败')),
+        );
       }
     } catch (error) {
       if (!mounted) {
@@ -397,6 +417,91 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         });
       }
     }
+  }
+
+  Future<void> _initializeBookmarkState(FeedContentData topicDetail) async {
+    final topicId =
+        int.tryParse(widget.feedId) ?? int.tryParse(topicDetail.id);
+    if (topicId == null || topicId <= 0) {
+      return;
+    }
+
+    var isBookmarked = topicDetail.action.isFavorite;
+    int? bookmarkId;
+
+    final hasSession = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (hasSession) {
+      bookmarkId = await ref
+          .read(bookmarkRepositoryProvider)
+          .findBookmarkIdByTopicId(topicId);
+      if (bookmarkId != null) {
+        isBookmarked = true;
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    ref
+        .read(bookmarkProvider.notifier)
+        .syncPost(
+          topicId,
+          bookmarkId: bookmarkId,
+          isBookmarked: isBookmarked,
+        );
+  }
+
+  Future<void> _toggleBookmark() async {
+    final topicId = int.tryParse(widget.feedId);
+    if (topicId == null || topicId <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无效的话题ID，无法操作书签')));
+      return;
+    }
+
+    final hasSession = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (!hasSession) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('请先登录后再使用书签'),
+          action: SnackBarAction(
+            label: '登录',
+            onPressed: () => context.push(RoutePaths.login),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final notifier = ref.read(bookmarkProvider.notifier);
+    final beforeState = ref.read(postBookmarkStateProvider(topicId));
+    if (beforeState == null) {
+      notifier.initializePost(
+        topicId,
+        isBookmarked: _topicDetail?.action.isFavorite ?? false,
+      );
+    }
+
+    await notifier.toggleBookmark(topicId, bookmarkId: beforeState?.bookmarkId);
+    if (!mounted) {
+      return;
+    }
+
+    final currentState = ref.read(postBookmarkStateProvider(topicId));
+    final message = currentState?.errorMessage;
+    if (message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      notifier.clearError(topicId);
+      return;
+    }
+
+    final tips = (currentState?.isBookmarked ?? false) ? '已添加论坛书签' : '已取消论坛书签';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tips)));
   }
 
   @override
@@ -436,6 +541,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             onCancelReply: () {
               setState(() {
                 _replyToUsername = null;
+                _replyToPostNumber = null;
               });
             },
             onSend: _sendComment,
@@ -478,6 +584,12 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     }
 
     final detail = _topicDetail!;
+    final topicId = int.tryParse(widget.feedId) ?? int.tryParse(detail.id) ?? 0;
+    final bookmarkState = topicId > 0
+        ? ref.watch(postBookmarkStateProvider(topicId))
+        : null;
+    final isBookmarked = bookmarkState?.isBookmarked ?? detail.action.isFavorite;
+    final isBookmarkLoading = bookmarkState?.isLoading ?? false;
 
     return CustomScrollView(
       controller: _scrollController,
@@ -487,6 +599,11 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             detail: detail,
             blocks: _topicBlocks,
             onLinkTap: _openExternalLink,
+            isBookmarked: isBookmarked,
+            isBookmarkLoading: isBookmarkLoading,
+            onBookmarkTap: _toggleBookmark,
+            onOpenInBrowserTap: () =>
+                _openExternalLink('https://forum.trae.cn/t/${widget.feedId}'),
           ),
         ),
         SliverToBoxAdapter(
@@ -576,7 +693,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                 floor: index + 1,
                 topicAuthorUid: detail.userInfo?.uid,
                 onLinkTap: _openExternalLink,
-                onReplyTap: () => _startReplyTo(reply.username),
+                onReplyTap: () => _startReplyTo(reply),
               );
             },
           ),
@@ -634,17 +751,39 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       ),
     );
   }
+
+  void _initializeLikeStatesForReplies(List<ReplyData> replies) {
+    final notifier = ref.read(likeProvider.notifier);
+    for (final reply in replies) {
+      final postId = int.tryParse(reply.id);
+      if (postId != null && postId > 0) {
+        notifier.initializePost(
+          postId,
+          likeCount: reply.likeNum,
+          isLiked: reply.isLike,
+        );
+      }
+    }
+  }
 }
 
 class _TopicHeaderSection extends StatelessWidget {
   final FeedContentData detail;
   final List<TopicContentBlock> blocks;
   final ValueChanged<String> onLinkTap;
+  final bool isBookmarked;
+  final bool isBookmarkLoading;
+  final VoidCallback onBookmarkTap;
+  final VoidCallback onOpenInBrowserTap;
 
   const _TopicHeaderSection({
     required this.detail,
     required this.blocks,
     required this.onLinkTap,
+    required this.isBookmarked,
+    required this.isBookmarkLoading,
+    required this.onBookmarkTap,
+    required this.onOpenInBrowserTap,
   });
 
   @override
@@ -746,6 +885,36 @@ class _TopicHeaderSection extends StatelessWidget {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: isBookmarkLoading ? null : onBookmarkTap,
+                icon: isBookmarkLoading
+                    ? SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: colorScheme.primary,
+                        ),
+                      )
+                    : Icon(
+                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                        size: 16,
+                        color: isBookmarked
+                            ? colorScheme.primary
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                label: Text(isBookmarked ? '已加书签' : '书签'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onOpenInBrowserTap,
+                icon: const Icon(Icons.open_in_browser_outlined, size: 16),
+                label: const Text('论坛网页'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  minimumSize: const Size(0, 34),
+                ),
+              ),
             ],
           ),
         ],
@@ -822,7 +991,7 @@ class _CommentSortButton extends StatelessWidget {
   }
 }
 
-class _ReplyItem extends StatelessWidget {
+class _ReplyItem extends ConsumerWidget {
   final ReplyData reply;
   final int floor;
   final String? topicAuthorUid;
@@ -838,9 +1007,12 @@ class _ReplyItem extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isTopicAuthor = topicAuthorUid != null && topicAuthorUid == reply.uid;
+    final likeState = ref.watch(postLikeStateProvider(int.tryParse(reply.id) ?? 0));
+    final isLiked = likeState?.isLiked ?? reply.isLike;
+    final likeNum = likeState?.likeCount ?? reply.likeNum;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -922,16 +1094,28 @@ class _ReplyItem extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Icon(
-                      Icons.thumb_up_alt_outlined,
-                      size: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${reply.likeNum}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                    GestureDetector(
+                      onTap: () {
+                        final postId = int.tryParse(reply.id);
+                        if (postId != null && postId > 0) {
+                          ref.read(likeProvider.notifier).toggleLike(postId);
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          Icon(
+                            isLiked ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
+                            size: 16,
+                            color: isLiked ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$likeNum',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: isLiked ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 14),

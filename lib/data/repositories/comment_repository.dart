@@ -107,15 +107,14 @@ class CommentRepository {
         );
 
         // 解析响应数据
-        final data = response.data as Map<String, dynamic>?;
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : null;
 
-        if (response.statusCode == 200 && data != null) {
-          // 成功创建帖子
-          final postId = data['id'] as int?;
-          if (postId != null) {
-            return CommentResult.success(postId: postId);
-          }
-          return CommentResult.failure('响应中未包含帖子ID');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          final postId = _extractPostId(response.data);
+          // 有些 Discourse 变体不会在响应体返回 id，但 HTTP 成功即表示发布成功。
+          return CommentResult.success(postId: postId);
         } else if (response.statusCode == 403) {
           // CSRF Token 错误或权限不足
           return CommentResult.failure('权限不足或会话已过期，请重新登录');
@@ -161,6 +160,36 @@ class CommentRepository {
     }
 
     return CommentResult.failure('创建评论失败，已达到最大重试次数');
+  }
+
+  int? _extractPostId(dynamic rawData) {
+    if (rawData is! Map) return null;
+
+    int? toInt(dynamic value) {
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value);
+      return null;
+    }
+
+    final directId = toInt(rawData['id']);
+    if (directId != null) return directId;
+
+    final post = rawData['post'];
+    if (post is Map) {
+      final postId = toInt(post['id']);
+      if (postId != null) return postId;
+    }
+
+    final data = rawData['data'];
+    if (data is Map) {
+      final dataId = toInt(data['id'] ?? data['post_id']);
+      if (dataId != null) return dataId;
+    }
+
+    final postId = toInt(rawData['post_id']);
+    if (postId != null) return postId;
+
+    return null;
   }
 
   /// 判断是否需要重试
@@ -368,7 +397,14 @@ class CommentRepository {
       final data = response.data as Map<String, dynamic>?;
 
       if (response.statusCode == 200 && data != null) {
-        final updatedPostId = data['id'] as int?;
+        // 处理 id 可能是字符串或整数的情况
+        final idValue = data['id'];
+        int? updatedPostId;
+        if (idValue is int) {
+          updatedPostId = idValue;
+        } else if (idValue is String) {
+          updatedPostId = int.tryParse(idValue);
+        }
         return CommentResult.success(postId: updatedPostId);
       } else if (response.statusCode == 403) {
         return CommentResult.failure('权限不足，无法编辑此评论');

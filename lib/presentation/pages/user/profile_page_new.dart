@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../../data/models/user.dart' as user_model;
+import '../../../data/repositories/trae_dashboard_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/trae_dashboard_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/user/quick_actions_grid.dart';
 import '../../widgets/user/notification_list.dart';
@@ -27,23 +29,25 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = currentUser != null;
-    
+
     // 调试日志
     debugPrint('🔍 [ProfilePage] currentUser: $currentUser');
     debugPrint('🔍 [ProfilePage] isAuthenticated: $isAuthenticated');
     if (currentUser != null) {
-      debugPrint('🔍 [ProfilePage] uid: ${currentUser.uid}, username: ${currentUser.username}');
+      debugPrint(
+        '🔍 [ProfilePage] uid: ${currentUser.uid}, username: ${currentUser.username}',
+      );
     }
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+      backgroundColor: Theme.of(
+        context,
+      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
             // 顶部导航栏
-            SliverToBoxAdapter(
-              child: _buildAppBar(context, isAuthenticated),
-            ),
+            SliverToBoxAdapter(child: _buildAppBar(context, isAuthenticated)),
             // 用户状态卡片
             SliverToBoxAdapter(
               child: _buildUserCard(context, currentUser, isAuthenticated),
@@ -57,9 +61,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               child: _buildNotificationSection(context, isAuthenticated),
             ),
             // 底部间距
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 32),
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
@@ -77,9 +79,9 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
         children: [
           Text(
             '我的',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           Row(
             children: [
@@ -157,6 +159,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     // 获取用户统计数据
     final userState = ref.watch(userSpaceNotifierProvider(user.username));
     final profile = userState.profile;
+    final dashboardSummaryAsync = ref.watch(userStatsSummaryProvider);
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -257,22 +260,244 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             ),
           ),
           const SizedBox(height: 16),
-          // 编辑资料按钮
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => context.push(RoutePaths.userEdit),
-              icon: const Icon(Icons.edit, size: 18),
-              label: const Text('编辑资料'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          _buildDashboardSummaryCard(context, dashboardSummaryAsync),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.push(RoutePaths.userEdit),
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('编辑资料'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.tonalIcon(
+                  onPressed: () => context.push(RoutePaths.traeDashboard),
+                  icon: const Icon(Icons.dashboard_outlined, size: 18),
+                  label: const Text('TRAE 仪表盘'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardSummaryCard(
+    BuildContext context,
+    AsyncValue<UserStatsSummary> summaryAsync,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: summaryAsync.when(
+        data: (summary) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.insights_outlined,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'TRAE 仪表盘摘要',
+                    style: textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _buildDashboardMetric(
+                    label: '使用天数',
+                    value: '${summary.registerDays} 天',
+                    textTheme: textTheme,
+                    colorScheme: colorScheme,
+                  ),
+                  _buildDashboardMetric(
+                    label: '7天采纳',
+                    value: summary.codeAcceptText,
+                    textTheme: textTheme,
+                    colorScheme: colorScheme,
+                  ),
+                  _buildDashboardMetric(
+                    label: '7天对话',
+                    value: summary.conversationText,
+                    textTheme: textTheme,
+                    colorScheme: colorScheme,
+                  ),
+                ],
+              ),
+              if (summary.topModel != null ||
+                  summary.primaryLanguage != null ||
+                  summary.peakHourText != null) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (summary.topModel != null)
+                      _buildDashboardTag(
+                        '常用模型 ${summary.topModel}',
+                        colorScheme,
+                        textTheme,
+                      ),
+                    if (summary.primaryLanguage != null)
+                      _buildDashboardTag(
+                        '主要语言 ${summary.primaryLanguage}',
+                        colorScheme,
+                        textTheme,
+                      ),
+                    if (summary.peakHourText != null)
+                      _buildDashboardTag(
+                        '活跃时段 ${summary.peakHourText}',
+                        colorScheme,
+                        textTheme,
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          );
+        },
+        loading: () => Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '正在加载 TRAE 仪表盘数据...',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        error: (error, stackTrace) {
+          final errorText = error.toString();
+          final isAuthError =
+              errorText.contains('NO_COOKIES') ||
+              errorText.contains('UNAUTHORIZED') ||
+              errorText.contains('未登录') ||
+              errorText.contains('过期');
+
+          return Row(
+            children: [
+              Icon(
+                isAuthError ? Icons.lock_outline : Icons.error_outline,
+                size: 16,
+                color: isAuthError ? colorScheme.primary : colorScheme.error,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isAuthError ? '缺少 TRAE 登录凭证，请重新登录后重试' : '仪表盘数据加载失败，请稍后重试',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              if (isAuthError)
+                TextButton(
+                  onPressed: () async {
+                    await context.push(RoutePaths.login);
+                    if (!mounted) return;
+                    ref.invalidate(userStatsSummaryProvider);
+                  },
+                  child: const Text('去登录'),
+                )
+              else
+                TextButton(
+                  onPressed: () => ref.invalidate(userStatsSummaryProvider),
+                  child: const Text('重试'),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDashboardMetric({
+    required String label,
+    required String value,
+    required TextTheme textTheme,
+    required ColorScheme colorScheme,
+  }) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardTag(
+    String text,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colorScheme.surface.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: textTheme.labelSmall?.copyWith(
+          color: colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -329,10 +554,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               ),
               child: const Text(
                 '点击登录',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -401,9 +623,9 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             padding: const EdgeInsets.only(left: 16, top: 16, right: 16),
             child: Text(
               '常用功能',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           // 快捷功能网格
@@ -451,9 +673,9 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             padding: const EdgeInsets.only(left: 4, bottom: 12),
             child: Text(
               '消息通知',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           // 通知列表
@@ -487,11 +709,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   Widget _buildDefaultAvatar(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.person,
-        size: 36,
-        color: colorScheme.onSurfaceVariant,
-      ),
+      child: Icon(Icons.person, size: 36, color: colorScheme.onSurfaceVariant),
     );
   }
 

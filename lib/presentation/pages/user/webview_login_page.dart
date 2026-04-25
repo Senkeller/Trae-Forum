@@ -40,6 +40,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   /// 是否登录成功
   bool _isLoginSuccess = false;
+  bool _hasSavedTraeCookies = false;
 
   /// 登录页面 URL
   static const String _loginUrl = 'https://www.trae.cn/login';
@@ -91,6 +92,8 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
               _isLoading = false;
             });
 
+            await _tryExtractTraeCookies(url);
+
             // 检查是否登录成功
             await _checkLoginStatus(url);
           },
@@ -126,6 +129,24 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     controller.loadRequest(Uri.parse(_loginUrl));
 
     _controller = controller;
+  }
+
+  Future<void> _tryExtractTraeCookies(String url) async {
+    if (!url.contains('trae.cn') || _hasSavedTraeCookies) return;
+
+    try {
+      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(
+        _controller,
+      );
+      if (cookieSaved) {
+        _hasSavedTraeCookies = true;
+        debugPrint('✅ [WebViewLogin] 已提取 Trae Cookie');
+      } else {
+        debugPrint('⚠️ [WebViewLogin] Trae Cookie 提取失败，等待下一次页面加载重试');
+      }
+    } catch (e) {
+      debugPrint('❌ [WebViewLogin] 提取 Trae Cookie 异常: $e');
+    }
   }
 
   /// 检查登录状态

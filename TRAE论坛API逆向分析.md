@@ -221,7 +221,284 @@ GET /notifications?limit=30&recent=true&bump_last_seen_reviewable=true&filter_by
 
 ---
 
-## 六、聊天相关API
+### 5.2 添加话题书签
+
+**请求信息**
+- **Method**: POST
+- **URL**: `/bookmarks.json`
+- **描述**: 将话题添加到用户书签
+- **逆向分析时间**: 2026-04-25
+
+**请求头**
+```
+Content-Type: application/x-www-form-urlencoded; charset=UTF-8
+X-CSRF-Token: {csrf_token}
+X-Requested-With: XMLHttpRequest
+Discourse-Logged-In: true
+Discourse-Present: true
+Referer: https://forum.trae.cn/t/topic/{topic_id}
+```
+
+**请求体参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| bookmarkable_id | integer | 是 | 被收藏的ID（话题ID） |
+| bookmarkable_type | string | 是 | 收藏类型（Topic/Post） |
+| auto_delete_preference | integer | 否 | 自动删除偏好（默认为3） |
+| reminder_at | string | 否 | 提醒时间（ISO8601格式） |
+
+**请求示例**
+```
+POST /bookmarks.json
+bookmarkable_id=12341&bookmarkable_type=Topic&auto_delete_preference=3
+```
+
+**成功响应**
+```json
+{
+  "success": "OK",
+  "id": 2090
+}
+```
+
+**响应头信息**
+- `X-Discourse-Route: bookmarks/create`
+- `X-Discourse-Username: 用户名`
+
+---
+
+### 5.3 删除书签
+
+**请求信息**
+- **Method**: DELETE
+- **URL**: `/bookmarks/{id}.json`
+- **描述**: 删除用户书签
+- **逆向分析时间**: 2026-04-25
+
+**路径参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | integer | 是 | 书签ID |
+
+**请求头**
+```
+X-CSRF-Token: {csrf_token}
+X-Requested-With: XMLHttpRequest
+Discourse-Logged-In: true
+Discourse-Present: true
+```
+
+**成功响应**
+```json
+{
+  "success": "OK"
+}
+```
+
+---
+
+### 5.4 获取用户书签列表
+
+**请求信息**
+- **Method**: GET
+- **URL**: `/user_activity_bookmarks.json`
+- **描述**: 获取当前用户的书签列表
+- **逆向分析时间**: 2026-04-25
+
+**请求参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | integer | 否 | 页码，从0开始 |
+
+**响应示例**
+```json
+{
+  "bookmarks": [],
+  "load_more_url": "/user_activity_bookmarks.json?page=1"
+}
+```
+
+---
+
+## 六、点赞相关API
+
+### 6.1 点赞帖子
+
+**请求信息**
+- **Method**: POST
+- **URL**: `/post_actions`
+- **描述**: 对帖子进行点赞操作
+- **逆向分析时间**: 2026-04-25
+
+**请求头**
+```
+Content-Type: application/x-www-form-urlencoded; charset=UTF-8
+X-CSRF-Token: {csrf_token}
+X-Requested-With: XMLHttpRequest
+Discourse-Logged-In: true
+Discourse-Present: true
+Referer: https://forum.trae.cn/t/topic/{topic_id}/{post_number}
+```
+
+**请求体参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | integer | 是 | 帖子ID（post_id） |
+| post_action_type_id | integer | 是 | 操作类型ID（2=点赞） |
+| flag_topic | boolean | 否 | 是否举报话题（默认false） |
+
+**请求示例**
+```
+POST /post_actions
+id=60309&post_action_type_id=2&flag_topic=false
+```
+
+**成功响应**
+```json
+{
+  "id": 60309,
+  "name": "",
+  "username": "用户名",
+  "actions_summary": [
+    {"id": 2, "count": 1, "acted": true, "can_undo": true},
+    {"id": 6, "can_act": true},
+    {"id": 3, "can_act": true},
+    {"id": 4, "can_act": true},
+    {"id": 8, "can_act": true},
+    {"id": 10, "can_act": true},
+    {"id": 7, "can_act": true}
+  ],
+  ...
+}
+```
+
+**actions_summary 说明**
+| id | 类型 | 说明 |
+|----|------|------|
+| 2 | like | 点赞 |
+| 3 | bookmark | 书签 |
+| 4 | like | ... |
+| 6 | ... | ... |
+
+**响应头信息**
+- `X-Discourse-Route: post_actions/create`
+- `Discourse-Actions-Max: 2000`
+- `Discourse-Actions-Remaining: 1999`
+
+---
+
+### 6.2 取消点赞帖子
+
+**请求信息**
+- **Method**: DELETE
+- **URL**: `/post_actions/{post_id}`
+- **描述**: 取消对帖子的点赞
+- **逆向分析时间**: 2026-04-25
+
+**路径参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| post_id | integer | 是 | 帖子ID |
+
+**查询参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| post_action_type_id | integer | 是 | 操作类型ID（2=点赞） |
+
+**请求示例**
+```
+DELETE /post_actions/60309?post_action_type_id=2
+```
+
+---
+
+## 七、回复相关API
+
+### 7.1 创建回复
+
+**请求信息**
+- **Method**: POST
+- **URL**: `/posts`
+- **描述**: 在话题下创建回复
+- **逆向分析时间**: 2026-04-25
+
+**请求头**
+```
+Content-Type: application/x-www-form-urlencoded; charset=UTF-8
+X-CSRF-Token: {csrf_token}
+X-Requested-With: XMLHttpRequest
+Discourse-Logged-In: true
+Discourse-Present: true
+```
+
+**请求体参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| topic_id | integer | 是 | 话题ID |
+| raw | string | 是 | 回复内容（Markdown格式） |
+| reply_to_post_number | integer | 否 | 回复的目标帖子编号（楼中楼回复） |
+
+**请求示例**
+```
+POST /posts
+topic_id=12341&raw=这是我的回复内容&reply_to_post_number=2
+```
+
+**成功响应**
+```json
+{
+  "id": 60310,
+  "topic_id": 12341,
+  "post_number": 3,
+  "created_at": "2026-04-25T03:00:00.000Z",
+  ...
+}
+```
+
+---
+
+### 7.2 编辑回复
+
+**请求信息**
+- **Method**: PUT
+- **URL**: `/posts/{post_id}`
+- **描述**: 编辑已发布的回复
+- **逆向分析时间**: 2026-04-25
+
+**路径参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| post_id | integer | 是 | 帖子ID |
+
+**请求体参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| raw | string | 是 | 新的回复内容（Markdown格式） |
+| edit_reason | string | 否 | 编辑原因 |
+
+---
+
+### 7.3 删除回复
+
+**请求信息**
+- **Method**: DELETE
+- **URL**: `/posts/{post_id}`
+- **描述**: 删除已发布的回复
+- **逆向分析时间**: 2026-04-25
+
+**路径参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| post_id | integer | 是 | 帖子ID |
+
+**查询参数**
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| force_destroy | boolean | 否 | 是否强制删除（管理员使用） |
+
+---
+
+## 八、聊天相关API
 
 ### 6.1 获取当前用户聊天频道
 
@@ -431,6 +708,7 @@ TRAE论坛基于 **Discourse** 开源论坛框架构建，具有以下特征：
 | 日期 | 版本 | 更新内容 |
 |------|------|----------|
 | 2026-04-24 | 1.0 | 初始版本，完成基础API逆向分析 |
+| 2026-04-25 | 1.1 | 新增书签/收藏API、点赞API、回复API的详细逆向分析 |
 
 ---
 

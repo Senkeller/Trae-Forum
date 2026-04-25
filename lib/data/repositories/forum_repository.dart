@@ -8,7 +8,7 @@ import '../../core/network/dio_client.dart';
 class ForumRepository {
   final Dio _dio;
 
-  ForumRepository({Dio? dio}) : _dio = dio ?? DioClient.instance;
+  ForumRepository({Dio? dio}) : _dio = dio ?? DioClient.dio;
 
   // ==================== 分类相关 ====================
 

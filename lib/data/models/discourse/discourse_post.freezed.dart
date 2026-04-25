@@ -35,7 +35,7 @@ mixin _$DiscoursePost {
   String? get cooked => throw _privateConstructorUsedError;
   @JsonKey(name: 'raw')
   String? get raw => throw _privateConstructorUsedError;
-  @JsonKey(name: 'post_number')
+  @JsonKey(name: 'post_number', fromJson: _postNumberFromJson)
   int get postNumber => throw _privateConstructorUsedError;
   @JsonKey(name: 'post_type')
   int get postType => throw _privateConstructorUsedError;
@@ -43,7 +43,7 @@ mixin _$DiscoursePost {
   String? get updatedAt => throw _privateConstructorUsedError;
   @JsonKey(name: 'reply_count')
   int get replyCount => throw _privateConstructorUsedError;
-  @JsonKey(name: 'reply_to_post_number')
+  @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson)
   int? get replyToPostNumber => throw _privateConstructorUsedError;
   @JsonKey(name: 'quote_count')
   int get quoteCount => throw _privateConstructorUsedError;
@@ -162,11 +162,12 @@ abstract class $DiscoursePostCopyWith<$Res> {
     @JsonKey(name: 'created_at') String createdAt,
     @JsonKey(name: 'cooked') String? cooked,
     @JsonKey(name: 'raw') String? raw,
-    @JsonKey(name: 'post_number') int postNumber,
+    @JsonKey(name: 'post_number', fromJson: _postNumberFromJson) int postNumber,
     @JsonKey(name: 'post_type') int postType,
     @JsonKey(name: 'updated_at') String? updatedAt,
     @JsonKey(name: 'reply_count') int replyCount,
-    @JsonKey(name: 'reply_to_post_number') int? replyToPostNumber,
+    @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson)
+    int? replyToPostNumber,
     @JsonKey(name: 'quote_count') int quoteCount,
     @JsonKey(name: 'incoming_link_count') int incomingLinkCount,
     @JsonKey(name: 'reads') int reads,
@@ -531,11 +532,12 @@ abstract class _$$DiscoursePostImplCopyWith<$Res>
     @JsonKey(name: 'created_at') String createdAt,
     @JsonKey(name: 'cooked') String? cooked,
     @JsonKey(name: 'raw') String? raw,
-    @JsonKey(name: 'post_number') int postNumber,
+    @JsonKey(name: 'post_number', fromJson: _postNumberFromJson) int postNumber,
     @JsonKey(name: 'post_type') int postType,
     @JsonKey(name: 'updated_at') String? updatedAt,
     @JsonKey(name: 'reply_count') int replyCount,
-    @JsonKey(name: 'reply_to_post_number') int? replyToPostNumber,
+    @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson)
+    int? replyToPostNumber,
     @JsonKey(name: 'quote_count') int quoteCount,
     @JsonKey(name: 'incoming_link_count') int incomingLinkCount,
     @JsonKey(name: 'reads') int reads,
@@ -892,11 +894,13 @@ class _$DiscoursePostImpl implements _DiscoursePost {
     @JsonKey(name: 'created_at') required this.createdAt,
     @JsonKey(name: 'cooked') this.cooked,
     @JsonKey(name: 'raw') this.raw,
-    @JsonKey(name: 'post_number') required this.postNumber,
+    @JsonKey(name: 'post_number', fromJson: _postNumberFromJson)
+    required this.postNumber,
     @JsonKey(name: 'post_type') this.postType = 1,
     @JsonKey(name: 'updated_at') this.updatedAt,
     @JsonKey(name: 'reply_count') this.replyCount = 0,
-    @JsonKey(name: 'reply_to_post_number') this.replyToPostNumber,
+    @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson)
+    this.replyToPostNumber,
     @JsonKey(name: 'quote_count') this.quoteCount = 0,
     @JsonKey(name: 'incoming_link_count') this.incomingLinkCount = 0,
     @JsonKey(name: 'reads') this.reads = 0,
@@ -977,7 +981,7 @@ class _$DiscoursePostImpl implements _DiscoursePost {
   @JsonKey(name: 'raw')
   final String? raw;
   @override
-  @JsonKey(name: 'post_number')
+  @JsonKey(name: 'post_number', fromJson: _postNumberFromJson)
   final int postNumber;
   @override
   @JsonKey(name: 'post_type')
@@ -989,7 +993,7 @@ class _$DiscoursePostImpl implements _DiscoursePost {
   @JsonKey(name: 'reply_count')
   final int replyCount;
   @override
-  @JsonKey(name: 'reply_to_post_number')
+  @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson)
   final int? replyToPostNumber;
   @override
   @JsonKey(name: 'quote_count')
@@ -1358,11 +1362,13 @@ abstract class _DiscoursePost implements DiscoursePost {
     @JsonKey(name: 'created_at') required final String createdAt,
     @JsonKey(name: 'cooked') final String? cooked,
     @JsonKey(name: 'raw') final String? raw,
-    @JsonKey(name: 'post_number') required final int postNumber,
+    @JsonKey(name: 'post_number', fromJson: _postNumberFromJson)
+    required final int postNumber,
     @JsonKey(name: 'post_type') final int postType,
     @JsonKey(name: 'updated_at') final String? updatedAt,
     @JsonKey(name: 'reply_count') final int replyCount,
-    @JsonKey(name: 'reply_to_post_number') final int? replyToPostNumber,
+    @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson)
+    final int? replyToPostNumber,
     @JsonKey(name: 'quote_count') final int quoteCount,
     @JsonKey(name: 'incoming_link_count') final int incomingLinkCount,
     @JsonKey(name: 'reads') final int reads,
@@ -1437,7 +1443,7 @@ abstract class _DiscoursePost implements DiscoursePost {
   @JsonKey(name: 'raw')
   String? get raw;
   @override
-  @JsonKey(name: 'post_number')
+  @JsonKey(name: 'post_number', fromJson: _postNumberFromJson)
   int get postNumber;
   @override
   @JsonKey(name: 'post_type')
@@ -1449,7 +1455,7 @@ abstract class _DiscoursePost implements DiscoursePost {
   @JsonKey(name: 'reply_count')
   int get replyCount;
   @override
-  @JsonKey(name: 'reply_to_post_number')
+  @JsonKey(name: 'reply_to_post_number', fromJson: _replyToPostNumberFromJson)
   int? get replyToPostNumber;
   @override
   @JsonKey(name: 'quote_count')

@@ -272,11 +272,11 @@ class PostReplyItem extends StatelessWidget {
                   color: colorScheme.onSurface,
                 ),
                 'p': Style(
-                  margin: Margins.only(bottom: Margin(8)),
+                  margin: Margins.only(bottom: 8),
                 ),
                 'blockquote': Style(
-                  margin: Margins.only(left: Margin(8), bottom: Margin(8)),
-                  padding: HtmlPaddings.only(left: HtmlPadding(12)),
+                  margin: Margins.only(left: 8, bottom: 8),
+                  padding: HtmlPaddings.only(left: 12),
                   border: Border(
                     left: BorderSide(
                       color: colorScheme.outline.withOpacity(0.5),
@@ -292,17 +292,14 @@ class PostReplyItem extends StatelessWidget {
                 'img': Style(
                   width: Width.auto(),
                   height: Height.auto(),
-                  maxWidth: MaxWidth(100, Unit.percent),
                 ),
                 'pre': Style(
                   backgroundColor: colorScheme.surfaceVariant,
                   padding: HtmlPaddings.all(12),
-                  borderRadius: BorderRadius.circular(8),
                 ),
                 'code': Style(
                   backgroundColor: colorScheme.surfaceVariant,
                   padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
-                  borderRadius: BorderRadius.circular(4),
                   fontFamily: 'monospace',
                 ),
               },

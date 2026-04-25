@@ -29,10 +29,7 @@ class TraeDashboardPage extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
-          'TRAE 仪表盘',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('TRAE 仪表盘', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
@@ -43,7 +40,11 @@ class TraeDashboardPage extends ConsumerWidget {
         ],
       ),
       body: dashboardAsync.when(
-        data: (data) => _DashboardContent(data: data),
+        data: (data) => _DashboardContent(
+          data: data,
+          onRefresh: () =>
+              ref.read(dashboardStateNotifierProvider.notifier).refresh(),
+        ),
         loading: () => const _LoadingView(),
         error: (error, stackTrace) => _ErrorView(
           error: error.toString(),
@@ -59,8 +60,9 @@ class TraeDashboardPage extends ConsumerWidget {
 /// Dashboard 内容主体
 class _DashboardContent extends StatelessWidget {
   final DashboardData data;
+  final Future<void> Function() onRefresh;
 
-  const _DashboardContent({required this.data});
+  const _DashboardContent({required this.data, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -68,9 +70,7 @@ class _DashboardContent extends StatelessWidget {
     final userInfo = data.userInfo;
 
     return RefreshIndicator(
-      onRefresh: () async {
-        // 刷新逻辑由外部处理
-      },
+      onRefresh: onRefresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
@@ -148,7 +148,7 @@ class _SectionTitle extends StatelessWidget {
             const SizedBox(width: 8),
             Icon(
               Icons.info_outline,
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
               size: 16,
             ),
           ],
@@ -158,7 +158,7 @@ class _SectionTitle extends StatelessWidget {
           Text(
             subtitle!,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               fontSize: 12,
             ),
           ),
@@ -214,10 +214,7 @@ class _UserInfoCard extends StatelessWidget {
                           },
                         ),
                       )
-                    : const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                      ),
+                    : const Icon(Icons.person, color: Colors.white),
               ),
               const SizedBox(width: 16),
               // 用户名
@@ -237,7 +234,7 @@ class _UserInfoCard extends StatelessWidget {
                     Text(
                       '这是你使用 TRAE IDE 的第 $registerDays 天',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 14,
                       ),
                     ),
@@ -267,7 +264,7 @@ class _UserInfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF32F08C).withOpacity(0.15),
+        color: const Color(0xFF32F08C).withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -312,7 +309,7 @@ class _CodeAcceptCard extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(
                 Icons.info_outline,
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 size: 16,
               ),
             ],
@@ -371,7 +368,7 @@ class _ConversationCard extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(
                 Icons.info_outline,
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
                 size: 16,
               ),
             ],
@@ -391,9 +388,12 @@ class _ConversationCard extends StatelessWidget {
               const SizedBox(width: 12),
               if (topAgent != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF32F08C).withOpacity(0.15),
+                    color: const Color(0xFF32F08C).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
@@ -423,7 +423,7 @@ class _ConversationCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF32F08C).withOpacity(0.1),
+                color: const Color(0xFF32F08C).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -451,14 +451,9 @@ class _LoadingView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-            color: Color(0xFF32F08C),
-          ),
+          CircularProgressIndicator(color: Color(0xFF32F08C)),
           SizedBox(height: 16),
-          Text(
-            '加载中...',
-            style: TextStyle(color: Colors.white70),
-          ),
+          Text('加载中...', style: TextStyle(color: Colors.white70)),
         ],
       ),
     );
@@ -482,7 +477,8 @@ class _ErrorViewState extends State<_ErrorView> {
   Future<void> _checkCookies() async {
     final cookies = await TraeCookieManager.getAllCookies();
     setState(() {
-      _cookieInfo = 'Cookie 数量: ${cookies.length}\n'
+      _cookieInfo =
+          'Cookie 数量: ${cookies.length}\n'
           'Keys: ${cookies.keys.toList()}\n'
           'Has sessionid: ${cookies.containsKey('sessionid')}\n'
           'Has ttwid: ${cookies.containsKey('ttwid')}';
@@ -491,7 +487,8 @@ class _ErrorViewState extends State<_ErrorView> {
 
   @override
   Widget build(BuildContext context) {
-    final isAuthError = widget.error.contains('未登录') || widget.error.contains('过期');
+    final isAuthError =
+        widget.error.contains('未登录') || widget.error.contains('过期');
 
     return Center(
       child: Padding(
@@ -515,12 +512,10 @@ class _ErrorViewState extends State<_ErrorView> {
             ),
             const SizedBox(height: 8),
             Text(
-              isAuthError
-                  ? '请先登录 Trae 账号以查看仪表盘数据'
-                  : widget.error,
+              isAuthError ? '请先登录 Trae 账号以查看仪表盘数据' : widget.error,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
             ),
@@ -552,7 +547,10 @@ class _ErrorViewState extends State<_ErrorView> {
             TextButton.icon(
               onPressed: _checkCookies,
               icon: const Icon(Icons.cookie_outlined, color: Colors.grey),
-              label: const Text('查看 Cookie', style: TextStyle(color: Colors.grey)),
+              label: const Text(
+                '查看 Cookie',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
             if (_cookieInfo != null) ...[
               const SizedBox(height: 16),
