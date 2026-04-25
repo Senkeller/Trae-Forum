@@ -7,14 +7,17 @@ import '../network/discourse_api_service.dart';
 ///
 /// 实现混合多数据源的推荐算法，通过加权评分生成个性化推荐流
 /// 针对社区冷启动阶段优化：降低互动数据权重，增加新内容和时间权重
+/// 增加随机性：每次刷新展示不同的内容组合
 class RecommendationEngine {
   final DiscourseApiService _apiService;
+  final math.Random _random;
 
   /// 推荐分数权重配置
   /// 针对低互动社区优化：
   /// - 降低 view/like/reply 权重（数据少，参考价值低）
   /// - 增加新内容基础分（鼓励新帖曝光）
   /// - 缩短时间衰减周期（让新内容更快被看到）
+  /// - 重点推荐7天内内容
   static const Map<String, double> _weights = {
     'viewCount': 0.0005, // 浏览数权重（降低）
     'likeCount': 0.2, // 点赞数权重（降低）
@@ -24,26 +27,38 @@ class RecommendationEngine {
     'pinned': 3.0, // 置顶内容加权（提高）
     'timeDecay': 24.0, // 时间衰减因子（缩短为24小时）
     'maxTimeBoost': 72.0, // 最大时间加成（3天内新内容有加成）
+    'maxAgeHours': 168.0, // 最大内容年龄（7天 = 168小时）
+  };
+
+  /// 分类多样性配置
+  /// 每个分类在推荐中的最大占比，确保内容多样性
+  static const Map<int, double> _categoryMaxRatio = {
+    7: 0.25, // Help: 最多25%
+    10: 0.25, // Showcase: 最多25%
+    11: 0.25, // Discussion: 最多25%
   };
 
   /// 构造函数
   ///
   /// [apiService] Discourse API 服务实例
-  RecommendationEngine(this._apiService);
+  RecommendationEngine(this._apiService) : _random = math.Random();
 
   /// 获取推荐内容
   ///
   /// [page] 页码，从1开始
   /// [pageSize] 每页返回数量
-  /// @return 按推荐分数排序的 FeedItem 列表
+  /// [randomize] 是否启用随机排序（默认true，每次刷新内容不同）
+  /// @return 按推荐分数排序或随机排序的 FeedItem 列表
   ///
-  /// 针对低互动社区优化：
-  /// 1. 增加更多数据源（各分类精选）
+  /// 优化策略：
+  /// 1. 重点推荐7天以内的新内容
   /// 2. 确保内容多样性（不同分类都有曝光机会）
-  /// 3. 新内容优先展示
+  /// 3. 限制每个分类的最大占比
+  /// 4. 增加随机性：每次刷新展示不同的内容组合
   Future<List<FeedItem>> getRecommendedFeeds({
     int page = 1,
     int pageSize = 20,
+    bool randomize = true,
   }) async {
     // 并行获取多个数据源
     // 针对冷启动社区：获取更多分类的内容，确保多样性
@@ -59,82 +74,94 @@ class RecommendationEngine {
       _apiService.getTopicsByCategory(11, page: page), // Discussion
     ]);
 
-    // 按分类分组存储，确保多样性
-    final categoryGroups = <int, List<ScoredFeedItem>>{};
+    // 合并所有内容，并过滤7天以内的内容
     final merged = <String, ScoredFeedItem>{};
+    final now = DateTime.now();
+    final maxAge = Duration(hours: _weights['maxAgeHours']!.toInt());
 
     for (final response in responses) {
       final items = _parseResponse(response);
       for (final item in items) {
         if (!merged.containsKey(item.id)) {
-          final score = _calculateScore(item);
-          final scoredItem = ScoredFeedItem(item: item, score: score);
-          merged[item.id] = scoredItem;
+          // 检查内容是否在7天以内（置顶内容除外）
+          final createTime = int.tryParse(item.createTime) ?? 0;
+          final itemDate = DateTime.fromMillisecondsSinceEpoch(createTime * 1000);
+          final age = now.difference(itemDate);
+          
+          // 只保留7天以内的内容，或者置顶内容
+          if (item.isPinned || age <= maxAge) {
+            // 计算基础分数
+            final baseScore = _calculateScore(item);
+            // 添加随机因子（±20%的随机波动）
+            final randomFactor = randomize ? 0.8 + _random.nextDouble() * 0.4 : 1.0;
+            final finalScore = baseScore * randomFactor;
 
-          // 按分类分组
-          categoryGroups.putIfAbsent(item.categoryId, () => []);
-          categoryGroups[item.categoryId]!.add(scoredItem);
+            final scoredItem = ScoredFeedItem(item: item, score: finalScore);
+            merged[item.id] = scoredItem;
+          }
         }
       }
     }
 
-    // 多样性排序策略：轮询各分类，确保不同分类都有曝光
-    final result = <FeedItem>[];
-    final addedIds = <String>{}; // 用于去重的ID集合
+    // 转换为列表
+    final allItems = merged.values.toList();
 
-    // 过滤掉官方公告分类 (ID: 4)
-    final categoryIds = categoryGroups.keys.where((id) => id != _getOfficialCategoryId()).toList();
-    final categoryIndices = <int, int>{}; // 记录每个分类的当前索引
-
-    // 首先添加置顶内容（优先级最高）
-    // 注意：不包含官方公告内容
-    final pinnedItems = merged.values
+    // 分离置顶内容和非置顶内容
+    final pinnedItems = allItems
         .where((s) => s.item.isPinned && s.item.categoryId != _getOfficialCategoryId())
         .toList();
+    final normalItems = allItems
+        .where((s) => !s.item.isPinned || s.item.categoryId == _getOfficialCategoryId())
+        .toList();
+
+    // 置顶内容按分数排序（保持置顶内容在前）
     pinnedItems.sort((a, b) => b.score.compareTo(a.score));
+
+    // 普通内容根据randomize参数决定排序方式
+    if (randomize) {
+      // 随机打乱顺序
+      normalItems.shuffle(_random);
+    } else {
+      // 按分数排序
+      normalItems.sort((a, b) => b.score.compareTo(a.score));
+    }
+
+    // 组合结果：先置顶，再普通内容（带分类多样性控制）
+    final result = <FeedItem>[];
+    final addedIds = <String>{};
+    final categoryCount = <int, int>{}; // 记录每个分类已添加的数量
+
+    // 添加置顶内容（最多3条）
     for (final item in pinnedItems.take(3)) {
       result.add(item.item);
-      addedIds.add(item.item.id); // 记录已添加的ID
+      addedIds.add(item.item.id);
     }
 
-    // 然后轮询各分类添加内容（确保多样性）
-    // 跳过已添加的置顶内容，避免重复
-    while (result.length < pageSize) {
-      bool addedAny = false;
-
-      for (final categoryId in categoryIds) {
-        if (result.length >= pageSize) break;
-
-        final items = categoryGroups[categoryId]!;
-        // 按分数排序当前分类的内容
-        items.sort((a, b) => b.score.compareTo(a.score));
-
-        final currentIndex = categoryIndices[categoryId] ?? 0;
-        if (currentIndex < items.length) {
-          final item = items[currentIndex];
-          // 避免重复添加（包括置顶内容）
-          if (!addedIds.contains(item.item.id)) {
-            result.add(item.item);
-            addedIds.add(item.item.id);
-            addedAny = true;
-          }
-          categoryIndices[categoryId] = currentIndex + 1;
+    // 添加普通内容（带分类多样性控制）
+    for (final item in normalItems) {
+      if (result.length >= pageSize) break;
+      if (!addedIds.contains(item.item.id)) {
+        final categoryId = item.item.categoryId;
+        final currentCount = categoryCount[categoryId] ?? 0;
+        final maxCount = (pageSize * (_categoryMaxRatio[categoryId] ?? 0.3)).ceil();
+        
+        // 检查是否超过该分类的最大数量限制
+        if (currentCount < maxCount) {
+          result.add(item.item);
+          addedIds.add(item.item.id);
+          categoryCount[categoryId] = currentCount + 1;
         }
       }
-
-      // 如果没有添加任何内容，说明所有分类都已遍历完
-      if (!addedAny) break;
     }
 
-    // 如果还不够，补充剩余的高分内容
+    // 如果还不够，补充剩余内容（不限制分类）
     if (result.length < pageSize) {
-      final remaining = merged.values
-          .where((s) => !addedIds.contains(s.item.id))
-          .toList();
-      remaining.sort((a, b) => b.score.compareTo(a.score));
-      for (final item in remaining.take(pageSize - result.length)) {
-        result.add(item.item);
-        addedIds.add(item.item.id);
+      for (final item in normalItems) {
+        if (result.length >= pageSize) break;
+        if (!addedIds.contains(item.item.id)) {
+          result.add(item.item);
+          addedIds.add(item.item.id);
+        }
       }
     }
 

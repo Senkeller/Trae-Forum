@@ -23,8 +23,10 @@ class DiscourseApiService {
   }
 
   Future<Response> getTopicsByCategory(int categoryId, {int page = 0}) async {
+    // 官方公告分类使用特殊路径 /c/4-category/4
+    final path = categoryId == 4 ? 'c/4-category/4' : 'c/$categoryId';
     return _dio.get(
-      '$_baseUrl/c/$categoryId.json',
+      '$_baseUrl/$path.json',
       queryParameters: {'page': page},
     );
   }

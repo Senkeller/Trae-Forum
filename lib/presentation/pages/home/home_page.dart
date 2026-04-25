@@ -213,13 +213,31 @@ class _FeedListView extends ConsumerWidget {
     }
 
     if (feedList.isEmpty) {
+      final isOfficialTab = feedType == FeedType.official;
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
+            Icon(
+              isOfficialTab ? Icons.campaign_outlined : Icons.inbox_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 16),
-            Text('暂无内容', style: TextStyle(color: Colors.grey[600])),
+            Text(
+              isOfficialTab ? '暂无官方公告' : '暂无内容',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            if (isOfficialTab) ...[
+              const SizedBox(height: 8),
+              Text(
+                '官方公告将在这里发布',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         ),
       );

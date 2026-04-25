@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../config/constants.dart';
@@ -475,12 +476,25 @@ class HomeNotifier extends _$HomeNotifier {
           );
         }
       case FeedType.official:
-        return _fetchFromResponse(
-          await _discourseApiService.getTopicsByCategory(
-            AppConstants.forumCategoryIds['official']!,
-            page: page,
-          ),
+        debugPrint('🏛️ [HomeProvider] 获取官方公告，分类ID: ${AppConstants.forumCategoryIds['official']}, page: $page');
+        final response = await _discourseApiService.getTopicsByCategory(
+          AppConstants.forumCategoryIds['official']!,
+          page: page,
         );
+        debugPrint('🏛️ [HomeProvider] 官方公告API响应状态: ${response.statusCode}');
+        debugPrint('🏛️ [HomeProvider] 官方公告API响应数据类型: ${response.data.runtimeType}');
+        
+        final raw = response.data;
+        final data = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+        final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+        final topics = topicListMap?['topics'] as List<dynamic>?;
+        debugPrint('🏛️ [HomeProvider] 官方公告话题数量: ${topics?.length ?? 0}');
+        
+        if (topics != null && topics.isNotEmpty) {
+          debugPrint('🏛️ [HomeProvider] 第一个话题标题: ${topics.first['title']}');
+        }
+        
+        return _fetchFromResponse(response);
       case FeedType.help:
         return _fetchFromResponse(
           await _discourseApiService.getTopicsByCategory(
