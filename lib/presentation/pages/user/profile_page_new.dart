@@ -27,6 +27,15 @@ class ProfilePageNew extends ConsumerStatefulWidget {
 class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   @override
   Widget build(BuildContext context) {
+    ref.listen<user_model.UserInfo?>(currentUserProvider, (previous, next) {
+      final previousUid = previous?.uid ?? '';
+      final nextUid = next?.uid ?? '';
+      if (nextUid.isNotEmpty && nextUid != previousUid) {
+        ref.invalidate(dashboardStateNotifierProvider);
+        ref.invalidate(userStatsSummaryProvider);
+      }
+    });
+
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = currentUser != null;
 

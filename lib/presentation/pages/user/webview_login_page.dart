@@ -179,7 +179,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         final userInfo = await _extractUserInfo();
         debugPrint('✅ [WebViewLogin] 提取到的用户信息: $userInfo');
         // 即使无法提取用户信息，也认为是登录成功
-        _handleLoginSuccess(userInfo: userInfo);
+        _handleLoginSuccess(userInfo: userInfo, currentUrl: url);
       } else if (isTraeDashboard) {
         debugPrint('✅ [WebViewLogin] 检测到 TRAE 登录成功页面，准备跳转到论坛验证');
         // 登录成功，但需要跳转到论坛来验证登录状态
@@ -278,7 +278,10 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   }
 
   /// 处理登录成功
-  void _handleLoginSuccess({Map<String, dynamic>? userInfo}) async {
+  void _handleLoginSuccess({
+    Map<String, dynamic>? userInfo,
+    String? currentUrl,
+  }) async {
     debugPrint('🎉 [WebViewLogin] _handleLoginSuccess 被调用');
     if (_isLoginSuccess) {
       debugPrint('⚠️ [WebViewLogin] 已经处理过登录成功，跳过');
@@ -320,7 +323,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       );
     }
 
-    // 获取用户名（优先：显式提取 -> 会话接口 -> 页面JS）
+    // 获取用户名（优先：显式提取 -> 会话接口 -> 页面JS -> URL 路径）
     String username = '';
     String userId = '';
     String avatar = '';
@@ -382,9 +385,41 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     }
 
     if (username.isEmpty) {
-      username = '用户';
-      userId = 'webview_user';
-      debugPrint('⚠️ [WebViewLogin] 未获取到用户名，回退到占位用户');
+      final fromUrl = _extractUsernameFromUrl(currentUrl);
+      if (fromUrl.isNotEmpty) {
+        username = fromUrl;
+        userId = fromUrl;
+        debugPrint('✅ [WebViewLogin] 从 URL 解析用户名: $username');
+      }
+    }
+
+    if (username.isEmpty) {
+      final restored = await ref
+          .read(authNotifierProvider.notifier)
+          .refreshFromSession();
+      if (restored != null) {
+        username = restored.username;
+        userId = restored.uid;
+        avatar = restored.avatar ?? '';
+        debugPrint('✅ [WebViewLogin] 通过 AuthNotifier 会话刷新获取用户名: $username');
+      }
+    }
+
+    if (username.isEmpty) {
+      debugPrint('❌ [WebViewLogin] 未获取到真实用户名，终止写入占位用户');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('登录会话已建立，但未获取到用户名，请重试'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (userId.isEmpty) {
+      userId = username;
     }
 
     // 创建用户信息对象并保存
@@ -463,6 +498,27 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           'https://forum.trae.cn/user_avatar/forum.trae.cn/$username/120/0_2.png';
     }
     return url;
+  }
+
+  String _extractUsernameFromUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    final uri = Uri.tryParse(url);
+    if (uri == null) return '';
+
+    final segments = uri.pathSegments;
+    final userIndex = segments.indexOf('u');
+    if (userIndex == -1 || userIndex + 1 >= segments.length) {
+      return '';
+    }
+
+    final raw = segments[userIndex + 1].trim();
+    if (raw.isEmpty) return '';
+
+    final decoded = Uri.decodeComponent(raw).trim();
+    if (decoded.isEmpty || decoded == 'users') {
+      return '';
+    }
+    return decoded;
   }
 
   @override

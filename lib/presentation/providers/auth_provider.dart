@@ -41,22 +41,34 @@ class AuthNotifier extends _$AuthNotifier {
           username: username,
           avatar: avatarUrl ?? '',
         );
-        debugPrint('✅ [AuthNotifier] 加载用户信息成功: ${userInfo.username}');
-        state = AsyncData(userInfo);
-      } else {
-        debugPrint('ℹ️ [AuthNotifier] 本地无用户信息，尝试从 Discourse 会话恢复');
-        final restoredUser = await _restoreUserInfoFromDiscourseSession();
-        if (restoredUser != null) {
-          debugPrint(
-            '✅ [AuthNotifier] Discourse 会话恢复成功: ${restoredUser.username}',
-          );
-          state = AsyncData(restoredUser);
+        if (_isPlaceholderUser(userInfo)) {
+          debugPrint('⚠️ [AuthNotifier] 本地用户为占位数据，尝试从论坛会话刷新');
+          final restoredUser = await _restoreUserInfoFromDiscourseSession();
+          if (restoredUser != null) {
+            debugPrint('✅ [AuthNotifier] 论坛会话刷新成功: ${restoredUser.username}');
+            state = AsyncData(restoredUser);
+            return;
+          }
+        } else {
+          debugPrint('✅ [AuthNotifier] 加载用户信息成功: ${userInfo.username}');
+          state = AsyncData(userInfo);
           return;
         }
-
-        debugPrint('ℹ️ [AuthNotifier] 未检测到可用会话，设置为未登录');
-        state = const AsyncValue.data(UserInfo(uid: '', username: ''));
+      } else {
+        debugPrint('ℹ️ [AuthNotifier] 本地无用户信息，尝试从 Discourse 会话恢复');
       }
+
+      final restoredUser = await _restoreUserInfoFromDiscourseSession();
+      if (restoredUser != null) {
+        debugPrint(
+          '✅ [AuthNotifier] Discourse 会话恢复成功: ${restoredUser.username}',
+        );
+        state = AsyncData(restoredUser);
+        return;
+      }
+
+      debugPrint('ℹ️ [AuthNotifier] 未检测到可用会话，设置为未登录');
+      state = const AsyncValue.data(UserInfo(uid: '', username: ''));
     } catch (e, stackTrace) {
       debugPrint('❌ [AuthNotifier] 加载用户信息失败: $e');
       state = AsyncError(e, stackTrace);
@@ -143,6 +155,16 @@ class AuthNotifier extends _$AuthNotifier {
     return url;
   }
 
+  bool _isPlaceholderUser(UserInfo? userInfo) {
+    if (userInfo == null) return true;
+    final username = userInfo.username.trim();
+    final uid = userInfo.uid.trim();
+    return username.isEmpty ||
+        uid.isEmpty ||
+        username == '用户' ||
+        uid == 'webview_user';
+  }
+
   /// 保存用户信息到本地存储
   Future<void> _saveUserInfo(UserInfo userInfo) async {
     try {
@@ -163,10 +185,10 @@ class AuthNotifier extends _$AuthNotifier {
     } catch (_) {}
   }
 
-  /// 使用 CoolApk 登录
+  /// 旧版登录入口（已废弃）
   ///
-  /// [coolApkId] CoolApk ID
-  /// [coolApkToken] CoolApk Token
+  /// [coolApkId] 历史参数
+  /// [coolApkToken] 历史参数
   /// 返回登录是否成功
   Future<bool> loginWithCoolApk(String coolApkId, String coolApkToken) async {
     state = const AsyncLoading();
@@ -251,14 +273,32 @@ class AuthNotifier extends _$AuthNotifier {
   Future<void> setUserInfo(UserInfo userInfo) async {
     debugPrint('💾 [AuthNotifier] setUserInfo 被调用: ${userInfo.username}');
     try {
-      await _saveUserInfo(userInfo);
+      var finalUser = userInfo;
+      if (_isPlaceholderUser(finalUser)) {
+        debugPrint('⚠️ [AuthNotifier] setUserInfo 收到占位用户，尝试会话回填真实账号');
+        final restoredUser = await _restoreUserInfoFromDiscourseSession();
+        if (restoredUser != null) {
+          finalUser = restoredUser;
+        }
+      }
+
+      await _saveUserInfo(finalUser);
       debugPrint('✅ [AuthNotifier] 用户信息已保存到本地');
-      state = AsyncData(userInfo);
+      state = AsyncData(finalUser);
       debugPrint('✅ [AuthNotifier] 状态已更新');
     } catch (e, stackTrace) {
       debugPrint('❌ [AuthNotifier] setUserInfo 失败: $e');
       state = AsyncError(e, stackTrace);
     }
+  }
+
+  /// 强制从论坛会话刷新当前用户信息
+  Future<UserInfo?> refreshFromSession() async {
+    final restoredUser = await _restoreUserInfoFromDiscourseSession();
+    if (restoredUser != null) {
+      state = AsyncData(restoredUser);
+    }
+    return restoredUser;
   }
 }
 
@@ -277,7 +317,7 @@ UserInfo? currentUser(CurrentUserRef ref) {
 
 /// 是否已登录 Provider（同步版本）
 ///
-/// 返回当前用户是否已登录（仅检查 CoolApk 登录状态）
+/// 返回当前用户是否已登录（仅检查本地有效用户）
 /// 用于需要同步检查的场景
 @riverpod
 bool isAuthenticated(IsAuthenticatedRef ref) {
@@ -287,18 +327,36 @@ bool isAuthenticated(IsAuthenticatedRef ref) {
 
 /// 是否已登录 Provider（异步版本）
 ///
-/// 返回当前用户是否已登录（支持 CoolApk 和 Discourse 两种登录方式）
+/// 返回当前用户是否已登录（支持本地缓存与论坛会话）
 /// 用于需要完整检查登录状态的场景
 @riverpod
 Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
-  // 1. 先检查 CoolApk 登录状态（同步检查）
+  // 1. 先检查本地用户状态
   final user = ref.read(currentUserProvider);
-  if (user != null) {
-    debugPrint('✅ [isAuthenticatedAsync] CoolApk 已登录: ${user.username}');
+  final isPlaceholder =
+      user == null ||
+      user.username.trim().isEmpty ||
+      user.uid.trim().isEmpty ||
+      user.username.trim() == '用户' ||
+      user.uid.trim() == 'webview_user';
+
+  if (!isPlaceholder) {
+    debugPrint('✅ [isAuthenticatedAsync] 本地用户已登录: ${user.username}');
     return true;
   }
 
-  // 2. 检查 Discourse 登录状态（通过检查 Cookie）
+  // 2. 尝试从论坛会话回填真实用户
+  final restored = await ref
+      .read(authNotifierProvider.notifier)
+      .refreshFromSession();
+  if (restored != null &&
+      restored.uid.isNotEmpty &&
+      restored.username.isNotEmpty) {
+    debugPrint('✅ [isAuthenticatedAsync] 论坛会话已恢复: ${restored.username}');
+    return true;
+  }
+
+  // 3. 检查论坛会话 Cookie 是否存在
   final hasDiscourseCookie = await DioClient.hasDiscourseSession();
   debugPrint(
     '🔍 [isAuthenticatedAsync] Discourse session: $hasDiscourseCookie',
