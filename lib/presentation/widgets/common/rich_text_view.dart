@@ -158,9 +158,17 @@ class RichTextView extends StatelessWidget {
                 onTap: () => _handleImageTap(originalImageUrl ?? imageUrl),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: CachedImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.cover,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: 120,
+                      maxHeight: 120,
+                    ),
+                    child: CachedImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.contain,
+                      memCacheWidth: 240,
+                      memCacheHeight: 240,
+                    ),
                   ),
                 ),
               );

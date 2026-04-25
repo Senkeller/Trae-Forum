@@ -54,7 +54,7 @@ void main() {
         ProviderScope(
           overrides: [
             authNotifierProvider.overrideWith(
-              (ref) => FakeAuthNotifier(isAuthenticated: true),
+              () => FakeAuthNotifier(isAuthenticated: true),
             ),
           ],
           child: const MyApp(),
@@ -87,7 +87,7 @@ void main() {
         ProviderScope(
           overrides: [
             authNotifierProvider.overrideWith(
-              (ref) => FakeAuthNotifier(isAuthenticated: false),
+              () => FakeAuthNotifier(isAuthenticated: false),
             ),
           ],
           child: const MyApp(),
@@ -211,7 +211,7 @@ void main() {
         ProviderScope(
           overrides: [
             authNotifierProvider.overrideWith(
-              (ref) => FakeAuthNotifier(isAuthenticated: false),
+              () => FakeAuthNotifier(isAuthenticated: false),
             ),
           ],
           child: const MyApp(),
@@ -251,13 +251,13 @@ void main() {
 
 /// 伪造的 AuthNotifier 用于集成测试
 class FakeAuthNotifier extends AuthNotifier {
-  final bool isAuthenticated;
+  final bool _isAuthenticated;
 
-  FakeAuthNotifier({required this.isAuthenticated});
+  FakeAuthNotifier({required bool isAuthenticated}) : _isAuthenticated = isAuthenticated;
 
   @override
   AsyncValue<UserInfo> build() {
-    if (isAuthenticated) {
+    if (_isAuthenticated) {
       return const AsyncData(
         UserInfo(
           uid: 'test_user',
@@ -271,4 +271,9 @@ class FakeAuthNotifier extends AuthNotifier {
       );
     }
   }
+}
+
+/// 创建 FakeAuthNotifier 的工厂函数
+AuthNotifier createFakeAuthNotifier({required bool isAuthenticated}) {
+  return FakeAuthNotifier(isAuthenticated: isAuthenticated);
 }

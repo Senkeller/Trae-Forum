@@ -30,6 +30,9 @@ import '../presentation/pages/topics/topics_page.dart';
 import '../presentation/pages/product/product_detail_page.dart';
 import '../presentation/pages/history/history_page.dart';
 import '../presentation/pages/favorites/favorites_page.dart';
+import '../presentation/pages/user/local_favorites_page.dart';
+import '../presentation/pages/user/browse_history_page.dart';
+import '../presentation/pages/user/frequently_visited_page.dart';
 import '../presentation/pages/error/error_page.dart';
 import '../presentation/pages/common/webview_page.dart' as webview;
 import '../presentation/pages/common/image_preview_page.dart';
@@ -280,6 +283,24 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.traeDashboard,
         builder: (context, state) => const TraeDashboardPage(),
+      ),
+
+      // 本地收藏
+      GoRoute(
+        path: RoutePaths.localFavorites,
+        builder: (context, state) => const LocalFavoritesPage(),
+      ),
+
+      // 浏览历史
+      GoRoute(
+        path: RoutePaths.browseHistory,
+        builder: (context, state) => const BrowseHistoryPage(),
+      ),
+
+      // 我常去
+      GoRoute(
+        path: RoutePaths.frequentlyVisited,
+        builder: (context, state) => const FrequentlyVisitedPage(),
       ),
     ],
     

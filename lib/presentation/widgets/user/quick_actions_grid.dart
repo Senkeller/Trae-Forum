@@ -1,31 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-/// 快捷功能入口数据模型
+import '../../../config/constants.dart';
+import '../../providers/auth_provider.dart';
+
+/// 快捷功能项
 class QuickActionItem {
-  /// 功能图标
+  final String title;
   final IconData icon;
-
-  /// 功能名称
-  final String label;
-
-  /// 图标颜色
+  final String route;
+  final bool requireLogin;
   final Color? iconColor;
-
-  /// 背景颜色
   final Color? backgroundColor;
-
-  /// 点击回调
-  final VoidCallback? onTap;
-
-  /// 未读消息数量
   final int? badgeCount;
 
   const QuickActionItem({
+    required this.title,
     required this.icon,
-    required this.label,
+    required this.route,
+    this.requireLogin = false,
     this.iconColor,
     this.backgroundColor,
-    this.onTap,
     this.badgeCount,
   });
 }
@@ -34,7 +30,7 @@ class QuickActionItem {
 ///
 /// 展示用户常用功能的快捷入口，以网格形式排列
 /// 支持自定义图标、颜色、点击事件和消息徽章
-class QuickActionsGrid extends StatelessWidget {
+class QuickActionsGrid extends ConsumerWidget {
   /// 功能列表
   final List<QuickActionItem> items;
 
@@ -53,15 +49,16 @@ class QuickActionsGrid extends StatelessWidget {
   const QuickActionsGrid({
     super.key,
     required this.items,
-    this.crossAxisCount = 3,
-    this.spacing = 16,
+    this.crossAxisCount = 4,
+    this.spacing = 12,
     this.runSpacing = 16,
     this.padding = const EdgeInsets.all(16),
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLoggedIn = ref.watch(isAuthenticatedProvider);
 
     return Container(
       padding: padding,
@@ -75,11 +72,15 @@ class QuickActionsGrid extends StatelessWidget {
                 for (int col = 0; col < crossAxisCount; col++) ...[
                   if (col > 0) SizedBox(width: spacing),
                   Expanded(
-                    child: _buildActionItem(
-                      context,
-                      items[row * crossAxisCount + col],
-                      colorScheme,
-                    ),
+                    child: (row * crossAxisCount + col) < items.length
+                        ? _buildActionItem(
+                            context,
+                            items[row * crossAxisCount + col],
+                            colorScheme,
+                            isLoggedIn,
+                            ref,
+                          )
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ],
@@ -95,6 +96,8 @@ class QuickActionsGrid extends StatelessWidget {
     BuildContext context,
     QuickActionItem item,
     ColorScheme colorScheme,
+    bool isLoggedIn,
+    WidgetRef ref,
   ) {
     final effectiveIconColor = item.iconColor ?? colorScheme.primary;
     final effectiveBgColor = item.backgroundColor ??
@@ -103,7 +106,7 @@ class QuickActionsGrid extends StatelessWidget {
             : colorScheme.surfaceContainerHighest);
 
     return InkWell(
-      onTap: item.onTap,
+      onTap: () => _handleTap(context, item, isLoggedIn, ref),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -158,7 +161,7 @@ class QuickActionsGrid extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              item.label,
+              item.title,
               style: TextStyle(
                 fontSize: 12,
                 color: colorScheme.onSurface,
@@ -173,92 +176,134 @@ class QuickActionsGrid extends StatelessWidget {
       ),
     );
   }
+
+  /// 处理点击事件
+  void _handleTap(
+    BuildContext context,
+    QuickActionItem item,
+    bool isLoggedIn,
+    WidgetRef ref,
+  ) {
+    // 检查是否需要登录
+    if (item.requireLogin && !isLoggedIn) {
+      _showLoginDialog(context);
+      return;
+    }
+
+    // 导航到对应页面
+    context.push(item.route);
+  }
+
+  /// 显示登录对话框
+  void _showLoginDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('需要登录'),
+        content: const Text('该功能需要登录后才能使用，是否前往登录？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.push(RoutePaths.login);
+            },
+            child: const Text('去登录'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// 预定义的快捷功能配置
-class QuickActionPresets {
-  /// 本地收藏
-  static QuickActionItem localFavorite({VoidCallback? onTap, int? badgeCount}) =>
-      QuickActionItem(
-        icon: Icons.folder_outlined,
-        label: '本地收藏',
-        iconColor: const Color(0xFF2196F3),
-        backgroundColor: const Color(0xFFE3F2FD),
-        onTap: onTap,
-        badgeCount: badgeCount,
-      );
-
-  /// 浏览历史
-  static QuickActionItem history({VoidCallback? onTap}) => QuickActionItem(
-        icon: Icons.history,
-        label: '浏览历史',
-        iconColor: const Color(0xFF9C27B0),
-        backgroundColor: const Color(0xFFF3E5F5),
-        onTap: onTap,
-      );
-
-  /// 我的常去
-  static QuickActionItem frequentlyVisited({VoidCallback? onTap}) =>
-      QuickActionItem(
-        icon: Icons.location_on_outlined,
-        label: '我的常去',
-        iconColor: const Color(0xFF4CAF50),
-        backgroundColor: const Color(0xFFE8F5E9),
-        onTap: onTap,
-      );
-
-  /// 我的收藏
-  static QuickActionItem myFavorites({VoidCallback? onTap, int? badgeCount}) =>
-      QuickActionItem(
-        icon: Icons.star_border,
-        label: '我的收藏',
-        iconColor: const Color(0xFFFF9800),
-        backgroundColor: const Color(0xFFFFF3E0),
-        onTap: onTap,
-        badgeCount: badgeCount,
-      );
-
-  /// 我的赞
-  static QuickActionItem myLikes({VoidCallback? onTap, int? badgeCount}) =>
-      QuickActionItem(
-        icon: Icons.favorite_border,
-        label: '我的赞',
-        iconColor: const Color(0xFFE91E63),
-        backgroundColor: const Color(0xFFFCE4EC),
-        onTap: onTap,
-        badgeCount: badgeCount,
-      );
-
-  /// 我的回复
-  static QuickActionItem myReplies({VoidCallback? onTap, int? badgeCount}) =>
-      QuickActionItem(
-        icon: Icons.chat_bubble_outline,
-        label: '我的回复',
-        iconColor: const Color(0xFF00BCD4),
-        backgroundColor: const Color(0xFFE0F7FA),
-        onTap: onTap,
-        badgeCount: badgeCount,
-      );
-
-  /// 我的帖子
-  static QuickActionItem myTopics({VoidCallback? onTap, int? badgeCount}) =>
-      QuickActionItem(
-        icon: Icons.article_outlined,
-        label: '我的帖子',
-        iconColor: const Color(0xFF3F51B5),
-        backgroundColor: const Color(0xFFE8EAF6),
-        onTap: onTap,
-        badgeCount: badgeCount,
-      );
-
-  /// 草稿箱
-  static QuickActionItem drafts({VoidCallback? onTap, int? badgeCount}) =>
-      QuickActionItem(
-        icon: Icons.drive_file_rename_outline,
-        label: '草稿箱',
-        iconColor: const Color(0xFF795548),
-        backgroundColor: const Color(0xFFEFEBE9),
-        onTap: onTap,
-        badgeCount: badgeCount,
-      );
-}
+/// 默认快捷功能列表
+final List<QuickActionItem> defaultQuickActions = [
+  // 本地数据功能（无需登录）
+  const QuickActionItem(
+    title: '本地收藏',
+    icon: Icons.favorite_outline,
+    route: RoutePaths.localFavorites,
+    iconColor: Color(0xFFE91E63),
+    backgroundColor: Color(0xFFFCE4EC),
+  ),
+  const QuickActionItem(
+    title: '浏览历史',
+    icon: Icons.history,
+    route: RoutePaths.browseHistory,
+    iconColor: Color(0xFF9C27B0),
+    backgroundColor: Color(0xFFF3E5F5),
+  ),
+  const QuickActionItem(
+    title: '我常去',
+    icon: Icons.location_on_outlined,
+    route: RoutePaths.frequentlyVisited,
+    iconColor: Color(0xFF4CAF50),
+    backgroundColor: Color(0xFFE8F5E9),
+  ),
+  // 服务器数据功能（需要登录）
+  const QuickActionItem(
+    title: '我的收藏',
+    icon: Icons.bookmark_outline,
+    route: RoutePaths.favorites,
+    requireLogin: true,
+    iconColor: Color(0xFFFF9800),
+    backgroundColor: Color(0xFFFFF3E0),
+  ),
+  const QuickActionItem(
+    title: '我的赞',
+    icon: Icons.thumb_up_outlined,
+    route: RoutePaths.myLikes,
+    requireLogin: true,
+    iconColor: Color(0xFF2196F3),
+    backgroundColor: Color(0xFFE3F2FD),
+  ),
+  const QuickActionItem(
+    title: '我的回复',
+    icon: Icons.chat_bubble_outline,
+    route: RoutePaths.myReplies,
+    requireLogin: true,
+    iconColor: Color(0xFF00BCD4),
+    backgroundColor: Color(0xFFE0F7FA),
+  ),
+  const QuickActionItem(
+    title: '我的关注',
+    icon: Icons.person_add_outlined,
+    route: '/user/follows',
+    requireLogin: true,
+    iconColor: Color(0xFF3F51B5),
+    backgroundColor: Color(0xFFE8EAF6),
+  ),
+  const QuickActionItem(
+    title: '我的粉丝',
+    icon: Icons.people_outline,
+    route: '/user/fans',
+    requireLogin: true,
+    iconColor: Color(0xFF795548),
+    backgroundColor: Color(0xFFEFEBE9),
+  ),
+  const QuickActionItem(
+    title: '草稿箱',
+    icon: Icons.drafts_outlined,
+    route: '/drafts',
+    requireLogin: true,
+    iconColor: Color(0xFF607D8B),
+    backgroundColor: Color(0xFFECEFF1),
+  ),
+  const QuickActionItem(
+    title: '设置',
+    icon: Icons.settings_outlined,
+    route: RoutePaths.settings,
+    iconColor: Color(0xFF757575),
+    backgroundColor: Color(0xFFF5F5F5),
+  ),
+  const QuickActionItem(
+    title: '关于',
+    icon: Icons.info_outline,
+    route: RoutePaths.about,
+    iconColor: Color(0xFF9E9E9E),
+    backgroundColor: Color(0xFFFAFAFA),
+  ),
+];

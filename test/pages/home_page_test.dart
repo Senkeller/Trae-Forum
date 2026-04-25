@@ -25,8 +25,8 @@ void main() {
           ),
           GoRoute(
             path: TestRoutes.home,
-            builder: (context, state) => const Scaffold(
-              appBar: SliverAppBar(title: Text('TRAE Forum')),
+            builder: (context, state) => Scaffold(
+              appBar: AppBar(title: Text('TRAE Forum')),
               body: Center(child: Text('Home Content')),
             ),
           ),
@@ -52,8 +52,8 @@ void main() {
         routes: [
           GoRoute(
             path: TestRoutes.home,
-            builder: (context, state) => const Scaffold(
-              appBar: SliverAppBar(title: Text('TRAE Forum')),
+            builder: (context, state) => Scaffold(
+              appBar: AppBar(title: Text('TRAE Forum')),
               body: Center(child: Text('Home Content')),
             ),
           ),

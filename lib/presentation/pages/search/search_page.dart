@@ -7,6 +7,19 @@ import '../../providers/search_provider.dart' as sp;
 import 'widgets/hot_search_section.dart';
 import 'widgets/ranking_section.dart';
 
+/// 搜索建议数据模型
+class SearchSuggestion {
+  final String keyword;
+  final String? subtitle;
+  final IconData icon;
+
+  const SearchSuggestion({
+    required this.keyword,
+    this.subtitle,
+    required this.icon,
+  });
+}
+
 /// 搜索页面
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});

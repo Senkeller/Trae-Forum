@@ -4,12 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../../data/models/user.dart' as user_model;
-import '../../../data/repositories/trae_dashboard_repository.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/trae_dashboard_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/user/quick_actions_grid.dart';
 import '../../widgets/user/notification_list.dart';
+import '../../widgets/dashboard/embedded_trae_dashboard.dart';
 
 /// 新版个人主页页面
 ///
@@ -52,6 +51,11 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             SliverToBoxAdapter(
               child: _buildUserCard(context, currentUser, isAuthenticated),
             ),
+            // TRAE 仪表盘（仅已登录用户显示）
+            if (isAuthenticated)
+              const SliverToBoxAdapter(
+                child: EmbeddedTraeDashboard(),
+              ),
             // 快捷功能入口
             SliverToBoxAdapter(
               child: _buildQuickActionsSection(context, isAuthenticated),
@@ -159,7 +163,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     // 获取用户统计数据
     final userState = ref.watch(userSpaceNotifierProvider(user.username));
     final profile = userState.profile;
-    final dashboardSummaryAsync = ref.watch(userStatsSummaryProvider);
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -260,220 +263,19 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildDashboardSummaryCard(context, dashboardSummaryAsync),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => context.push(RoutePaths.userEdit),
-                  icon: const Icon(Icons.edit, size: 18),
-                  label: const Text('编辑资料'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+          // 编辑资料按钮
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.push(RoutePaths.userEdit),
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('编辑资料'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  onPressed: () => context.push(RoutePaths.traeDashboard),
-                  icon: const Icon(Icons.dashboard_outlined, size: 18),
-                  label: const Text('TRAE 仪表盘'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDashboardSummaryCard(
-    BuildContext context,
-    AsyncValue<UserStatsSummary> summaryAsync,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: summaryAsync.when(
-        data: (summary) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.insights_outlined,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'TRAE 仪表盘摘要',
-                    style: textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  _buildDashboardMetric(
-                    label: '使用天数',
-                    value: '${summary.registerDays} 天',
-                    textTheme: textTheme,
-                    colorScheme: colorScheme,
-                  ),
-                  _buildDashboardMetric(
-                    label: '7天采纳',
-                    value: summary.codeAcceptText,
-                    textTheme: textTheme,
-                    colorScheme: colorScheme,
-                  ),
-                  _buildDashboardMetric(
-                    label: '7天对话',
-                    value: summary.conversationText,
-                    textTheme: textTheme,
-                    colorScheme: colorScheme,
-                  ),
-                ],
-              ),
-              if (summary.topModel != null ||
-                  summary.primaryLanguage != null ||
-                  summary.peakHourText != null) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (summary.topModel != null)
-                      _buildDashboardTag(
-                        '常用模型 ${summary.topModel}',
-                        colorScheme,
-                        textTheme,
-                      ),
-                    if (summary.primaryLanguage != null)
-                      _buildDashboardTag(
-                        '主要语言 ${summary.primaryLanguage}',
-                        colorScheme,
-                        textTheme,
-                      ),
-                    if (summary.peakHourText != null)
-                      _buildDashboardTag(
-                        '活跃时段 ${summary.peakHourText}',
-                        colorScheme,
-                        textTheme,
-                      ),
-                  ],
-                ),
-              ],
-            ],
-          );
-        },
-        loading: () => Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: colorScheme.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              '正在加载 TRAE 仪表盘数据...',
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        error: (error, stackTrace) {
-          final errorText = error.toString();
-          final isAuthError =
-              errorText.contains('NO_COOKIES') ||
-              errorText.contains('UNAUTHORIZED') ||
-              errorText.contains('未登录') ||
-              errorText.contains('过期');
-
-          return Row(
-            children: [
-              Icon(
-                isAuthError ? Icons.lock_outline : Icons.error_outline,
-                size: 16,
-                color: isAuthError ? colorScheme.primary : colorScheme.error,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isAuthError ? '缺少 TRAE 登录凭证，请重新登录后重试' : '仪表盘数据加载失败，请稍后重试',
-                  style: textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              if (isAuthError)
-                TextButton(
-                  onPressed: () async {
-                    await context.push(RoutePaths.login);
-                    if (!mounted) return;
-                    ref.invalidate(userStatsSummaryProvider);
-                  },
-                  child: const Text('去登录'),
-                )
-              else
-                TextButton(
-                  onPressed: () => ref.invalidate(userStatsSummaryProvider),
-                  child: const Text('重试'),
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildDashboardMetric({
-    required String label,
-    required String value,
-    required TextTheme textTheme,
-    required ColorScheme colorScheme,
-  }) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -481,26 +283,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     );
   }
 
-  Widget _buildDashboardTag(
-    String text,
-    ColorScheme colorScheme,
-    TextTheme textTheme,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.surface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        text,
-        style: textTheme.labelSmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
+
 
   /// 未登录用户卡片
   Widget _buildUnauthenticatedCard(BuildContext context) {
@@ -631,23 +414,50 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
           // 快捷功能网格
           QuickActionsGrid(
             items: [
-              QuickActionPresets.localFavorite(
-                onTap: () => _showFeatureComingSoon(context, '本地收藏'),
+              QuickActionItem(
+                title: '本地收藏',
+                icon: Icons.favorite_outline,
+                route: RoutePaths.localFavorites,
+                iconColor: const Color(0xFFE91E63),
+                backgroundColor: const Color(0xFFFCE4EC),
               ),
-              QuickActionPresets.history(
-                onTap: () => _showFeatureComingSoon(context, '浏览历史'),
+              QuickActionItem(
+                title: '浏览历史',
+                icon: Icons.history,
+                route: RoutePaths.browseHistory,
+                iconColor: const Color(0xFF9C27B0),
+                backgroundColor: const Color(0xFFF3E5F5),
               ),
-              QuickActionPresets.frequentlyVisited(
-                onTap: () => _showFeatureComingSoon(context, '我的常去'),
+              QuickActionItem(
+                title: '我常去',
+                icon: Icons.location_on_outlined,
+                route: RoutePaths.frequentlyVisited,
+                iconColor: const Color(0xFF4CAF50),
+                backgroundColor: const Color(0xFFE8F5E9),
               ),
-              QuickActionPresets.myFavorites(
-                onTap: () => _showFeatureComingSoon(context, '我的收藏'),
+              QuickActionItem(
+                title: '我的收藏',
+                icon: Icons.bookmark_outline,
+                route: RoutePaths.favorites,
+                requireLogin: true,
+                iconColor: const Color(0xFFFF9800),
+                backgroundColor: const Color(0xFFFFF3E0),
               ),
-              QuickActionPresets.myLikes(
-                onTap: () => _showFeatureComingSoon(context, '我的赞'),
+              QuickActionItem(
+                title: '我的赞',
+                icon: Icons.thumb_up_outlined,
+                route: RoutePaths.myLikes,
+                requireLogin: true,
+                iconColor: const Color(0xFF2196F3),
+                backgroundColor: const Color(0xFFE3F2FD),
               ),
-              QuickActionPresets.myReplies(
-                onTap: () => _showFeatureComingSoon(context, '我的回复'),
+              QuickActionItem(
+                title: '我的回复',
+                icon: Icons.chat_bubble_outline,
+                route: RoutePaths.myReplies,
+                requireLogin: true,
+                iconColor: const Color(0xFF00BCD4),
+                backgroundColor: const Color(0xFFE0F7FA),
               ),
             ],
             padding: const EdgeInsets.all(12),
@@ -736,12 +546,14 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
   /// 显示消息中心
   void _showMessageCenter(BuildContext context) {
-    // TODO: 实现消息中心页面
-    _showFeatureComingSoon(context, '消息中心');
+    context.push(RoutePaths.notifications);
   }
 
   /// 显示头像选项
   void _showAvatarOptions(BuildContext context) {
+    final currentUser = ref.read(currentUserProvider);
+    final avatarUrl = currentUser?.avatar;
+    
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -756,14 +568,18 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                 _showFeatureComingSoon(context, '更换头像');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.visibility),
-              title: const Text('查看大图'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _showFeatureComingSoon(context, '查看大图');
-              },
-            ),
+            if (avatarUrl != null && avatarUrl.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.visibility),
+                title: const Text('查看大图'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  context.push(
+                    RoutePaths.imagePreview,
+                    extra: [avatarUrl],
+                  );
+                },
+              ),
           ],
         ),
       ),
@@ -772,19 +588,26 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
   /// 导航到用户动态
   void _navigateToUserFeeds(BuildContext context) {
-    // TODO: 实现用户动态页面
-    _showFeatureComingSoon(context, '我的动态');
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+    
+    // 跳转到用户主页，显示用户的帖子
+    context.push(RoutePaths.userProfile.replaceFirst(':uid', currentUser.username));
   }
 
   /// 导航到关注列表
   void _navigateToFollowing(BuildContext context) {
-    // TODO: 实现关注列表页面
-    _showFeatureComingSoon(context, '关注列表');
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+    
+    context.push(RoutePaths.followList.replaceFirst(':uid', currentUser.username));
   }
 
   /// 导航到粉丝列表
   void _navigateToFollowers(BuildContext context) {
-    // TODO: 实现粉丝列表页面
-    _showFeatureComingSoon(context, '粉丝列表');
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+    
+    context.push(RoutePaths.fanList.replaceFirst(':uid', currentUser.username));
   }
 }

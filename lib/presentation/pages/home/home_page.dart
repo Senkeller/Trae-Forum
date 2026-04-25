@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/utils/performance_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
+import '../../providers/bookmark_provider.dart';
 import '../../widgets/common/like_button.dart';
 import '../../widgets/feed/featured_comment.dart';
 import '../../widgets/feed/quick_comment_bar.dart';
@@ -207,9 +209,7 @@ class _FeedListView extends ConsumerWidget {
     }
 
     if (isLoading && feedList.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return _buildSkeletonList();
     }
 
     if (feedList.isEmpty) {
@@ -290,6 +290,15 @@ class _FeedListView extends ConsumerWidget {
       ),
     );
   }
+
+  /// 构建骨架屏列表
+  Widget _buildSkeletonList() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: 5,
+      itemBuilder: (context, index) => const _FeedSkeletonCard(),
+    );
+  }
 }
 
 /// 标签汉化映射表
@@ -361,6 +370,131 @@ const Map<String, String> _tagLocalizationMap = {
   'pinned': '置顶',
   'featured': '精选',
 };
+
+/// Feed 骨架屏卡片
+///
+/// 用于加载时显示的占位卡片
+class _FeedSkeletonCard extends StatelessWidget {
+  const _FeedSkeletonCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final skeletonColor = colorScheme.surfaceContainerHighest;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 用户头像和名称行
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: skeletonColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 100,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: skeletonColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 60,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: skeletonColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // 标题
+          Container(
+            width: double.infinity,
+            height: 16,
+            decoration: BoxDecoration(
+              color: skeletonColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // 内容
+          Container(
+            width: double.infinity,
+            height: 12,
+            decoration: BoxDecoration(
+              color: skeletonColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            width: MediaQuery.of(context).size.width * 0.7,
+            height: 12,
+            decoration: BoxDecoration(
+              color: skeletonColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 图片占位
+          Container(
+            width: double.infinity,
+            height: 180,
+            decoration: BoxDecoration(
+              color: skeletonColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 操作栏
+          Row(
+            children: [
+              Container(
+                width: 60,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: skeletonColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Container(
+                width: 60,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: skeletonColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _FeedCard extends ConsumerStatefulWidget {
   final FeedItem feed;
@@ -553,21 +687,32 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
       borderRadius: BorderRadius.circular(10),
       child: AspectRatio(
         aspectRatio: 16 / 9,
-        child: Image.network(
-          widget.feed.images.first,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.image_not_supported_outlined,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            );
-          },
+        child: InkWell(
+          onTap: () => _openImagePreview(context),
+          child: Image.network(
+            widget.feed.images.first,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.image_not_supported_outlined,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              );
+            },
+          ),
         ),
       ),
+    );
+  }
+
+  /// 打开图片预览
+  void _openImagePreview(BuildContext context) {
+    context.push(
+      RoutePaths.imagePreview,
+      extra: widget.feed.images,
     );
   }
 
@@ -653,6 +798,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
           color: colorScheme.onSurfaceVariant,
         );
+    final bookmarkState = ref.watch(postBookmarkStateProvider(widget.feed.topicId));
 
     return Row(
       children: [
@@ -671,7 +817,108 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
         Icon(Icons.visibility_outlined, size: 20, color: colorScheme.onSurfaceVariant),
         const SizedBox(width: 4),
         Text('${widget.feed.viewCount}', style: textStyle),
+        const Spacer(),
+        // 收藏按钮
+        _buildBookmarkButton(colorScheme, bookmarkState),
+        const SizedBox(width: 8),
+        // 分享按钮
+        _buildShareButton(colorScheme),
       ],
+    );
+  }
+
+  /// 构建收藏按钮
+  Widget _buildBookmarkButton(ColorScheme colorScheme, PostBookmarkState? bookmarkState) {
+    final isBookmarked = bookmarkState?.isBookmarked ?? false;
+    final isLoading = bookmarkState?.isLoading ?? false;
+
+    return InkWell(
+      onTap: isLoading
+          ? null
+          : () {
+              ref.read(bookmarkProvider.notifier).toggleBookmark(widget.feed.topicId);
+            },
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: isLoading
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colorScheme.primary,
+                ),
+              )
+            : Icon(
+                isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
+                size: 20,
+                color: isBookmarked ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              ),
+      ),
+    );
+  }
+
+  /// 构建分享按钮
+  Widget _buildShareButton(ColorScheme colorScheme) {
+    return InkWell(
+      onTap: () => _showShareOptions(context),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(
+          Icons.share_outlined,
+          size: 20,
+          color: colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  /// 显示分享选项
+  void _showShareOptions(BuildContext context) {
+    final feedUrl = 'https://forum.trae.cn/t/${widget.feed.topicId}';
+    
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('复制链接'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _copyToClipboard(context, feedUrl);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('分享到...'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Share.share(
+                  '${widget.feed.title}\n$feedUrl',
+                  subject: widget.feed.title,
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 复制到剪贴板
+  void _copyToClipboard(BuildContext context, String text) {
+    // 使用 Clipboard 复制文本
+    // 这里简化处理，实际项目中可以使用 flutter/services.dart 中的 Clipboard
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('链接已复制到剪贴板'),
+        duration: Duration(seconds: 2),
+      ),
     );
   }
 

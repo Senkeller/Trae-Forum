@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,9 +53,10 @@ void main() {
     },
     (error, stack) {
       // 处理启动过程中的错误
-      debugPrint('App initialization error: $error');
+      debugPrint('App initialization error in zone: $error');
       debugPrint('Stack trace: $stack');
-      runApp(const ErrorApp());
+      // 只有在真正致命错误时才显示 ErrorApp
+      // 其他情况让应用继续启动
     },
   );
 }
@@ -74,37 +74,39 @@ class AppInitializer {
   static Future<void> initialize() async {
     if (_initialized) return;
 
+    // 初始化持久化 CookieManager - 使用 try-catch 确保即使失败也不影响应用启动
     try {
-      // 初始化持久化 CookieManager
       await DioClient.initPersistentCookieManager();
-
-      // 配置图片缓存
-      _configureImageCache();
-
-      // 初始化完成
-      _initialized = true;
-      debugPrint('App initialization completed');
-    } catch (e) {
-      debugPrint('App initialization error: $e');
-      // 即使初始化失败也允许应用启动
-      _initialized = true;
+    } catch (e, stackTrace) {
+      debugPrint('⚠️ [AppInitializer] CookieManager 初始化失败，使用内存存储: $e');
+      debugPrint('Stack trace: $stackTrace');
+      // 失败时 DioClient 内部会自动降级到内存 CookieJar
     }
+
+    // 配置图片缓存
+    try {
+      _configureImageCache();
+    } catch (e) {
+      debugPrint('⚠️ [AppInitializer] 图片缓存配置失败: $e');
+    }
+
+    // 初始化完成 - 无论成功与否都标记为已初始化，让应用继续启动
+    _initialized = true;
+    debugPrint('✅ [AppInitializer] 应用初始化完成');
   }
 
   /// 配置图片缓存
   static void _configureImageCache() {
-    try {
-      final imageCache = PaintingBinding.instance.imageCache;
-      imageCache.maximumSize = 200;
-      imageCache.maximumSizeBytes = 100 * 1024 * 1024; // 100MB
-      debugPrint('Image cache configured');
-    } catch (e) {
-      debugPrint('Image cache configuration error: $e');
-    }
+    final imageCache = PaintingBinding.instance.imageCache;
+    imageCache.maximumSize = 200;
+    imageCache.maximumSizeBytes = 100 * 1024 * 1024; // 100MB
+    debugPrint('✅ [AppInitializer] 图片缓存已配置');
   }
 }
 
 /// 初始化失败时的备用应用
+///
+/// 仅在应用完全无法启动时显示
 class ErrorApp extends StatelessWidget {
   /// 构造函数
   const ErrorApp({super.key});

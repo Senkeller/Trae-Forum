@@ -326,6 +326,88 @@ class NotificationNotifier extends _$NotificationNotifier {
   void clearError() {
     state = state.copyWith(errorMessage: null);
   }
+
+  /// 删除通知
+  ///
+  /// [notificationId] 要删除的通知ID
+  Future<void> deleteNotification(int notificationId) async {
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (!isAuthenticated) return;
+
+    try {
+      // 先更新本地状态，提供即时反馈
+      final updatedNotifications = state.notifications
+          .where((n) => n.id != notificationId)
+          .toList();
+      
+      state = state.copyWith(
+        notifications: updatedNotifications,
+        unreadCount: updatedNotifications.where((n) => !n.read).length,
+      );
+
+      // 调用 API 删除通知
+      await _apiService.deleteNotification(notificationId);
+    } catch (e) {
+      // 删除失败，恢复状态
+      await loadNotifications();
+    }
+  }
+
+  /// 批量删除通知
+  ///
+  /// [notificationIds] 要删除的通知ID列表
+  Future<void> deleteNotifications(List<int> notificationIds) async {
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (!isAuthenticated) return;
+
+    try {
+      // 先更新本地状态，提供即时反馈
+      final updatedNotifications = state.notifications
+          .where((n) => !notificationIds.contains(n.id))
+          .toList();
+      
+      state = state.copyWith(
+        notifications: updatedNotifications,
+        unreadCount: updatedNotifications.where((n) => !n.read).length,
+      );
+
+      // 调用 API 批量删除通知
+      for (final id in notificationIds) {
+        await _apiService.deleteNotification(id);
+      }
+    } catch (e) {
+      // 删除失败，恢复状态
+      await loadNotifications();
+    }
+  }
+
+  /// 标记通知为未读
+  ///
+  /// [notificationId] 要标记的通知ID
+  Future<void> markAsUnread(int notificationId) async {
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (!isAuthenticated) return;
+
+    try {
+      // 更新本地状态
+      final updatedNotifications = state.notifications.map((n) {
+        if (n.id == notificationId) {
+          return n.copyWith(read: false);
+        }
+        return n;
+      }).toList();
+      
+      state = state.copyWith(
+        notifications: updatedNotifications,
+        unreadCount: updatedNotifications.where((n) => !n.read).length,
+      );
+    } catch (e) {
+      // 标记失败
+    }
+  }
 }
 
 /// 通知列表 Provider

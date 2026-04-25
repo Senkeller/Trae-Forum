@@ -304,6 +304,14 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       }
       return;
     }
+
+    // 同步 Trae 主站 Cookie（用于 Dashboard API）
+    debugPrint('🔄 [WebViewLogin] 开始同步 Trae 主站 Cookie...');
+    final isTraeCookiesSynced = await _syncTraeMainSiteCookies();
+    if (!isTraeCookiesSynced) {
+      debugPrint('⚠️ [WebViewLogin] Trae 主站 Cookie 同步可能不完整，但继续登录流程');
+    }
+
     _isLoginSuccess = true;
 
     if (mounted) {
@@ -448,6 +456,39 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     }
 
     return false;
+  }
+
+  /// 同步 Trae 主站 Cookie（用于 Dashboard API）
+  ///
+  /// 通过导航到 www.trae.cn/dashboard 并提取 Cookie
+  Future<bool> _syncTraeMainSiteCookies() async {
+    debugPrint('🔄 [WebViewLogin] 开始同步 Trae 主站 Cookie...');
+    try {
+      // 导航到 Trae 主站 dashboard 页面
+      const traeDashboardUrl = 'https://www.trae.cn/dashboard';
+      debugPrint('🔄 [WebViewLogin] 导航到 $traeDashboardUrl');
+      await _controller.loadRequest(Uri.parse(traeDashboardUrl));
+
+      // 等待页面加载完成
+      await Future.delayed(const Duration(seconds: 3));
+
+      // 提取并保存 Cookie
+      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(_controller);
+      debugPrint('✅ [WebViewLogin] Trae 主站 Cookie 提取结果: $cookieSaved');
+
+      // 验证 Cookie 是否有效
+      final hasValidCookies = await TraeCookieManager.hasValidCookies();
+      debugPrint('🔍 [WebViewLogin] Trae Cookie 有效性检查: $hasValidCookies');
+
+      // 打印所有保存的 Cookie 用于调试
+      final allCookies = await TraeCookieManager.getAllCookies();
+      debugPrint('🔍 [WebViewLogin] 已保存的 Trae Cookies: ${allCookies.keys.toList()}');
+
+      return hasValidCookies;
+    } catch (e) {
+      debugPrint('❌ [WebViewLogin] 同步 Trae 主站 Cookie 失败: $e');
+      return false;
+    }
   }
 
   @override

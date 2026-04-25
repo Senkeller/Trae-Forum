@@ -91,6 +91,7 @@ class DioClient {
       print('📁 [DioClient] Cookie 存储路径: $cookiePath');
 
       // 先设置持久化的 CookieJar
+      // cookie_jar 4.x 版本使用路径字符串而不是 FileStorage
       _cookieJar = PersistCookieJar(
         ignoreExpires: true,
         storage: FileStorage(cookiePath),
@@ -103,8 +104,12 @@ class DioClient {
       print('✅ [DioClient] Dio 实例已获取，拦截器数量: ${dio.interceptors.length}');
 
       print('✅ [DioClient] 持久化 CookieManager 初始化成功');
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ [DioClient] 初始化持久化 CookieManager 失败: $e');
+      print('❌ [DioClient] 错误堆栈: $stackTrace');
+      // 使用内存 CookieJar 作为降级方案
+      _cookieJar = CookieJar();
+      print('⚠️ [DioClient] 已降级使用内存 CookieJar');
     }
   }
 

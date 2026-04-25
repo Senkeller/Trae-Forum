@@ -159,6 +159,16 @@ class RoutePaths {
 
   // Trae Dashboard
   static const String traeDashboard = '/trae-dashboard';
+
+  // 用户活动相关（本地收藏、浏览历史、我常去）
+  static const String localFavorites = '/user/local-favorites';
+  static const String browseHistory = '/user/browse-history';
+  static const String frequentlyVisited = '/user/frequently-visited';
+
+  // 用户活动相关（服务器数据）
+  static const String myFavorites = '/user/my-favorites';
+  static const String myLikes = '/user/my-likes';
+  static const String myReplies = '/user/my-replies';
 }
 
 /// 图片质量

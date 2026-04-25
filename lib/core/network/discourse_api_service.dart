@@ -233,6 +233,11 @@ class DiscourseApiService {
     return _dio.put('$_baseUrl/notifications/mark-read');
   }
 
+  /// 删除通知
+  Future<Response> deleteNotification(int notificationId) async {
+    return _dio.delete('$_baseUrl/notifications/$notificationId');
+  }
+
   // ==================== 聊天相关 API ====================
 
   /// 获取当前用户聊天频道

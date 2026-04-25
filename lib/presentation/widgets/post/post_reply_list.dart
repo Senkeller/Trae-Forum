@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/theme.dart';
+import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../data/models/discourse/discourse_post.dart';
 import '../../../presentation/providers/reply_provider.dart';
+import '../../widgets/common/cached_image.dart';
 import '../../widgets/user/user_avatar.dart';
 
 /// 帖子回复列表组件
@@ -303,6 +305,33 @@ class PostReplyItem extends StatelessWidget {
                   fontFamily: 'monospace',
                 ),
               },
+              extensions: [
+                // 自定义图片渲染，限制表情包尺寸
+                ImageExtension(
+                  builder: (extensionContext) {
+                    final imageUrl = DiscourseImageUrlResolver.resolveFromAttributes(
+                      extensionContext.attributes,
+                    );
+                    if (imageUrl == null) return const SizedBox.shrink();
+
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 120,
+                          maxHeight: 120,
+                        ),
+                        child: CachedImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.contain,
+                          memCacheWidth: 240,
+                          memCacheHeight: 240,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           const SizedBox(height: 12),
           // 操作按钮

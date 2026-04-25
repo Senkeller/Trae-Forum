@@ -754,4 +754,701 @@ class HistoryActivity : BaseActivity<ActivityHistoryBinding>() {
             adapter = ConcatAdapter(HeaderAdapter(), mAdapter)
             
             // 根据屏幕方向选择布局管理器
-            layoutManager =
+            layoutManager = if (isPortrait) {
+                mLayoutManager = LinearLayoutManager(this@HistoryActivity)
+                mLayoutManager
+            } else {
+                sLayoutManager = StaggeredGridLayoutManager(
+                    2, 
+                    StaggeredGridLayoutManager.VERTICAL
+                )
+                sLayoutManager
+            }
+            
+            // 添加分割线
+            if (itemDecorationCount == 0) {
+                if (isPortrait)
+                    addItemDecoration(LinearItemDecoration(10.dp))
+                else
+                    addItemDecoration(StaggerItemDecoration(10.dp))
+            }
+        }
+    }
+
+    /**
+     * 列表项点击监听器
+     */
+    inner class ItemClickListener : ItemListener {
+        
+        /**
+         * 查看Feed详情
+         * 同时保存浏览记录（如果开启设置）
+         */
+        override fun onViewFeed(
+            view: View,
+            id: String?,
+            uid: String?,
+            username: String?,
+            userAvatar: String?,
+            deviceTitle: String?,
+            message: String?,
+            dateline: String?,
+            rid: Any?,
+            isViewReply: Any?
+        ) {
+            super.onViewFeed(
+                view, id, uid, username, userAvatar,
+                deviceTitle, message, dateline, rid, isViewReply
+            )
+            
+            // 保存浏览记录的条件：
+            // 1. uid不为空
+            // 2. 用户开启了记录历史设置
+            if (!uid.isNullOrEmpty() && PrefManager.isRecordHistory)
+                viewModel.saveHistory(
+                    id.toString(), uid.toString(), 
+                    username.toString(), userAvatar.toString(),
+                    deviceTitle.toString(), message.toString(), 
+                    dateline.toString()
+                )
+        }
+
+        /**
+         * 屏蔽用户
+         */
+        override fun onBlockUser(id: String, uid: String, position: Int) {
+            viewModel.saveUid(uid)
+            onDeleteClicked("", id, position)
+        }
+
+        /**
+         * 删除记录
+         */
+        override fun onDeleteClicked(entityType: String, id: String, position: Int) {
+            viewModel.delete(id)
+        }
+    }
+}
+```
+
+#### 设计亮点
+
+1. **多模式复用**: 一个Activity同时支持浏览历史和收藏两种模式
+2. **横竖屏适配**: 竖屏使用`LinearLayoutManager`单列，横屏使用`StaggeredGridLayoutManager`双列
+3. **ConcatAdapter**: 使用`ConcatAdapter`组合头部和列表适配器
+4. **确认对话框**: 清空操作前显示确认对话框，防止误操作
+
+### 6.2 HistoryAdapter
+
+**文件路径**: `app/src/main/java/com/example/c001apk/ui/history/HistoryAdapter.kt`
+
+```kotlin
+package com.example.c001apk.ui.history
+
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import androidx.appcompat.widget.PopupMenu
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.example.c001apk.BR
+import com.example.c001apk.R
+import com.example.c001apk.adapter.ItemListener
+import com.example.c001apk.adapter.PopClickListener
+import com.example.c001apk.databinding.ItemHistoryFeedBinding
+import com.example.c001apk.logic.model.FeedEntity
+import com.example.c001apk.util.PrefManager
+
+/**
+ * 浏览历史/收藏 列表适配器
+ * 使用ListAdapter实现数据差异更新
+ */
+class HistoryAdapter(
+    private val listener: ItemListener
+) : ListAdapter<FeedEntity, HistoryAdapter.HistoryViewHolder>(HistoryDiffCallback()) {
+
+    /**
+     * ViewHolder类
+     * 使用ViewBinding绑定视图
+     */
+    class HistoryViewHolder(
+        val binding: ItemHistoryFeedBinding, 
+        val listener: ItemListener
+    ) : RecyclerView.ViewHolder(binding.root) {
+        
+        var id: String = ""
+        var uid: String = ""
+
+        init {
+            // 初始化弹出菜单
+            binding.expand.setOnClickListener {
+                PopupMenu(it.context, it).apply {
+                    menuInflater.inflate(R.menu.feed_reply_menu, menu).apply {
+                        menu.findItem(R.id.copy)?.isVisible = false
+                        menu.findItem(R.id.show)?.isVisible = false
+                        menu.findItem(R.id.report)?.isVisible = PrefManager.isLogin
+                    }
+                    setOnMenuItemClickListener(
+                        PopClickListener(
+                            listener, it.context, "feed", id, uid, bindingAdapterPosition
+                        )
+                    )
+                    show()
+                }
+            }
+        }
+
+        /**
+         * 绑定数据到视图
+         * 使用DataBinding设置变量
+         */
+        fun bind(data: FeedEntity) {
+            id = data.fid
+            uid = data.uid
+
+            binding.setVariable(BR.id, id)
+            binding.setVariable(BR.uid, uid)
+            binding.setVariable(BR.listener, listener)
+            binding.setVariable(BR.username, data.uname)
+            binding.setVariable(BR.avatarUrl, data.avatar)
+            binding.setVariable(BR.deviceTitle, data.device)
+            binding.setVariable(BR.dateline, data.pubDate.toLong())
+            binding.setVariable(BR.messageContent, data.message)
+            binding.executePendingBindings()
+        }
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HistoryViewHolder {
+        return HistoryViewHolder(
+            ItemHistoryFeedBinding.inflate(
+                LayoutInflater.from(parent.context),
+                parent,
+                false
+            ), listener
+        )
+    }
+
+    override fun onBindViewHolder(holder: HistoryViewHolder, position: Int) {
+        holder.bind(currentList[position])
+    }
+}
+
+/**
+ * DiffUtil回调类
+ * 用于计算列表数据差异，实现高效更新
+ */
+class HistoryDiffCallback : DiffUtil.ItemCallback<FeedEntity>() {
+    
+    /**
+     * 判断是否为同一项（业务层面）
+     */
+    override fun areItemsTheSame(
+        oldItem: FeedEntity,
+        newItem: FeedEntity
+    ): Boolean {
+        return oldItem.fid == newItem.fid
+    }
+
+    /**
+     * 判断内容是否相同（用于判断是否需要刷新UI）
+     */
+    override fun areContentsTheSame(
+        oldItem: FeedEntity,
+        newItem: FeedEntity
+    ): Boolean {
+        return oldItem.fid == newItem.fid
+    }
+}
+```
+
+#### 设计亮点
+
+1. **ListAdapter**: 使用`ListAdapter`替代普通`RecyclerView.Adapter`，自动处理数据差异
+2. **DiffUtil**: 使用`DiffUtil.ItemCallback`计算数据差异，只更新变化的项
+3. **ViewBinding**: 使用`ItemHistoryFeedBinding`进行视图绑定，类型安全
+4. **DataBinding**: 使用`setVariable()`设置绑定变量，实现数据和UI的自动同步
+
+---
+
+## 七、浏览记录保存机制
+
+### 7.1 保存触发点
+
+浏览记录保存的核心逻辑在 [BaseAppViewModel.kt](file:///Users/jason/Documents/codex/TraeU/traeu/c001apk/app/src/main/java/com/example/c001apk/ui/base/BaseAppViewModel.kt) 中：
+
+```kotlin
+package com.example.c001apk.ui.base
+
+import android.view.View
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
+import com.example.c001apk.adapter.FooterState
+import com.example.c001apk.adapter.ItemListener
+import com.example.c001apk.constant.Constants
+import com.example.c001apk.logic.model.HomeFeedResponse
+import com.example.c001apk.logic.repository.BlackListRepo
+import com.example.c001apk.logic.repository.HistoryFavoriteRepo
+import com.example.c001apk.logic.repository.NetworkRepo
+import com.example.c001apk.util.Event
+import com.example.c001apk.util.PrefManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+
+/**
+ * 应用基础ViewModel
+ * 封装通用的业务逻辑和数据处理
+ */
+abstract class BaseAppViewModel(
+    val blackListRepo: BlackListRepo,
+    val historyRepo: HistoryFavoriteRepo,
+    val networkRepo: NetworkRepo
+) : BaseViewModel() {
+
+    val dataList = MutableLiveData<List<HomeFeedResponse.Data>>()
+    val footerState = MutableLiveData<FooterState>()
+    val toastText = MutableLiveData<Event<String?>>()
+
+    /**
+     * 列表项点击监听器
+     * 封装通用的点击处理逻辑
+     */
+    inner class ItemClickListener : ItemListener {
+
+        override fun onShowCollection(id: String, title: String) {
+            showCollection(id, title)
+        }
+
+        /**
+         * 查看Feed详情
+         * 同时保存浏览记录（如果满足条件）
+         */
+        override fun onViewFeed(
+            view: View,
+            id: String?,
+            uid: String?,
+            username: String?,
+            userAvatar: String?,
+            deviceTitle: String?,
+            message: String?,
+            dateline: String?,
+            rid: Any?,
+            isViewReply: Any?
+        ) {
+            super.onViewFeed(
+                view, id, uid, username, userAvatar,
+                deviceTitle, message, dateline, rid, isViewReply
+            )
+            
+            /**
+             * 保存浏览记录的条件：
+             * 1. uid不为空（确保是有效的Feed）
+             * 2. 用户开启了记录历史设置 (PrefManager.isRecordHistory)
+             */
+            viewModelScope.launch(Dispatchers.IO) {
+                if (!uid.isNullOrEmpty() && PrefManager.isRecordHistory)
+                    historyRepo.saveHistory(
+                        id.toString(), uid.toString(), 
+                        username.toString(), userAvatar.toString(),
+                        deviceTitle.toString(), message.toString(), 
+                        dateline.toString()
+                    )
+            }
+        }
+
+        override fun onFollowUser(uid: String, followAuthor: Int) {
+            if (PrefManager.isLogin) {
+                val url = if (followAuthor == 1) 
+                    "/v6/user/unfollow" 
+                else 
+                    "/v6/user/follow"
+                onPostFollowUnFollow(url, uid, followAuthor)
+            }
+        }
+
+        override fun onLikeClick(type: String, id: String, isLike: Int) {
+            if (PrefManager.isLogin) {
+                if (PrefManager.SZLMID.isEmpty())
+                    toastText.postValue(Event(Constants.SZLM_ID))
+                else if (type == "feed")
+                    onPostLikeFeed(id, isLike)
+                else
+                    onPostLikeReply(id, isLike)
+            }
+        }
+
+        override fun onBlockUser(id: String, uid: String, position: Int) {
+            viewModelScope.launch(Dispatchers.IO) {
+                blackListRepo.saveUid(uid)
+            }
+            val currentList = dataList.value?.toMutableList() ?: ArrayList()
+            currentList.removeAt(position)
+            dataList.postValue(currentList)
+        }
+
+        override fun onDeleteClicked(entityType: String, id: String, position: Int) {
+            val url = if (entityType == "feed") 
+                "/v6/feed/deleteFeed"
+            else 
+                "/v6/feed/deleteReply"
+            onDeleteFeed(url, id, position)
+        }
+    }
+
+    // ... 其他方法
+}
+```
+
+### 7.2 用户设置
+
+**文件路径**: `app/src/main/java/com/example/c001apk/util/PrefManager.kt`
+
+```kotlin
+object PrefManager {
+    private val pref = context.getSharedPreferences("settings", MODE_PRIVATE)
+
+    /**
+     * 是否记录浏览历史
+     * 默认开启（true）
+     */
+    var isRecordHistory: Boolean
+        get() = pref.getBoolean("isRecordHistory", true)
+        set(value) = pref.edit().putBoolean("isRecordHistory", value).apply()
+}
+```
+
+### 7.3 调用链路图
+
+```
+用户点击Feed卡片
+    ↓
+触发 ItemListener.onViewFeed()
+    ↓
+BaseAppViewModel.ItemClickListener 拦截处理
+    ↓
+检查保存条件：
+    ├─ uid != null ?
+    └─ PrefManager.isRecordHistory == true ?
+    ↓
+调用 historyRepo.saveHistory()
+    ↓
+Repository层进行去重检查：browseHistoryDao.isExist(fid)
+    ↓
+如果不存在，插入数据库：browseHistoryDao.insert()
+    ↓
+LiveData自动通知观察者
+    ↓
+HistoryActivity 收到通知，刷新列表
+```
+
+---
+
+## 八、依赖注入配置
+
+### 8.1 DatabaseModule
+
+**文件路径**: `app/src/main/java/com/example/c001apk/di/DatabaseModule.kt`
+
+```kotlin
+package com.example.c001apk.di
+
+import android.content.Context
+import androidx.room.Room
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.c001apk.logic.dao.HistoryFavoriteDao
+import com.example.c001apk.logic.database.BrowseHistoryDatabase
+import com.example.c001apk.logic.database.FeedFavoriteDatabase
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Qualifier
+import javax.inject.Singleton
+
+/**
+ * 限定符注解：用户黑名单
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class UserBlackList
+
+/**
+ * 限定符注解：话题黑名单
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class TopicBlackList
+
+/**
+ * 限定符注解：搜索历史
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class SearchHistory
+
+/**
+ * 限定符注解：最近使用表情
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class RecentEmoji
+
+/**
+ * 限定符注解：浏览历史
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class BrowseHistory
+
+/**
+ * 限定符注解：Feed收藏
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class FeedFavorite
+
+/**
+ * 数据库模块
+ * 提供各种数据库和DAO的依赖注入
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+
+    // ==================== 浏览历史数据库配置 ====================
+
+    /**
+     * 提供浏览历史DAO
+     * 使用@BrowseHistory限定符区分
+     */
+    @BrowseHistory
+    @Singleton
+    @Provides
+    fun provideBrowseHistoryDao(
+        browseHistoryDatabase: BrowseHistoryDatabase
+    ): HistoryFavoriteDao {
+        return browseHistoryDatabase.browseHistoryDao()
+    }
+
+    /**
+     * 提供浏览历史数据库实例
+     */
+    @Singleton
+    @Provides
+    fun provideBrowseHistoryDatabase(
+        @ApplicationContext context: Context
+    ): BrowseHistoryDatabase {
+        return Room.databaseBuilder(
+            context.applicationContext,
+            BrowseHistoryDatabase::class.java,
+            "browse_history.db"
+        ).build()
+    }
+
+    // ==================== 收藏数据库配置 ====================
+
+    /**
+     * 提供收藏DAO
+     * 使用@FeedFavorite限定符区分
+     */
+    @FeedFavorite
+    @Singleton
+    @Provides
+    fun provideFeedFavoriteDao(
+        feedFavoriteDatabase: FeedFavoriteDatabase
+    ): HistoryFavoriteDao {
+        return feedFavoriteDatabase.feedFavoriteDao()
+    }
+
+    /**
+     * 提供收藏数据库实例
+     * 包含数据库迁移配置
+     */
+    @Singleton
+    @Provides
+    fun provideFeedFavoriteDatabase(
+        @ApplicationContext context: Context
+    ): FeedFavoriteDatabase {
+        return Room.databaseBuilder(
+            context.applicationContext,
+            FeedFavoriteDatabase::class.java,
+            "feed_favorite.db"
+        )
+        .addMigrations(FeedFavoriteDatabase_MIGRATION_1_2)
+        .build()
+    }
+
+    // ... 其他数据库配置
+}
+
+/**
+ * 收藏数据库迁移：版本1升级到版本2
+ * 修改表结构，添加新字段
+ */
+object FeedFavoriteDatabase_MIGRATION_1_2 : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE FeedFavorite_new (" +
+            "uid text not null, " +
+            "uname TEXT not null, " +
+            "feedId TEXT not null, " +
+            "avatar TEXT not null, " +
+            "id INTEGER not null, " +
+            "message TEXT not null, " +
+            "device TEXT not null, " +
+            "pubDate TEXT not null, " +
+            "PRIMARY KEY(id))"
+        )
+        db.execSQL("DROP TABLE FeedFavorite")
+        db.execSQL("ALTER TABLE FeedFavorite_new RENAME TO FeedFavorite")
+    }
+}
+```
+
+### 8.2 依赖注入说明
+
+| 注解 | 用途 |
+|------|------|
+| `@Module` | 标记为Hilt模块 |
+| `@InstallIn(SingletonComponent::class)` | 模块安装在Singleton组件中 |
+| `@Provides` | 提供依赖实例 |
+| `@Singleton` | 单例模式 |
+| `@Qualifier` | 限定符，用于区分同类型的不同实例 |
+| `@BrowseHistory` | 标记浏览历史DAO |
+| `@FeedFavorite` | 标记收藏DAO |
+
+---
+
+## 九、可借鉴的设计要点
+
+### 9.1 架构设计
+
+| 设计点 | 说明 | 优势 |
+|--------|------|------|
+| **MVVM架构** | 数据驱动UI | 职责分离，易于测试和维护 |
+| **Repository模式** | 封装数据访问逻辑 | 统一数据接口，便于切换数据源 |
+| **依赖注入** | 使用Hilt管理依赖 | 解耦组件，便于单元测试 |
+
+### 9.2 数据设计
+
+| 设计点 | 说明 | 优势 |
+|--------|------|------|
+| **双主键策略** | `fid`业务去重 + `id`排序 | 既保证唯一性又支持时间排序 |
+| **自动去重** | 插入前检查`isExist()` | 避免重复数据 |
+| **精简存储** | 只存展示所需字段 | 减少存储空间占用 |
+
+### 9.3 异步处理
+
+| 设计点 | 说明 | 优势 |
+|--------|------|------|
+| **协程+Room** | 所有DAO方法标记`suspend` | 编译时检查，避免主线程操作 |
+| **LiveData** | 数据库变化自动通知UI | 响应式编程，减少手动刷新 |
+| **Flow支持** | 同时提供Flow接口 | 支持复杂的数据流处理 |
+
+### 9.4 UI优化
+
+| 设计点 | 说明 | 优势 |
+|--------|------|------|
+| **ListAdapter+DiffUtil** | 自动计算数据差异 | 只刷新变化的项，性能优化 |
+| **ViewBinding** | 编译时生成绑定类 | 类型安全，避免findViewById |
+| **横竖屏适配** | 不同方向使用不同布局 | 提升用户体验 |
+
+### 9.5 代码复用
+
+| 设计点 | 说明 | 优势 |
+|--------|------|------|
+| **Entity复用** | 同一实体类用于历史和收藏 | 减少重复代码 |
+| **DAO复用** | 同一DAO接口用于多个数据库 | 统一操作接口 |
+| **ViewModel复用** | 通过type参数区分模式 | 一个类支持多种功能 |
+| **Activity复用** | 通过Intent参数区分模式 | 减少Activity数量 |
+
+---
+
+## 十、核心代码文件清单
+
+### 10.1 数据层
+
+| 文件路径 | 职责 |
+|----------|------|
+| `logic/model/FeedEntity.kt` | 数据实体类定义 |
+| `logic/database/BrowseHistoryDatabase.kt` | 浏览历史数据库定义 |
+| `logic/database/FeedFavoriteDatabase.kt` | 收藏数据库定义 |
+| `logic/dao/HistoryFavoriteDao.kt` | 数据访问对象接口 |
+
+### 10.2 业务层
+
+| 文件路径 | 职责 |
+|----------|------|
+| `logic/repository/HistoryFavoriteRepo.kt` | 数据仓库，封装数据库操作 |
+| `di/DatabaseModule.kt` | 依赖注入配置 |
+
+### 10.3 视图层
+
+| 文件路径 | 职责 |
+|----------|------|
+| `ui/history/HistoryViewModel.kt` | 历史记录ViewModel |
+| `ui/history/HistoryActivity.kt` | 历史记录页面 |
+| `ui/history/HistoryAdapter.kt` | 列表适配器 |
+| `ui/base/BaseAppViewModel.kt` | 基础ViewModel，包含保存记录逻辑 |
+
+### 10.4 工具类
+
+| 文件路径 | 职责 |
+|----------|------|
+| `util/PrefManager.kt` | 用户偏好设置管理 |
+
+---
+
+## 附录：完整调用时序图
+
+```
+用户点击Feed
+    │
+    ▼
+┌─────────────────┐
+│  ItemListener   │
+│  onViewFeed()   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  BaseAppViewModel       │
+│  ItemClickListener      │
+│  检查isRecordHistory    │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  HistoryFavoriteRepo    │
+│  saveHistory()          │
+│  检查isExist()去重      │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  HistoryFavoriteDao     │
+│  insert()               │
+└────────┬────────────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  Room Database          │
+│  数据持久化             │
+└────────┬────────────────┘
+         │
+         │ LiveData自动通知
+         ▼
+┌─────────────────────────┐
+│  HistoryActivity        │
+│  Observer回调           │
+│  submitList()刷新列表   │
+└─────────────────────────┘
+```
+
+---
+
+**文档版本**: 1.0  
+**创建日期**: 2026-04-25  
+**项目**: c001apk  
+**分析工具**: Trae AI Agent

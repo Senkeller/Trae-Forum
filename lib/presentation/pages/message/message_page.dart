@@ -300,6 +300,9 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
           return _NotificationItem(
             notification: notification,
             onTap: () => _handleNotificationTap(notification),
+            onDelete: () => _handleDeleteNotification(notification.id),
+            onMarkAsRead: () => _handleMarkAsRead(notification.id),
+            onMarkAsUnread: () => _handleMarkAsUnread(notification.id),
           );
         },
       ),
@@ -326,16 +329,34 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
       }
     }
   }
+
+  void _handleDeleteNotification(int notificationId) {
+    ref.read(notificationNotifierProvider.notifier).deleteNotification(notificationId);
+  }
+
+  void _handleMarkAsRead(int notificationId) {
+    ref.read(notificationNotifierProvider.notifier).markAsRead(notificationId);
+  }
+
+  void _handleMarkAsUnread(int notificationId) {
+    ref.read(notificationNotifierProvider.notifier).markAsUnread(notificationId);
+  }
 }
 
 /// 通知项
 class _NotificationItem extends StatelessWidget {
   final DiscourseNotification notification;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
+  final VoidCallback? onMarkAsRead;
+  final VoidCallback? onMarkAsUnread;
 
   const _NotificationItem({
     required this.notification,
     required this.onTap,
+    this.onDelete,
+    this.onMarkAsRead,
+    this.onMarkAsUnread,
   });
 
   @override
@@ -344,8 +365,10 @@ class _NotificationItem extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isUnread = !notification.read;
 
-    return InkWell(
+    // 使用 Dismissible 实现滑动删除
+    Widget content = InkWell(
       onTap: onTap,
+      onLongPress: () => _showContextMenu(context),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -402,6 +425,91 @@ class _NotificationItem extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+
+    // 包裹在 Dismissible 中实现滑动删除
+    if (onDelete != null) {
+      content = Dismissible(
+        key: ValueKey(notification.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          color: colorScheme.error,
+          child: Icon(
+            Icons.delete,
+            color: colorScheme.onError,
+          ),
+        ),
+        confirmDismiss: (direction) async {
+          return await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('删除通知'),
+              content: const Text('确定要删除这条通知吗？'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('取消'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('删除'),
+                ),
+              ],
+            ),
+          );
+        },
+        onDismissed: (direction) {
+          onDelete?.call();
+        },
+        child: content,
+      );
+    }
+
+    return content;
+  }
+
+  /// 显示长按菜单
+  void _showContextMenu(BuildContext context) {
+    final isUnread = !notification.read;
+    
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isUnread && onMarkAsRead != null)
+              ListTile(
+                leading: const Icon(Icons.mark_email_read),
+                title: const Text('标记为已读'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onMarkAsRead?.call();
+                },
+              ),
+            if (!isUnread && onMarkAsUnread != null)
+              ListTile(
+                leading: const Icon(Icons.mark_email_unread),
+                title: const Text('标记为未读'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onMarkAsUnread?.call();
+                },
+              ),
+            if (onDelete != null)
+              ListTile(
+                leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                title: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  onDelete?.call();
+                },
+              ),
           ],
         ),
       ),
