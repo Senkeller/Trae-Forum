@@ -101,7 +101,7 @@ final currentSearchTypeProvider = AutoDisposeProvider<SearchType>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CurrentSearchTypeRef = AutoDisposeProviderRef<SearchType>;
-String _$searchNotifierHash() => r'd377af42680bc6c501f28c55d7698c5949a53c81';
+String _$searchNotifierHash() => r'b650ecd5b28c038412f725f3122304faef2ea077';
 
 /// 搜索状态 Notifier
 ///

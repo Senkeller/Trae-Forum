@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../providers/search_provider.dart' as sp;
+import 'widgets/hot_search_section.dart';
+import 'widgets/ranking_section.dart';
 
 /// 搜索页面
 class SearchPage extends ConsumerStatefulWidget {
@@ -27,6 +29,9 @@ class _SearchPageState extends ConsumerState<SearchPage>
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
+      // 加载热门搜索和榜单数据
+      ref.read(sp.searchNotifierProvider.notifier).loadHotSearches();
+      ref.read(sp.searchNotifierProvider.notifier).loadRankingTopics();
     });
   }
 
@@ -303,14 +308,13 @@ class _SearchBody extends StatelessWidget {
               }).toList(),
             ),
           const SizedBox(height: 24),
-          Text(
-            '提示',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+          // 热门搜索
+          HotSearchSection(
+            onSearch: onSearch,
           ),
-          const SizedBox(height: 8),
-          const Text('输入关键词后将通过 forum.trae.cn 的 Discourse 搜索接口获取实时结果。'),
+          const SizedBox(height: 24),
+          // 榜单区域
+          const RankingSection(),
         ],
       ),
     );

@@ -66,7 +66,7 @@ final pinnedTopicsErrorProvider = AutoDisposeProvider<String?>.internal(
 // ignore: unused_element
 typedef PinnedTopicsErrorRef = AutoDisposeProviderRef<String?>;
 String _$pinnedTopicsNotifierHash() =>
-    r'1f8c63584513104ed82a7a47f4d802520c373c37';
+    r'2b53b3f6ba0304686aa48783095d6605f829a4b0';
 
 /// 置顶话题Notifier
 ///

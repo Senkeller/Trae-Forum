@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/api_service.dart';
+import '../../core/network/discourse_api_service.dart';
 import '../../data/models/feed.dart';
 
 part 'search_provider.g.dart';
@@ -101,6 +103,44 @@ class SearchResult {
   }
 }
 
+/// 榜单类型枚举
+enum RankingType {
+  /// 热门榜
+  hot,
+  /// 排行榜
+  top,
+  /// 分类榜
+  category,
+}
+
+/// 榜单话题数据
+class RankingTopic {
+  /// 话题ID
+  final String id;
+  /// 标题
+  final String title;
+  /// 分类名称
+  final String categoryName;
+  /// 回复数
+  final int replyCount;
+  /// 浏览数
+  final int views;
+  /// 热度值
+  final int heatValue;
+  /// 排名
+  final int rank;
+
+  const RankingTopic({
+    required this.id,
+    required this.title,
+    required this.categoryName,
+    required this.replyCount,
+    required this.views,
+    required this.heatValue,
+    required this.rank,
+  });
+}
+
 /// 搜索状态类
 class SearchState {
   /// 搜索关键词
@@ -125,6 +165,16 @@ class SearchState {
   final String? errorMessage;
   /// 最后加载标识
   final String? lastItem;
+  /// 热门搜索列表
+  final List<String> hotSearches;
+  /// 是否正在加载热门搜索
+  final bool isLoadingHotSearches;
+  /// 当前榜单类型
+  final RankingType rankingType;
+  /// 榜单话题列表
+  final List<RankingTopic> rankingTopics;
+  /// 是否正在加载榜单
+  final bool isLoadingRanking;
 
   const SearchState({
     this.keyword = '',
@@ -138,6 +188,11 @@ class SearchState {
     this.hasMore = true,
     this.errorMessage,
     this.lastItem,
+    this.hotSearches = const [],
+    this.isLoadingHotSearches = false,
+    this.rankingType = RankingType.hot,
+    this.rankingTopics = const [],
+    this.isLoadingRanking = false,
   });
 
   /// 复制并修改
@@ -153,6 +208,11 @@ class SearchState {
     bool? hasMore,
     String? errorMessage,
     String? lastItem,
+    List<String>? hotSearches,
+    bool? isLoadingHotSearches,
+    RankingType? rankingType,
+    List<RankingTopic>? rankingTopics,
+    bool? isLoadingRanking,
   }) {
     return SearchState(
       keyword: keyword ?? this.keyword,
@@ -166,6 +226,11 @@ class SearchState {
       hasMore: hasMore ?? this.hasMore,
       errorMessage: errorMessage,
       lastItem: lastItem ?? this.lastItem,
+      hotSearches: hotSearches ?? this.hotSearches,
+      isLoadingHotSearches: isLoadingHotSearches ?? this.isLoadingHotSearches,
+      rankingType: rankingType ?? this.rankingType,
+      rankingTopics: rankingTopics ?? this.rankingTopics,
+      isLoadingRanking: isLoadingRanking ?? this.isLoadingRanking,
     );
   }
 }
@@ -177,11 +242,13 @@ class SearchNotifier extends _$SearchNotifier {
   static const int _maxHistoryCount = 20;
 
   late ApiService _apiService;
+  late DiscourseApiService _discourseApi;
 
   /// 构建搜索状态
   @override
   SearchState build() {
     _apiService = ref.read(apiServiceProvider);
+    _discourseApi = ref.read(discourseApiServiceProvider);
     _loadSearchHistory();
     return const SearchState();
   }
@@ -389,6 +456,115 @@ class SearchNotifier extends _$SearchNotifier {
   /// 清空错误信息
   void clearError() {
     state = state.copyWith(errorMessage: null);
+  }
+
+  /// 加载热门搜索
+  Future<void> loadHotSearches() async {
+    if (state.isLoadingHotSearches) return;
+
+    state = state.copyWith(isLoadingHotSearches: true);
+
+    try {
+      final response = await _discourseApi.getHotTopics(page: 0);
+      final raw = response.data;
+      final data = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = (topicListMap?['topics'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      // 提取话题标题作为热门搜索
+      final hotSearches = topics
+          .take(10)
+          .map((topic) => topic['title']?.toString() ?? '')
+          .where((title) => title.isNotEmpty)
+          .toList();
+
+      state = state.copyWith(
+        hotSearches: hotSearches,
+        isLoadingHotSearches: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingHotSearches: false);
+    }
+  }
+
+  /// 设置榜单类型
+  void setRankingType(RankingType type) {
+    state = state.copyWith(rankingType: type);
+    loadRankingTopics();
+  }
+
+  /// 加载榜单话题
+  Future<void> loadRankingTopics() async {
+    if (state.isLoadingRanking) return;
+
+    state = state.copyWith(isLoadingRanking: true);
+
+    try {
+      Response response;
+      switch (state.rankingType) {
+        case RankingType.hot:
+          response = await _discourseApi.getHotTopics(page: 0);
+          break;
+        case RankingType.top:
+          response = await _discourseApi.getTopTopics(page: 0);
+          break;
+        case RankingType.category:
+          response = await _discourseApi.getLatestTopics(page: 0);
+          break;
+      }
+
+      final raw = response.data;
+      final data = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = (topicListMap?['topics'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      // 解析分类信息
+      final categories = (data['categories'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      final categoryMap = <int, String>{};
+      for (final category in categories) {
+        final id = category['id'] as int?;
+        final name = category['name']?.toString();
+        if (id != null && name != null) {
+          categoryMap[id] = name;
+        }
+      }
+
+      // 转换为榜单话题
+      final rankingTopics = topics.asMap().entries.map((entry) {
+        final index = entry.key;
+        final topic = entry.value;
+        final categoryId = topic['category_id'] as int?;
+
+        return RankingTopic(
+          id: topic['id']?.toString() ?? '',
+          title: topic['title']?.toString() ?? '',
+          categoryName: categoryMap[categoryId] ?? '',
+          replyCount: topic['reply_count'] as int? ?? 0,
+          views: topic['views'] as int? ?? 0,
+          heatValue: topic['views'] as int? ?? 0,
+          rank: index + 1,
+        );
+      }).toList();
+
+      state = state.copyWith(
+        rankingTopics: rankingTopics,
+        isLoadingRanking: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingRanking: false);
+    }
   }
 
   /// 获取搜索类型的字符串表示
