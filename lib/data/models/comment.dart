@@ -151,10 +151,10 @@ class SubReplyResponse with _$SubReplyResponse {
 class CommentResult {
   /// 是否成功
   final bool success;
-  
+
   /// 错误消息（失败时）
   final String? errorMessage;
-  
+
   /// 创建的帖子ID（成功时）
   final int? postId;
 
@@ -162,11 +162,7 @@ class CommentResult {
   /// @param success 是否成功
   /// @param errorMessage 错误消息
   /// @param postId 帖子ID
-  const CommentResult({
-    required this.success,
-    this.errorMessage,
-    this.postId,
-  });
+  const CommentResult({required this.success, this.errorMessage, this.postId});
 
   /// 创建成功结果
   /// @param postId 帖子ID（可选）
@@ -185,4 +181,32 @@ class CommentResult {
   @override
   String toString() =>
       'CommentResult(success: $success, postId: $postId, errorMessage: $errorMessage)';
+}
+
+/// 评论图片上传结果模型
+///
+/// 用于 uploadCommentImage 方法返回的结果
+class CommentImageUploadResult {
+  /// 是否成功
+  final bool success;
+
+  /// Markdown 图片片段（成功时）
+  final String? markdown;
+
+  /// 错误消息（失败时）
+  final String? errorMessage;
+
+  const CommentImageUploadResult({
+    required this.success,
+    this.markdown,
+    this.errorMessage,
+  });
+
+  factory CommentImageUploadResult.success(String markdown) {
+    return CommentImageUploadResult(success: true, markdown: markdown);
+  }
+
+  factory CommentImageUploadResult.failure(String message) {
+    return CommentImageUploadResult(success: false, errorMessage: message);
+  }
 }

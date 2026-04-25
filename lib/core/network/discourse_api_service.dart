@@ -25,10 +25,7 @@ class DiscourseApiService {
   Future<Response> getTopicsByCategory(int categoryId, {int page = 0}) async {
     // 官方公告分类使用特殊路径 /c/4-category/4
     final path = categoryId == 4 ? 'c/4-category/4' : 'c/$categoryId';
-    return _dio.get(
-      '$_baseUrl/$path.json',
-      queryParameters: {'page': page},
-    );
+    return _dio.get('$_baseUrl/$path.json', queryParameters: {'page': page});
   }
 
   Future<Response> getTopicDetail(int topicId) async {
@@ -165,10 +162,7 @@ class DiscourseApiService {
   /// [page] 页码，从0开始
   /// 调用 Discourse GET /tag/{tag}.json API
   Future<Response> getTopicsByTag(String tag, {int page = 0}) async {
-    return _dio.get(
-      '$_baseUrl/tag/$tag.json',
-      queryParameters: {'page': page},
-    );
+    return _dio.get('$_baseUrl/tag/$tag.json', queryParameters: {'page': page});
   }
 
   // ==================== 通知相关 API ====================
@@ -286,7 +280,9 @@ class DiscourseApiService {
     await DiscourseCsrfToken.ensureValid(_dio);
 
     final csrfToken = DiscourseCsrfToken.token;
-    print('🔍 [DiscourseApiService] createPost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}');
+    print(
+      '🔍 [DiscourseApiService] createPost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}',
+    );
 
     final data = <String, dynamic>{'raw': raw, 'topic_id': topicId};
 
@@ -308,6 +304,58 @@ class DiscourseApiService {
     );
   }
 
+  /// 上传图片（评论/回复使用）
+  ///
+  /// [filePath] 本地文件路径
+  /// [fileName] 文件名（可选）
+  /// 调用 Discourse POST /uploads.json API
+  Future<Response> uploadImage({
+    required String filePath,
+    String? fileName,
+  }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
+    FormData buildFormData({required bool useArrayField}) {
+      final fieldName = useArrayField ? 'files[]' : 'file';
+      return FormData.fromMap({
+        'type': 'composer',
+        'synchronous': true,
+        fieldName: MultipartFile.fromFileSync(filePath, filename: fileName),
+      });
+    }
+
+    Options buildOptions() {
+      return Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      );
+    }
+
+    try {
+      return await _dio.post(
+        '$_baseUrl/uploads.json',
+        data: buildFormData(useArrayField: true),
+        options: buildOptions(),
+      );
+    } on DioException catch (error) {
+      final statusCode = error.response?.statusCode;
+      // 不同 Discourse 部署对上传字段名要求不同，失败时回退另一种格式重试一次
+      if (statusCode == 400 || statusCode == 422) {
+        return _dio.post(
+          '$_baseUrl/uploads.json',
+          data: buildFormData(useArrayField: false),
+          options: buildOptions(),
+        );
+      }
+      rethrow;
+    }
+  }
+
   // ==================== 点赞相关 API ====================
 
   /// 点赞帖子
@@ -321,7 +369,9 @@ class DiscourseApiService {
     await DiscourseCsrfToken.ensureValid(_dio);
 
     final csrfToken = DiscourseCsrfToken.token;
-    print('🔍 [DiscourseApiService] likePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}');
+    print(
+      '🔍 [DiscourseApiService] likePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}',
+    );
 
     return _dio.post(
       '$_baseUrl/post_actions',
@@ -351,7 +401,9 @@ class DiscourseApiService {
     await DiscourseCsrfToken.ensureValid(_dio);
 
     final csrfToken = DiscourseCsrfToken.token;
-    print('🔍 [DiscourseApiService] unlikePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}');
+    print(
+      '🔍 [DiscourseApiService] unlikePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}',
+    );
 
     return _dio.delete(
       '$_baseUrl/post_actions/$postId',

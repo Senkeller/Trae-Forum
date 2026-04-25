@@ -18,6 +18,7 @@ import '../presentation/pages/message/message_detail_page.dart';
 import '../presentation/pages/notification/notifications_page.dart';
 import '../presentation/pages/notification/notification_settings_page.dart';
 import '../presentation/pages/settings/settings_page.dart';
+import '../presentation/pages/settings/account_security_page.dart';
 import '../presentation/pages/settings/theme_settings_page.dart';
 import '../presentation/pages/settings/font_settings_page.dart';
 import '../presentation/pages/settings/blacklist_page.dart';
@@ -40,10 +41,11 @@ import '../presentation/pages/dashboard/trae_dashboard_page.dart';
 
 /// 应用路由配置
 class AppRouter {
-  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   static GoRouter get router => _router;
-  
+
   static final GoRouter _router = GoRouter(
     navigatorKey: navigatorKey,
     initialLocation: RoutePaths.main,
@@ -54,13 +56,13 @@ class AppRouter {
         path: RoutePaths.main,
         builder: (context, state) => const MainPage(),
       ),
-      
+
       // 首页
       GoRoute(
         path: RoutePaths.home,
         builder: (context, state) => const HomePage(),
       ),
-      
+
       // Feed 详情
       GoRoute(
         path: RoutePaths.feedDetail,
@@ -69,13 +71,13 @@ class AppRouter {
           return FeedDetailPage(feedId: id);
         },
       ),
-      
+
       // 创建 Feed
       GoRoute(
         path: RoutePaths.feedCreate,
         builder: (context, state) => const FeedCreatePage(),
       ),
-      
+
       // Feed 回复
       GoRoute(
         path: RoutePaths.feedReply,
@@ -84,7 +86,7 @@ class AppRouter {
           return FeedReplyPage(feedId: id);
         },
       ),
-      
+
       // 用户主页
       GoRoute(
         path: RoutePaths.userProfile,
@@ -93,13 +95,13 @@ class AppRouter {
           return UserProfilePage(uid: uid);
         },
       ),
-      
+
       // 用户编辑
       GoRoute(
         path: RoutePaths.userEdit,
         builder: (context, state) => const UserEditPage(),
       ),
-      
+
       // 关注列表
       GoRoute(
         path: RoutePaths.followList,
@@ -108,7 +110,7 @@ class AppRouter {
           return FollowListPage(uid: uid);
         },
       ),
-      
+
       // 粉丝列表
       GoRoute(
         path: RoutePaths.fanList,
@@ -117,7 +119,7 @@ class AppRouter {
           return FanListPage(uid: uid);
         },
       ),
-      
+
       // 话题列表
       GoRoute(
         path: RoutePaths.topicList,
@@ -156,13 +158,13 @@ class AppRouter {
           return ProductDetailPage(id: id);
         },
       ),
-      
+
       // 搜索
       GoRoute(
         path: RoutePaths.search,
         builder: (context, state) => const SearchPage(),
       ),
-      
+
       // 搜索结果
       GoRoute(
         path: RoutePaths.searchResult,
@@ -171,13 +173,13 @@ class AppRouter {
           return SearchResultPage(query: query);
         },
       ),
-      
+
       // 消息
       GoRoute(
         path: RoutePaths.message,
         builder: (context, state) => const MessagePage(),
       ),
-      
+
       // 消息详情
       GoRoute(
         path: RoutePaths.messageDetail,
@@ -186,67 +188,73 @@ class AppRouter {
           return MessageDetailPage(type: type);
         },
       ),
-      
+
       // 通知
       GoRoute(
         path: RoutePaths.notifications,
         builder: (context, state) => const NotificationsPage(),
       ),
-      
+
       // 通知设置
       GoRoute(
         path: RoutePaths.notificationSettings,
         builder: (context, state) => const NotificationSettingsPage(),
       ),
-      
+
       // 设置
       GoRoute(
         path: RoutePaths.settings,
         builder: (context, state) => const SettingsPage(),
       ),
-      
+
+      // 主题设置
+      GoRoute(
+        path: RoutePaths.accountSecurity,
+        builder: (context, state) => const AccountSecurityPage(),
+      ),
+
       // 主题设置
       GoRoute(
         path: RoutePaths.themeSettings,
         builder: (context, state) => const ThemeSettingsPage(),
       ),
-      
+
       // 字体设置
       GoRoute(
         path: RoutePaths.fontSettings,
         builder: (context, state) => const FontSettingsPage(),
       ),
-      
+
       // 黑名单
       GoRoute(
         path: RoutePaths.blacklist,
         builder: (context, state) => const BlacklistPage(),
       ),
-      
+
       // 关于
       GoRoute(
         path: RoutePaths.about,
         builder: (context, state) => const AboutPage(),
       ),
-      
+
       // 登录
       GoRoute(
         path: RoutePaths.login,
         builder: (context, state) => const LoginPage(),
       ),
-      
+
       // 注册
       GoRoute(
         path: RoutePaths.register,
         builder: (context, state) => const RegisterPage(),
       ),
-      
+
       // 忘记密码
       GoRoute(
         path: RoutePaths.forgotPassword,
         builder: (context, state) => const ForgotPasswordPage(),
       ),
-      
+
       // WebView
       GoRoute(
         path: RoutePaths.webview,
@@ -256,25 +264,26 @@ class AppRouter {
           return webview.WebViewPage(url: url, title: title);
         },
       ),
-      
+
       // 历史记录
       GoRoute(
         path: RoutePaths.history,
         builder: (context, state) => const HistoryPage(),
       ),
-      
+
       // 收藏
       GoRoute(
         path: RoutePaths.favorites,
         builder: (context, state) => const FavoritesPage(),
       ),
-      
+
       // 图片预览
       GoRoute(
         path: RoutePaths.imagePreview,
         builder: (context, state) {
           final images = state.extra as List<String>? ?? [];
-          final index = int.tryParse(state.uri.queryParameters['index'] ?? '0') ?? 0;
+          final index =
+              int.tryParse(state.uri.queryParameters['index'] ?? '0') ?? 0;
           return ImagePreviewPage(imageUrls: images, initialIndex: index);
         },
       ),
@@ -303,78 +312,83 @@ class AppRouter {
         builder: (context, state) => const FrequentlyVisitedPage(),
       ),
     ],
-    
+
     // 错误页面
     errorBuilder: (context, state) => ErrorPage(error: state.error),
-    
+
     // 路由守卫
     redirect: (context, state) {
       // TODO: 实现登录检查
       // final isLoggedIn = context.read(authProvider).isLoggedIn;
       // final isLoginRoute = state.matchedLocation.startsWith('/login');
-      // 
+      //
       // if (!isLoggedIn && !isLoginRoute) {
       //   return RoutePaths.login;
       // }
-      // 
+      //
       // if (isLoggedIn && isLoginRoute) {
       //   return RoutePaths.main;
       // }
-      
+
       return null;
     },
   );
-  
+
   /// 导航到指定路径
   static void go(String path, {Object? extra}) {
     router.go(path, extra: extra);
   }
-  
+
   /// 推送到指定路径
   static void push(String path, {Object? extra}) {
     router.push(path, extra: extra);
   }
-  
+
   /// 替换当前页面
   static void replace(String path, {Object? extra}) {
     router.replace(path, extra: extra);
   }
-  
+
   /// 返回上一页
   static void pop<T extends Object?>([T? result]) {
     router.pop(result);
   }
-  
+
   /// 返回指定页面
   static void popUntil(String path) {
-    while (router.canPop() && router.routerDelegate.currentConfiguration.uri.path != path) {
+    while (router.canPop() &&
+        router.routerDelegate.currentConfiguration.uri.path != path) {
       router.pop();
     }
   }
-  
+
   /// 获取当前路径
-  static String get currentPath => router.routerDelegate.currentConfiguration.uri.path;
-  
+  static String get currentPath =>
+      router.routerDelegate.currentConfiguration.uri.path;
+
   /// 是否能返回
   static bool get canPop => router.canPop();
 }
 
 /// 路由扩展
-/// 
+///
 /// 注意：go_router 包已提供类似的扩展方法，这里使用不同的方法名避免冲突
 extension AppRouterExtension on BuildContext {
   /// 获取 GoRouter
   GoRouter get appRouter => GoRouter.of(this);
-  
+
   /// 导航到指定路径
-  void navigateTo(String path, {Object? extra}) => appRouter.go(path, extra: extra);
-  
+  void navigateTo(String path, {Object? extra}) =>
+      appRouter.go(path, extra: extra);
+
   /// 推送到指定路径
-  void pushTo(String path, {Object? extra}) => appRouter.push(path, extra: extra);
-  
+  void pushTo(String path, {Object? extra}) =>
+      appRouter.push(path, extra: extra);
+
   /// 替换当前页面
-  void replaceWith(String path, {Object? extra}) => appRouter.replace(path, extra: extra);
-  
+  void replaceWith(String path, {Object? extra}) =>
+      appRouter.replace(path, extra: extra);
+
   /// 返回上一页
   void goBack<T extends Object?>([T? result]) => appRouter.pop(result);
 }

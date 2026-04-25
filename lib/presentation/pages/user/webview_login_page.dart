@@ -473,8 +473,15 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       await Future.delayed(const Duration(seconds: 3));
 
       // 提取并保存 Cookie
-      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(_controller);
+      final cookieSaved = await TraeCookieManager.extractAndSaveCookies(
+        _controller,
+      );
       debugPrint('✅ [WebViewLogin] Trae 主站 Cookie 提取结果: $cookieSaved');
+
+      // 再从系统 CookieManager 拉一次完整 Cookie（含 HttpOnly）
+      final nativeSynced =
+          await TraeCookieManager.syncCookiesFromNativeBridge();
+      debugPrint('✅ [WebViewLogin] NativeBridge Cookie 同步结果: $nativeSynced');
 
       // 验证 Cookie 是否有效
       final hasValidCookies = await TraeCookieManager.hasValidCookies();
@@ -482,7 +489,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
       // 打印所有保存的 Cookie 用于调试
       final allCookies = await TraeCookieManager.getAllCookies();
-      debugPrint('🔍 [WebViewLogin] 已保存的 Trae Cookies: ${allCookies.keys.toList()}');
+      debugPrint(
+        '🔍 [WebViewLogin] 已保存的 Trae Cookies: ${allCookies.keys.toList()}',
+      );
 
       return hasValidCookies;
     } catch (e) {

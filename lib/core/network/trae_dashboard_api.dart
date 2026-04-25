@@ -58,10 +58,13 @@ class TraeDashboardApi {
   /// 需要用户已登录且 Cookie 有效
   Future<TraeUserStats> getUserStats() async {
     try {
+      // 先尝试从系统 CookieManager 补齐完整 Cookie（含 HttpOnly）
+      await TraeCookieManager.syncCookiesFromNativeBridge();
+
       // 检查是否有有效 Cookie
       final hasCookies = await TraeCookieManager.hasValidCookies();
       print('[TraeDashboardApi] hasValidCookies: $hasCookies');
-      
+
       if (!hasCookies) {
         throw TraeApiException(
           message: '未登录或 Cookie 已过期，请先登录 Trae 账号',
@@ -74,9 +77,7 @@ class TraeDashboardApi {
 
       final response = await _dio.post(
         '$_apiPrefix/GetUserStasticData',
-        data: {
-          'LocalTime': DateTime.now().toUtc().toIso8601String(),
-        },
+        data: {'LocalTime': DateTime.now().toUtc().toIso8601String()},
       );
 
       print('[TraeDashboardApi] Response status: ${response.statusCode}');
@@ -103,12 +104,11 @@ class TraeDashboardApi {
       print('[TraeDashboardApi] Result keys: ${result.keys}');
       return TraeUserStats.fromJson(result);
     } on DioException catch (e) {
-      print('[TraeDashboardApi] DioException: ${e.message}, status: ${e.response?.statusCode}');
+      print(
+        '[TraeDashboardApi] DioException: ${e.message}, status: ${e.response?.statusCode}',
+      );
       if (e.response?.statusCode == 401) {
-        throw TraeApiException(
-          message: '登录已过期，请重新登录',
-          code: 'UNAUTHORIZED',
-        );
+        throw TraeApiException(message: '登录已过期，请重新登录', code: 'UNAUTHORIZED');
       }
       throw TraeApiException(
         message: '网络请求失败: ${e.message}',
@@ -117,10 +117,7 @@ class TraeDashboardApi {
     } catch (e, stackTrace) {
       print('[TraeDashboardApi] Error: $e');
       print('[TraeDashboardApi] StackTrace: $stackTrace');
-      throw TraeApiException(
-        message: '获取统计数据失败: $e',
-        code: 'UNKNOWN_ERROR',
-      );
+      throw TraeApiException(message: '获取统计数据失败: $e', code: 'UNKNOWN_ERROR');
     }
   }
 
@@ -129,19 +126,16 @@ class TraeDashboardApi {
   /// 返回用户的基本信息（昵称、头像等）
   Future<TraeUserInfo> getUserInfo() async {
     try {
+      // 先尝试从系统 CookieManager 补齐完整 Cookie（含 HttpOnly）
+      await TraeCookieManager.syncCookiesFromNativeBridge();
+
       // 检查是否有有效 Cookie
       final hasCookies = await TraeCookieManager.hasValidCookies();
       if (!hasCookies) {
-        throw TraeApiException(
-          message: '未登录或 Cookie 已过期',
-          code: 'NO_COOKIES',
-        );
+        throw TraeApiException(message: '未登录或 Cookie 已过期', code: 'NO_COOKIES');
       }
 
-      final response = await _dio.post(
-        '$_apiPrefix/GetUserInfo',
-        data: {},
-      );
+      final response = await _dio.post('$_apiPrefix/GetUserInfo', data: {});
 
       if (response.statusCode != 200) {
         throw TraeApiException(
@@ -153,30 +147,21 @@ class TraeDashboardApi {
       final data = response.data as Map<String, dynamic>;
 
       if (data['Result'] == null) {
-        throw TraeApiException(
-          message: '响应数据格式错误',
-          code: 'INVALID_RESPONSE',
-        );
+        throw TraeApiException(message: '响应数据格式错误', code: 'INVALID_RESPONSE');
       }
 
       final result = data['Result'] as Map<String, dynamic>;
       return TraeUserInfo.fromJson(result);
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
-        throw TraeApiException(
-          message: '登录已过期，请重新登录',
-          code: 'UNAUTHORIZED',
-        );
+        throw TraeApiException(message: '登录已过期，请重新登录', code: 'UNAUTHORIZED');
       }
       throw TraeApiException(
         message: '网络请求失败: ${e.message}',
         code: 'NETWORK_ERROR',
       );
     } catch (e) {
-      throw TraeApiException(
-        message: '获取用户信息失败: $e',
-        code: 'UNKNOWN_ERROR',
-      );
+      throw TraeApiException(message: '获取用户信息失败: $e', code: 'UNKNOWN_ERROR');
     }
   }
 
@@ -206,6 +191,7 @@ class _CookieInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     try {
+      await TraeCookieManager.syncCookiesFromNativeBridge();
       final cookieString = await TraeCookieManager.getCookieString();
       if (cookieString.isNotEmpty) {
         options.headers['Cookie'] = cookieString;
@@ -244,10 +230,7 @@ class TraeApiException implements Exception {
   /// 错误代码
   final String code;
 
-  TraeApiException({
-    required this.message,
-    required this.code,
-  });
+  TraeApiException({required this.message, required this.code});
 
   @override
   String toString() => 'TraeApiException($code): $message';

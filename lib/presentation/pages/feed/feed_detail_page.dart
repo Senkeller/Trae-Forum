@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/constants.dart';
@@ -34,6 +35,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   final TextEditingController _commentController = TextEditingController();
   final FocusNode _commentFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  final ImagePicker _imagePicker = ImagePicker();
 
   FeedContentData? _topicDetail;
   List<TopicContentBlock> _topicBlocks = const [];
@@ -49,6 +51,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   bool _isCommentsLoading = true;
   bool _isLoadingMoreComments = false;
   bool _isSendingComment = false;
+  bool _isUploadingCommentImage = false;
   bool _hasMoreComments = true;
   String? _replyToUsername;
   int? _replyToPostNumber;
@@ -92,11 +95,13 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       if (blockIndex >= 0 && blockIndex < _headingKeys.length) {
         final key = _headingKeys[blockIndex];
         if (key.currentContext != null) {
-          final renderBox = key.currentContext!.findRenderObject() as RenderBox?;
+          final renderBox =
+              key.currentContext!.findRenderObject() as RenderBox?;
           if (renderBox != null) {
             final position = renderBox.localToGlobal(Offset.zero);
             // 获取 CustomScrollView 的滚动位置
-            item.offset = position.dy + _scrollController.offset - 100; // 减去顶部偏移
+            item.offset =
+                position.dy + _scrollController.offset - 100; // 减去顶部偏移
           }
         }
       }
@@ -441,9 +446,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
           context,
         ).showSnackBar(const SnackBar(content: Text('回复发送成功')));
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(response.errorMessage ?? '回复发送失败')),
         );
       }
@@ -463,9 +466,100 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     }
   }
 
+  Future<void> _pickImagesForComment() async {
+    if (_isSendingComment || _isUploadingCommentImage) {
+      return;
+    }
+
+    final hasSession = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (!hasSession) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('请先登录后再上传表情包'),
+          action: SnackBarAction(
+            label: '登录',
+            onPressed: () => context.push(RoutePaths.login),
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final files = await _imagePicker.pickMultiImage();
+      if (files.isEmpty || !mounted) {
+        return;
+      }
+
+      setState(() {
+        _isUploadingCommentImage = true;
+      });
+
+      final repository = ref.read(commentRepositoryProvider);
+      final markdowns = <String>[];
+      String? firstError;
+
+      for (final file in files) {
+        final result = await repository.uploadCommentImage(
+          filePath: file.path,
+          fileName: file.name,
+        );
+        if (result.success && result.markdown != null) {
+          markdowns.add(result.markdown!);
+        } else {
+          firstError ??= result.errorMessage;
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (markdowns.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(firstError ?? '上传表情包失败，请稍后重试。')));
+        return;
+      }
+
+      final oldText = _commentController.text.trimRight();
+      final appendText = markdowns.join('\n');
+      final merged = oldText.isEmpty ? appendText : '$oldText\n$appendText';
+      _commentController.value = TextEditingValue(
+        text: merged,
+        selection: TextSelection.collapsed(offset: merged.length),
+      );
+      _commentFocusNode.requestFocus();
+
+      final failedCount = files.length - markdowns.length;
+      if (failedCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已添加 ${markdowns.length} 张图片，$failedCount 张上传失败。'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('上传表情包失败，请稍后重试。')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingCommentImage = false;
+        });
+      }
+    }
+  }
+
   Future<void> _initializeBookmarkState(FeedContentData topicDetail) async {
-    final topicId =
-        int.tryParse(widget.feedId) ?? int.tryParse(topicDetail.id);
+    final topicId = int.tryParse(widget.feedId) ?? int.tryParse(topicDetail.id);
     if (topicId == null || topicId <= 0) {
       return;
     }
@@ -489,11 +583,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
     ref
         .read(bookmarkProvider.notifier)
-        .syncPost(
-          topicId,
-          bookmarkId: bookmarkId,
-          isBookmarked: isBookmarked,
-        );
+        .syncPost(topicId, bookmarkId: bookmarkId, isBookmarked: isBookmarked);
   }
 
   Future<void> _toggleBookmark() async {
@@ -539,7 +629,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     final currentState = ref.read(postBookmarkStateProvider(topicId));
     final message = currentState?.errorMessage;
     if (message != null && message.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       notifier.clearError(topicId);
       return;
     }
@@ -587,6 +679,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             focusNode: _commentFocusNode,
             isLoggedIn: isLoggedIn,
             isSending: _isSendingComment,
+            isUploadingImage: _isUploadingCommentImage,
             replyingToUsername: _replyToUsername,
             onCancelReply: () {
               setState(() {
@@ -595,6 +688,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
               });
             },
             onSend: _sendComment,
+            onPickImage: _pickImagesForComment,
             onLoginTap: () => context.push(RoutePaths.login),
           ),
         ],
@@ -638,7 +732,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     final bookmarkState = topicId > 0
         ? ref.watch(postBookmarkStateProvider(topicId))
         : null;
-    final isBookmarked = bookmarkState?.isBookmarked ?? detail.action.isFavorite;
+    final isBookmarked =
+        bookmarkState?.isBookmarked ?? detail.action.isFavorite;
     final isBookmarkLoading = bookmarkState?.isLoading ?? false;
 
     return CustomScrollView(
@@ -968,7 +1063,10 @@ class _TopicHeaderSection extends StatelessWidget {
                 icon: const Icon(Icons.open_in_browser_outlined, size: 16),
                 label: const Text('论坛网页'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   minimumSize: const Size(0, 34),
                 ),
               ),
@@ -1067,7 +1165,9 @@ class _ReplyItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final isTopicAuthor = topicAuthorUid != null && topicAuthorUid == reply.uid;
-    final likeState = ref.watch(postLikeStateProvider(int.tryParse(reply.id) ?? 0));
+    final likeState = ref.watch(
+      postLikeStateProvider(int.tryParse(reply.id) ?? 0),
+    );
     final isLiked = likeState?.isLiked ?? reply.isLike;
     final likeNum = likeState?.likeCount ?? reply.likeNum;
 
@@ -1161,16 +1261,23 @@ class _ReplyItem extends ConsumerWidget {
                       child: Row(
                         children: [
                           Icon(
-                            isLiked ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
+                            isLiked
+                                ? Icons.thumb_up_alt
+                                : Icons.thumb_up_alt_outlined,
                             size: 16,
-                            color: isLiked ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                            color: isLiked
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '$likeNum',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: isLiked ? colorScheme.primary : colorScheme.onSurfaceVariant,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isLiked
+                                      ? colorScheme.primary
+                                      : colorScheme.onSurfaceVariant,
+                                ),
                           ),
                         ],
                       ),
@@ -1275,9 +1382,11 @@ class _BottomCommentBar extends StatelessWidget {
   final FocusNode focusNode;
   final bool isLoggedIn;
   final bool isSending;
+  final bool isUploadingImage;
   final String? replyingToUsername;
   final VoidCallback? onCancelReply;
   final Future<void> Function() onSend;
+  final Future<void> Function() onPickImage;
   final VoidCallback onLoginTap;
 
   const _BottomCommentBar({
@@ -1285,9 +1394,11 @@ class _BottomCommentBar extends StatelessWidget {
     required this.focusNode,
     required this.isLoggedIn,
     required this.isSending,
+    required this.isUploadingImage,
     required this.replyingToUsername,
     required this.onCancelReply,
     required this.onSend,
+    required this.onPickImage,
     required this.onLoginTap,
   });
 
@@ -1346,6 +1457,24 @@ class _BottomCommentBar extends StatelessWidget {
 
                 return Row(
                   children: [
+                    IconButton(
+                      onPressed: isSending || isUploadingImage
+                          ? null
+                          : (isLoggedIn ? onPickImage : onLoginTap),
+                      icon: isUploadingImage
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              isLoggedIn
+                                  ? Icons.image_outlined
+                                  : Icons.login_rounded,
+                            ),
+                      tooltip: isLoggedIn ? '从设备选择图片' : '登录后上传图片',
+                      color: colorScheme.primary,
+                    ),
                     Expanded(
                       child: TextField(
                         controller: controller,
@@ -1379,7 +1508,7 @@ class _BottomCommentBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      onPressed: isSending
+                      onPressed: isSending || isUploadingImage
                           ? null
                           : (isLoggedIn
                                 ? (hasText ? onSend : null)

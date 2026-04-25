@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../data/repositories/comment_repository.dart';
 
 /// 快速评论输入面板
@@ -33,11 +34,7 @@ class QuickCommentSheet extends ConsumerStatefulWidget {
   ///
   /// [topicId] 话题ID（必填）
   /// [onSubmit] 提交成功回调（可选）
-  const QuickCommentSheet({
-    super.key,
-    required this.topicId,
-    this.onSubmit,
-  });
+  const QuickCommentSheet({super.key, required this.topicId, this.onSubmit});
 
   /// 显示快速评论面板
   ///
@@ -53,10 +50,8 @@ class QuickCommentSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => QuickCommentSheet(
-        topicId: topicId,
-        onSubmit: onSubmit,
-      ),
+      builder: (context) =>
+          QuickCommentSheet(topicId: topicId, onSubmit: onSubmit),
     );
   }
 
@@ -76,6 +71,11 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
 
   /// 是否有输入内容
   bool _hasContent = false;
+
+  /// 是否正在上传图片
+  bool _isUploadingImage = false;
+
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -157,10 +157,78 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     }
   }
 
-  /// 处理表情按钮点击
-  void _handleEmojiTap() {
-    // TODO: 实现表情选择器
-    // 这里可以展开表情面板或跳转到表情选择页面
+  /// 从设备选择图片并插入到评论中
+  Future<void> _pickImagesFromDevice() async {
+    if (_isLoading || _isUploadingImage) return;
+
+    try {
+      final files = await _imagePicker.pickMultiImage();
+      if (files.isEmpty || !mounted) return;
+
+      setState(() {
+        _isUploadingImage = true;
+      });
+
+      final repository = ref.read(commentRepositoryProvider);
+      final markdowns = <String>[];
+      String? firstError;
+
+      for (final file in files) {
+        final result = await repository.uploadCommentImage(
+          filePath: file.path,
+          fileName: file.name,
+        );
+        if (result.success && result.markdown != null) {
+          markdowns.add(result.markdown!);
+        } else {
+          firstError ??= result.errorMessage;
+        }
+      }
+
+      if (!mounted) return;
+
+      if (markdowns.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(firstError ?? '上传表情包失败，请稍后重试。'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      final oldText = _controller.text.trimRight();
+      final appendText = markdowns.join('\n');
+      final merged = oldText.isEmpty ? appendText : '$oldText\n$appendText';
+      _controller.value = TextEditingValue(
+        text: merged,
+        selection: TextSelection.collapsed(offset: merged.length),
+      );
+      _focusNode.requestFocus();
+
+      final failedCount = files.length - markdowns.length;
+      if (failedCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已添加 ${markdowns.length} 张图片，$failedCount 张上传失败。'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('上传表情包失败，请稍后重试。'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingImage = false;
+        });
+      }
+    }
   }
 
   @override
@@ -175,10 +243,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
       child: Container(
-        constraints: const BoxConstraints(
-          maxHeight: 400,
-          minHeight: 200,
-        ),
+        constraints: const BoxConstraints(maxHeight: 400, minHeight: 200),
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: const BorderRadius.only(
@@ -194,9 +259,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
             // 标题栏
             _buildHeader(context),
             // 输入区域
-            Flexible(
-              child: _buildInputArea(context),
-            ),
+            Flexible(child: _buildInputArea(context)),
             // 底部工具栏
             _buildToolbar(context, bottomPadding),
           ],
@@ -216,7 +279,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
           width: 40,
           height: 4,
           decoration: BoxDecoration(
-            color: colorScheme.outline.withOpacity(0.3),
+            color: colorScheme.outline.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -234,7 +297,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
-            color: colorScheme.outline.withOpacity(0.2),
+            color: colorScheme.outline.withValues(alpha: 0.2),
             width: 0.5,
           ),
         ),
@@ -274,11 +337,9 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Container(
-        constraints: const BoxConstraints(
-          maxHeight: 120,
-        ),
+        constraints: const BoxConstraints(maxHeight: 120),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: const BorderRadius.all(Radius.circular(12)),
         ),
         child: TextField(
@@ -290,17 +351,12 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
           keyboardType: TextInputType.multiline,
           decoration: InputDecoration(
             hintText: '说点什么...',
-            hintStyle: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-            ),
+            hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
             contentPadding: const EdgeInsets.all(12),
             border: InputBorder.none,
             counterText: '',
           ),
-          style: TextStyle(
-            color: colorScheme.onSurface,
-            fontSize: 16,
-          ),
+          style: TextStyle(color: colorScheme.onSurface, fontSize: 16),
         ),
       ),
     );
@@ -320,27 +376,26 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: colorScheme.outline.withOpacity(0.2),
+            color: colorScheme.outline.withValues(alpha: 0.2),
             width: 0.5,
           ),
         ),
       ),
       child: Row(
         children: [
-          // 表情按钮
+          // 设备图片按钮（照片/表情包）
           _buildIconButton(
             context,
-            icon: Icons.emoji_emotions_outlined,
-            onTap: _handleEmojiTap,
+            icon: _isUploadingImage
+                ? Icons.hourglass_top
+                : Icons.image_outlined,
+            onTap: _isUploadingImage ? null : _pickImagesFromDevice,
           ),
           const Spacer(),
           // 字数统计
           Text(
             '${_controller.text.length}/500',
-            style: TextStyle(
-              fontSize: 12,
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
           ),
           const SizedBox(width: 12),
           // 发送按钮
@@ -354,7 +409,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
   Widget _buildIconButton(
     BuildContext context, {
     required IconData icon,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -362,11 +417,16 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(8),
-        child: Icon(
-          icon,
-          size: 24,
-          color: colorScheme.onSurfaceVariant,
-        ),
+        child: icon == Icons.hourglass_top
+            ? SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: colorScheme.primary,
+                ),
+              )
+            : Icon(icon, size: 24, color: colorScheme.onSurfaceVariant),
       ),
     );
   }
@@ -376,11 +436,13 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return GestureDetector(
-      onTap: _hasContent && !_isLoading ? _handleSend : null,
+      onTap: _hasContent && !_isLoading && !_isUploadingImage
+          ? _handleSend
+          : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: _hasContent && !_isLoading
+          color: _hasContent && !_isLoading && !_isUploadingImage
               ? colorScheme.primary
               : colorScheme.surfaceContainerHighest,
           borderRadius: const BorderRadius.all(Radius.circular(20)),

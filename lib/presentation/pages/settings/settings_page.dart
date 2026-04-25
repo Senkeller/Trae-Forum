@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
+import '../../providers/auth_provider.dart';
 
 /// 设置页面
 ///
@@ -22,11 +23,11 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final currentUser = ref.watch(currentUserProvider);
+    final isLoggedIn = currentUser != null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('设置'),
-      ),
+      appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: [
           // 账号与安全
@@ -34,9 +35,11 @@ class SettingsPage extends ConsumerWidget {
           _SettingItem(
             icon: Icons.person_outline,
             title: '账号与安全',
-            subtitle: '修改密码、绑定手机',
+            subtitle: isLoggedIn
+                ? '当前账号：${currentUser.username}'
+                : '未登录，前往登录与管理账号',
             onTap: () {
-              // TODO: 账号与安全
+              context.push(RoutePaths.accountSecurity);
             },
           ),
           _SettingItem(
@@ -189,12 +192,18 @@ class SettingsPage extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: FilledButton.tonal(
-              onPressed: () => _showLogoutDialog(context),
+              onPressed: () => isLoggedIn
+                  ? _showLogoutDialog(context, ref)
+                  : context.push(RoutePaths.login),
               style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.errorContainer,
-                foregroundColor: colorScheme.onErrorContainer,
+                backgroundColor: isLoggedIn
+                    ? colorScheme.errorContainer
+                    : colorScheme.primaryContainer,
+                foregroundColor: isLoggedIn
+                    ? colorScheme.onErrorContainer
+                    : colorScheme.onPrimaryContainer,
               ),
-              child: const Text('退出登录'),
+              child: Text(isLoggedIn ? '退出登录' : '去登录'),
             ),
           ),
           const SizedBox(height: 32),
@@ -282,7 +291,7 @@ class SettingsPage extends ConsumerWidget {
   /// 显示退出登录确认对话框
   ///
   /// [context] 构建上下文
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -294,10 +303,15 @@ class SettingsPage extends ConsumerWidget {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              // TODO: 执行退出登录操作
-              context.go(RoutePaths.login);
+              await ref.read(authNotifierProvider.notifier).logout();
+              if (context.mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('已退出登录')));
+                context.go(RoutePaths.main);
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
@@ -368,10 +382,7 @@ class _SettingItem extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return ListTile(
-      leading: Icon(
-        icon,
-        color: colorScheme.onSurfaceVariant,
-      ),
+      leading: Icon(icon, color: colorScheme.onSurfaceVariant),
       title: Text(title),
       subtitle: subtitle != null
           ? Text(
@@ -381,10 +392,7 @@ class _SettingItem extends StatelessWidget {
               ),
             )
           : null,
-      trailing: Icon(
-        Icons.chevron_right,
-        color: colorScheme.onSurfaceVariant,
-      ),
+      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
       onTap: onTap,
     );
   }
@@ -424,10 +432,7 @@ class _SwitchSettingItem extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return SwitchListTile(
-      secondary: Icon(
-        icon,
-        color: colorScheme.onSurfaceVariant,
-      ),
+      secondary: Icon(icon, color: colorScheme.onSurfaceVariant),
       title: Text(title),
       subtitle: subtitle != null
           ? Text(

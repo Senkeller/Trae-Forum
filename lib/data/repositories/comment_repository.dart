@@ -122,16 +122,28 @@ class CommentRepository {
           // 验证错误
           final errors = data?['errors'];
           if (errors != null && errors is List && errors.isNotEmpty) {
-            return CommentResult.failure(errors.first.toString());
+            return CommentResult.failure(
+              _buildFriendlyCreateErrorMessage(
+                errors.first.toString(),
+                content: content,
+              ),
+            );
           }
-          return CommentResult.failure('请求参数错误');
+          return CommentResult.failure(
+            _buildFriendlyCreateErrorMessage('请求参数错误', content: content),
+          );
         } else if (response.statusCode == 429) {
           // 请求过于频繁
-          return CommentResult.failure('操作过于频繁，请稍后再试');
+          return CommentResult.failure(
+            _buildFriendlyCreateErrorMessage('操作过于频繁，请稍后再试', content: content),
+          );
         } else {
           // 其他错误
           return CommentResult.failure(
-            '创建评论失败: HTTP ${response.statusCode}',
+            _buildFriendlyCreateErrorMessage(
+              '创建评论失败: HTTP ${response.statusCode}',
+              content: content,
+            ),
           );
         }
       } on DioException catch (e) {
@@ -139,27 +151,29 @@ class CommentRepository {
 
         if (retryCount >= maxRetries) {
           // 达到最大重试次数，返回错误
-          return _handleDioError(e);
+          return _handleDioError(e, content: content);
         }
 
         // 判断是否需要重试
         if (_shouldRetry(e)) {
           // 指数退避策略：等待时间随重试次数增加
-          await Future.delayed(
-            Duration(milliseconds: 500 * retryCount),
-          );
+          await Future.delayed(Duration(milliseconds: 500 * retryCount));
           continue;
         } else {
           // 不需要重试的错误，直接返回
-          return _handleDioError(e);
+          return _handleDioError(e, content: content);
         }
       } catch (e) {
         // 其他异常
-        return CommentResult.failure('创建评论时发生错误: $e');
+        return CommentResult.failure(
+          _buildFriendlyCreateErrorMessage('创建评论时发生错误: $e', content: content),
+        );
       }
     }
 
-    return CommentResult.failure('创建评论失败，已达到最大重试次数');
+    return CommentResult.failure(
+      _buildFriendlyCreateErrorMessage('创建评论失败，已达到最大重试次数', content: content),
+    );
   }
 
   int? _extractPostId(dynamic rawData) {
@@ -217,75 +231,242 @@ class CommentRepository {
   ///
   /// [error] Dio 异常
   /// 返回 [CommentResult] 失败结果
-  CommentResult _handleDioError(DioException error) {
+  CommentResult _handleDioError(DioException error, {String? content}) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
       case DioExceptionType.sendTimeout:
       case DioExceptionType.receiveTimeout:
-        return CommentResult.failure('网络连接超时，请检查网络后重试');
+        return CommentResult.failure(
+          _buildFriendlyCreateErrorMessage('网络连接超时，请检查网络后重试', content: content),
+        );
       case DioExceptionType.connectionError:
-        return CommentResult.failure('网络连接失败，请检查网络设置');
+        return CommentResult.failure(
+          _buildFriendlyCreateErrorMessage('网络连接失败，请检查网络设置', content: content),
+        );
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode;
         final data = error.response?.data as Map<String, dynamic>?;
 
         if (statusCode == 401) {
-          return CommentResult.failure('未登录或登录已过期，请重新登录');
+          return CommentResult.failure(
+            _buildFriendlyCreateErrorMessage(
+              '未登录或登录已过期，请重新登录',
+              content: content,
+            ),
+          );
         } else if (statusCode == 403) {
           // 可能是 CSRF Token 问题
-          return CommentResult.failure('权限验证失败，请刷新页面后重试');
+          return CommentResult.failure(
+            _buildFriendlyCreateErrorMessage(
+              '权限验证失败，请刷新页面后重试',
+              content: content,
+            ),
+          );
         } else if (statusCode == 422) {
           final errors = data?['errors'];
           if (errors != null && errors is List && errors.isNotEmpty) {
-            return CommentResult.failure(errors.first.toString());
+            return CommentResult.failure(
+              _buildFriendlyCreateErrorMessage(
+                errors.first.toString(),
+                content: content,
+              ),
+            );
           }
-          return CommentResult.failure('请求参数验证失败');
+          return CommentResult.failure(
+            _buildFriendlyCreateErrorMessage('请求参数验证失败', content: content),
+          );
         } else if (statusCode == 429) {
-          return CommentResult.failure('操作过于频繁，请稍后再试');
+          return CommentResult.failure(
+            _buildFriendlyCreateErrorMessage('操作过于频繁，请稍后再试', content: content),
+          );
         } else {
-          return CommentResult.failure('服务器错误: HTTP $statusCode');
+          return CommentResult.failure(
+            _buildFriendlyCreateErrorMessage(
+              '服务器错误: HTTP $statusCode',
+              content: content,
+            ),
+          );
         }
       case DioExceptionType.cancel:
-        return CommentResult.failure('请求已取消');
+        return CommentResult.failure(
+          _buildFriendlyCreateErrorMessage('请求已取消', content: content),
+        );
       default:
-        return CommentResult.failure('网络请求失败: ${error.message}');
+        return CommentResult.failure(
+          _buildFriendlyCreateErrorMessage(
+            '网络请求失败: ${error.message}',
+            content: content,
+          ),
+        );
+    }
+  }
+
+  /// 上传评论图片（照片/表情包）
+  Future<CommentImageUploadResult> uploadCommentImage({
+    required String filePath,
+    String? fileName,
+  }) async {
+    try {
+      final response = await _discourseApi.uploadImage(
+        filePath: filePath,
+        fileName: fileName,
+      );
+      final statusCode = response.statusCode ?? 0;
+
+      if (statusCode != 200 && statusCode != 201) {
+        return CommentImageUploadResult.failure('图片上传失败，请稍后重试。');
+      }
+
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        return CommentImageUploadResult.failure('图片上传失败，服务器返回格式异常。');
+      }
+
+      final markdown = _extractUploadMarkdown(data, fileName: fileName);
+      if (markdown == null || markdown.isEmpty) {
+        return CommentImageUploadResult.failure('图片上传失败，未获取到可用图片地址。');
+      }
+
+      return CommentImageUploadResult.success(markdown);
+    } on DioException catch (error) {
+      return CommentImageUploadResult.failure(
+        _buildFriendlyUploadErrorMessage(error),
+      );
+    } catch (_) {
+      return CommentImageUploadResult.failure('图片上传失败，请稍后重试。');
+    }
+  }
+
+  String? _extractUploadMarkdown(
+    Map<String, dynamic> payload, {
+    String? fileName,
+  }) {
+    final markdown = payload['markdown'];
+    if (markdown is String && markdown.trim().isNotEmpty) {
+      return markdown.trim();
+    }
+
+    String? toImageUrl(dynamic value) {
+      if (value is! String || value.trim().isEmpty) return null;
+      final text = value.trim();
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        return text;
+      }
+      if (text.startsWith('/')) {
+        return 'https://forum.trae.cn$text';
+      }
+      return text;
+    }
+
+    final candidates = <dynamic>[
+      payload['url'],
+      payload['short_url'],
+      payload['upload_url'],
+      payload['secure_upload_url'],
+    ];
+    final imageUrl = candidates
+        .map(toImageUrl)
+        .firstWhere((item) => item != null, orElse: () => null);
+    if (imageUrl == null) {
+      return null;
+    }
+
+    final alt = (fileName == null || fileName.trim().isEmpty)
+        ? 'image'
+        : fileName.trim();
+    return '![$alt]($imageUrl)';
+  }
+
+  bool _containsImageContent(String? content) {
+    if (content == null || content.trim().isEmpty) {
+      return false;
+    }
+    final text = content.trim();
+    final lower = text.toLowerCase();
+    return lower.contains('upload://') ||
+        RegExp(r'!\[[^\]]*]\([^)]+\)').hasMatch(text) ||
+        RegExp(r'https?://\S+\.(png|jpe?g|gif|webp|bmp)').hasMatch(lower);
+  }
+
+  String _buildFriendlyCreateErrorMessage(
+    String? rawMessage, {
+    String? content,
+  }) {
+    final isImageContent = _containsImageContent(content);
+    final fallback = isImageContent ? '发送表情包失败，请稍后重试。' : '回复发送失败，请稍后重试。';
+    final message = rawMessage?.trim() ?? '';
+    if (message.isEmpty) {
+      return fallback;
+    }
+
+    final lower = message.toLowerCase();
+    if (lower.contains('too short')) {
+      return isImageContent ? '发送表情包失败，内容过短，请补充文字后重试。' : '回复发送失败，内容过短，请补充后重试。';
+    }
+    if (lower.contains('rate limit') || lower.contains('too many requests')) {
+      return isImageContent ? '发送表情包失败，操作过于频繁，请稍后再试。' : '回复发送失败，操作过于频繁，请稍后再试。';
+    }
+    if (lower.contains('not authorized') ||
+        lower.contains('forbidden') ||
+        lower.contains('permission')) {
+      return isImageContent ? '发送表情包失败，当前账号暂无上传权限。' : '回复发送失败，当前操作权限不足。';
+    }
+
+    final hasPunctuation = RegExp(r'[。！？.!?]$').hasMatch(message);
+    final normalized = hasPunctuation ? message : '$message。';
+    if (normalized.startsWith('发送表情包失败') || normalized.startsWith('回复发送失败')) {
+      return normalized;
+    }
+    return isImageContent ? '发送表情包失败：$normalized' : '回复发送失败：$normalized';
+  }
+
+  String _buildFriendlyUploadErrorMessage(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return '上传表情包失败，网络连接超时，请稍后重试。';
+      case DioExceptionType.connectionError:
+        return '上传表情包失败，请检查网络连接后重试。';
+      case DioExceptionType.badResponse:
+        final code = error.response?.statusCode;
+        if (code == 401 || code == 403) {
+          return '上传表情包失败，请先登录并确认上传权限。';
+        }
+        if (code == 413) {
+          return '上传表情包失败，图片体积过大，请压缩后重试。';
+        }
+        if (code == 415 || code == 422) {
+          return '上传表情包失败，请选择受支持的图片格式。';
+        }
+        if (code == 429) {
+          return '上传表情包失败，操作过于频繁，请稍后再试。';
+        }
+        return '上传表情包失败，服务器暂时不可用（HTTP $code）。';
+      default:
+        return '上传表情包失败，请稍后重试。';
     }
   }
 
   /// 点赞评论
   ///
   /// [id] 评论 ID
-  Future<api.LikeReplyResponse> likeComment({
-    required String id,
-  }) async {
-    return await _apiService.postLikeReply(
-      url: '',
-      id: id,
-    );
+  Future<api.LikeReplyResponse> likeComment({required String id}) async {
+    return await _apiService.postLikeReply(url: '', id: id);
   }
 
   /// 取消点赞评论
   ///
   /// [id] 评论 ID
-  Future<api.LikeReplyResponse> unlikeComment({
-    required String id,
-  }) async {
-    return await _apiService.postLikeReply(
-      url: '',
-      id: id,
-    );
+  Future<api.LikeReplyResponse> unlikeComment({required String id}) async {
+    return await _apiService.postLikeReply(url: '', id: id);
   }
 
   /// 删除评论
   ///
   /// [id] 评论 ID
-  Future<api.LikeReplyResponse> deleteComment({
-    required String id,
-  }) async {
-    return await _apiService.postDelete(
-      url: '',
-      id: id,
-    );
+  Future<api.LikeReplyResponse> deleteComment({required String id}) async {
+    return await _apiService.postDelete(url: '', id: id);
   }
 
   // ==================== 草稿相关方法 ====================

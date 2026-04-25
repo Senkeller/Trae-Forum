@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'native_cookie_bridge.dart';
 
 /// Trae Cookie 管理器
 ///
@@ -20,18 +21,27 @@ class TraeCookieManager {
     'passport_auth_status',
   ];
 
+  /// Trae 相关域名（用于从系统 CookieManager 同步完整 Cookie）
+  static const List<String> _traeCookieUrls = [
+    'https://www.trae.cn',
+    'https://api.trae.cn',
+    'https://trae.cn',
+  ];
+
   /// 从 WebView 提取并保存 Trae Cookie
   ///
   /// [controller] WebView 控制器
   /// 返回是否成功保存 Cookie
-  static Future<bool> extractAndSaveCookies(WebViewController controller) async {
+  static Future<bool> extractAndSaveCookies(
+    WebViewController controller,
+  ) async {
     try {
       // 使用 JavaScript 从页面获取 Cookie
       final cookiesString = await controller.runJavaScriptReturningResult(
         'document.cookie',
       );
 
-      if (cookiesString == null || cookiesString.toString().isEmpty) {
+      if (cookiesString.toString().isEmpty) {
         print('⚠️ [TraeCookieManager] 未获取到 Cookie');
         return false;
       }
@@ -48,6 +58,33 @@ class TraeCookieManager {
       print('❌ [TraeCookieManager] 提取 Cookie 失败: $e');
       return false;
     }
+  }
+
+  /// 从原生 CookieBridge 同步完整 Cookie（含 HttpOnly）
+  ///
+  /// 返回是否成功获取到任意 Cookie
+  static Future<bool> syncCookiesFromNativeBridge() async {
+    var hasAny = false;
+
+    for (final url in _traeCookieUrls) {
+      try {
+        final cookieString = await NativeCookieBridge.getCookieString(url);
+        if (cookieString.isEmpty) continue;
+
+        final cookies = _parseCookieString(cookieString);
+        if (cookies.isEmpty) continue;
+
+        await _saveCookies(cookies);
+        hasAny = true;
+        print('✅ [TraeCookieManager] 从 NativeBridge 同步 Cookie 成功: $url');
+      } catch (e) {
+        print(
+          '⚠️ [TraeCookieManager] 从 NativeBridge 同步 Cookie 失败: $url, error=$e',
+        );
+      }
+    }
+
+    return hasAny;
   }
 
   /// 解析 Cookie 字符串
@@ -94,13 +131,20 @@ class TraeCookieManager {
       final key = '$_prefix${entry.key}';
       await prefs.setString(key, entry.value);
       savedCount++;
-      print('💾 [TraeCookieManager] 保存 Cookie: ${entry.key}=${entry.value.substring(0, entry.value.length > 20 ? 20 : entry.value.length)}...');
+      print(
+        '💾 [TraeCookieManager] 保存 Cookie: ${entry.key}=${entry.value.substring(0, entry.value.length > 20 ? 20 : entry.value.length)}...',
+      );
     }
 
     // 记录保存时间
-    await prefs.setInt('${_prefix}saved_at', DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+      '${_prefix}saved_at',
+      DateTime.now().millisecondsSinceEpoch,
+    );
     print('✅ [TraeCookieManager] Cookie 保存完成，共 $savedCount 个 Cookie');
-    print('🔍 [TraeCookieManager] 关键 Cookie 检查: sessionid=${cookies.containsKey('sessionid')}, ttwid=${cookies.containsKey('ttwid')}');
+    print(
+      '🔍 [TraeCookieManager] 关键 Cookie 检查: sessionid=${cookies.containsKey('sessionid')}, ttwid=${cookies.containsKey('ttwid')}',
+    );
   }
 
   /// 获取指定名称的 Cookie 值
@@ -120,8 +164,10 @@ class TraeCookieManager {
     final cookies = <String, String>{};
 
     // 获取所有以 _prefix 开头的 key
-    final keys = prefs.getKeys().where((k) => k.startsWith(_prefix) && k != '${_prefix}saved_at');
-    
+    final keys = prefs.getKeys().where(
+      (k) => k.startsWith(_prefix) && k != '${_prefix}saved_at',
+    );
+
     for (final key in keys) {
       final value = prefs.getString(key);
       if (value != null && value.isNotEmpty) {
@@ -148,20 +194,30 @@ class TraeCookieManager {
   ///
   /// 返回是否存在关键 Cookie
   static Future<bool> hasValidCookies() async {
+    // 先尝试从原生 CookieManager 同步（可补齐 HttpOnly Cookie）
+    await syncCookiesFromNativeBridge();
+
     final cookies = await getAllCookies();
-    // 检查是否有任何认证相关的 Cookie
-    // 包括 sessionid, ttwid, passport_csrf_token 等
-    final hasAuthCookie = cookies.containsKey('sessionid') ||
-        cookies.containsKey('ttwid') ||
-        cookies.containsKey('passport_csrf_token') ||
-        cookies.containsKey('passport_auth_status');
-    
-    print('[TraeCookieManager] hasValidCookies check: sessionid=${cookies.containsKey('sessionid')}, '
-        'ttwid=${cookies.containsKey('ttwid')}, '
-        'passport_csrf_token=${cookies.containsKey('passport_csrf_token')}, '
-        'passport_auth_status=${cookies.containsKey('passport_auth_status')}');
-    
-    return hasAuthCookie;
+    if (cookies.isEmpty) {
+      print('[TraeCookieManager] hasValidCookies check: no cookies');
+      return false;
+    }
+
+    // 兼容不同环境 Cookie 命名差异：只要有核心认证 Cookie 或 Cookie 总数>0 都视为可尝试请求
+    final hasKnownAuthCookie =
+        _essentialCookies.any(cookies.containsKey) ||
+        cookies.containsKey('passport_csrf_token');
+
+    print(
+      '[TraeCookieManager] hasValidCookies check: sessionid=${cookies.containsKey('sessionid')}, '
+      'ttwid=${cookies.containsKey('ttwid')}, '
+      'passport_csrf_token=${cookies.containsKey('passport_csrf_token')}, '
+      'passport_auth_status=${cookies.containsKey('passport_auth_status')}, '
+      'cookie_count=${cookies.length}, '
+      'hasKnownAuthCookie=$hasKnownAuthCookie',
+    );
+
+    return hasKnownAuthCookie || cookies.isNotEmpty;
   }
 
   /// 清除所有 Trae Cookie

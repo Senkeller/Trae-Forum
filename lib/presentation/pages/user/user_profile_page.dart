@@ -14,10 +14,7 @@ class UserProfilePage extends ConsumerStatefulWidget {
   /// 用户名（Discourse username）
   final String? uid;
 
-  const UserProfilePage({
-    super.key,
-    this.uid,
-  });
+  const UserProfilePage({super.key, this.uid});
 
   @override
   ConsumerState<UserProfilePage> createState() => _UserProfilePageState();
@@ -53,7 +50,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
 
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      ref.read(userSpaceNotifierProvider(_activeUsername!).notifier).loadMoreUserFeeds();
+      ref
+          .read(userSpaceNotifierProvider(_activeUsername!).notifier)
+          .loadMoreUserFeeds();
     }
   }
 
@@ -190,7 +189,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
               profile: profile,
               isOwnProfile: isOwnProfile,
               onEditProfile: () {
-                context.push(RoutePaths.userEdit);
+                _openForumProfilePreferences(context);
               },
               onToggleFollow: () async {
                 final messenger = ScaffoldMessenger.of(context);
@@ -200,9 +199,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
                 final text = success
                     ? (profile.isFollowing ? '已取消关注' : '已关注')
                     : '操作失败';
-                messenger.showSnackBar(
-                  SnackBar(content: Text(text)),
-                );
+                messenger.showSnackBar(SnackBar(content: Text(text)));
               },
               onSendMessage: () {
                 _showMessageDialog(context, username);
@@ -211,7 +208,9 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
                 context.push(RoutePaths.fanList.replaceFirst(':uid', username));
               },
               onFollowingTap: () {
-                context.push(RoutePaths.followList.replaceFirst(':uid', username));
+                context.push(
+                  RoutePaths.followList.replaceFirst(':uid', username),
+                );
               },
             ),
           ),
@@ -280,11 +279,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
       ];
     }
 
-    return [
-      SliverToBoxAdapter(
-        child: _SummarySection(summary: summary),
-      ),
-    ];
+    return [SliverToBoxAdapter(child: _SummarySection(summary: summary))];
   }
 
   List<Widget> _buildActivityContent(
@@ -448,14 +443,26 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('私信功能开发中')),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('私信功能开发中')));
             },
             child: const Text('发送'),
           ),
         ],
       ),
+    );
+  }
+
+  /// 打开论坛个人资料设置页面（/my/preferences/profile）
+  void _openForumProfilePreferences(BuildContext context) {
+    final baseUri = Uri.parse(AppConstants.forumUrl);
+    final profileUri = baseUri.replace(
+      pathSegments: ['my', 'preferences', 'profile'],
+    );
+
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(profileUri.toString())}&title=${Uri.encodeComponent('编辑资料')}',
     );
   }
 }
@@ -464,10 +471,7 @@ class _UserTabs extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
 
-  const _UserTabs({
-    required this.selectedIndex,
-    required this.onTabSelected,
-  });
+  const _UserTabs({required this.selectedIndex, required this.onTabSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -528,7 +532,9 @@ class _ActivityCategoryTabs extends StatelessWidget {
             selectedColor: colorScheme.primaryContainer,
             checkmarkColor: colorScheme.primary,
             labelStyle: TextStyle(
-              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           );
@@ -571,7 +577,9 @@ class _TabItem extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -595,9 +603,9 @@ class _SummarySection extends StatelessWidget {
         children: [
           Text(
             '统计信息',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
           Row(
@@ -625,23 +633,27 @@ class _SummarySection extends StatelessWidget {
             const SizedBox(height: 24),
             Text(
               '热门话题',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
-            ...summary.topics.take(5).map((topic) => _SummaryTopicItem(topic: topic)),
+            ...summary.topics
+                .take(5)
+                .map((topic) => _SummaryTopicItem(topic: topic)),
           ],
           if (summary.replies.isNotEmpty) ...[
             const SizedBox(height: 24),
             Text(
               '热门回复',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 12),
-            ...summary.replies.take(5).map((reply) => _SummaryReplyItem(reply: reply)),
+            ...summary.replies
+                .take(5)
+                .map((reply) => _SummaryReplyItem(reply: reply)),
           ],
         ],
       ),
@@ -653,10 +665,7 @@ class _SummaryStatItem extends StatelessWidget {
   final String value;
   final String label;
 
-  const _SummaryStatItem({
-    required this.value,
-    required this.label,
-  });
+  const _SummaryStatItem({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -665,15 +674,12 @@ class _SummaryStatItem extends StatelessWidget {
         Text(
           value,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
         ),
         const SizedBox(height: 4),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+        Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
@@ -690,7 +696,9 @@ class _SummaryTopicItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: () {
-          context.push(RoutePaths.feedDetail.replaceFirst(':id', topic.id.toString()));
+          context.push(
+            RoutePaths.feedDetail.replaceFirst(':id', topic.id.toString()),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -702,9 +710,9 @@ class _SummaryTopicItem extends StatelessWidget {
                 topic.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 8),
               Row(
@@ -763,7 +771,12 @@ class _SummaryReplyItem extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (reply.topicId > 0) {
-            context.push(RoutePaths.feedDetail.replaceFirst(':id', reply.topicId.toString()));
+            context.push(
+              RoutePaths.feedDetail.replaceFirst(
+                ':id',
+                reply.topicId.toString(),
+              ),
+            );
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -777,8 +790,8 @@ class _SummaryReplyItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
               if (reply.excerpt != null) ...[
                 const SizedBox(height: 4),
@@ -833,7 +846,12 @@ class _ActivityCard extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (activity.topicId > 0) {
-            context.push(RoutePaths.feedDetail.replaceFirst(':id', activity.topicId.toString()));
+            context.push(
+              RoutePaths.feedDetail.replaceFirst(
+                ':id',
+                activity.topicId.toString(),
+              ),
+            );
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -858,15 +876,17 @@ class _ActivityCard extends StatelessWidget {
                       children: [
                         Text(
                           activity.username,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         if (activity.createdAt != null)
                           Text(
                             _formatTime(activity.createdAt!),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                           ),
                       ],
@@ -886,7 +906,10 @@ class _ActivityCard extends StatelessWidget {
               if (activity.topicSlug != null) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(4),
@@ -894,8 +917,8 @@ class _ActivityCard extends StatelessWidget {
                   child: Text(
                     '话题 #${activity.topicSlug}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
               ],
@@ -987,10 +1010,7 @@ class _ProfileHeader extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _StatItem(
-                      count: profile.feedCount.toString(),
-                      label: '动态',
-                    ),
+                    _StatItem(count: profile.feedCount.toString(), label: '动态'),
                     _StatItem(
                       count: profile.followCount.toString(),
                       label: '关注',
@@ -1009,16 +1029,16 @@ class _ProfileHeader extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             profile.username,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
             '@${profile.username}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -1046,8 +1066,7 @@ class _ProfileHeader extends StatelessWidget {
                 label: const Text('TRAE 仪表盘'),
               ),
             ),
-          ]
-          else
+          ] else
             Row(
               children: [
                 Expanded(
@@ -1075,11 +1094,7 @@ class _StatItem extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
 
-  const _StatItem({
-    required this.count,
-    required this.label,
-    this.onTap,
-  });
+  const _StatItem({required this.count, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -1092,9 +1107,9 @@ class _StatItem extends StatelessWidget {
           children: [
             Text(
               count,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(label, style: Theme.of(context).textTheme.bodySmall),
@@ -1120,7 +1135,9 @@ class _FeedCard extends StatelessWidget {
         onTap: feed.id.isEmpty
             ? null
             : () {
-                context.push(RoutePaths.feedDetail.replaceFirst(':id', feed.id));
+                context.push(
+                  RoutePaths.feedDetail.replaceFirst(':id', feed.id),
+                );
               },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -1146,7 +1163,9 @@ class _FeedCard extends StatelessWidget {
                     errorBuilder: (context, error, stackTrace) => Container(
                       height: 160,
                       alignment: Alignment.center,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       child: const Icon(Icons.broken_image),
                     ),
                   ),
@@ -1236,10 +1255,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
+import '../../providers/trae_dashboard_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/user/quick_actions_grid.dart';
 import '../../widgets/user/notification_list.dart';
@@ -53,9 +54,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             ),
             // TRAE 仪表盘（仅已登录用户显示）
             if (isAuthenticated)
-              const SliverToBoxAdapter(
-                child: EmbeddedTraeDashboard(),
-              ),
+              const SliverToBoxAdapter(child: EmbeddedTraeDashboard()),
             // 快捷功能入口
             SliverToBoxAdapter(
               child: _buildQuickActionsSection(context, isAuthenticated),
@@ -131,8 +130,14 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     user_model.UserInfo? user,
     bool isAuthenticated,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
+    if (isAuthenticated) {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: _buildAuthenticatedCard(context, user!),
+      );
+    }
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -146,9 +151,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
           ),
         ],
       ),
-      child: isAuthenticated
-          ? _buildAuthenticatedCard(context, user!)
-          : _buildUnauthenticatedCard(context),
+      child: _buildUnauthenticatedCard(context),
     );
   }
 
@@ -157,32 +160,38 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     BuildContext context,
     user_model.UserInfo user,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    // 获取用户统计数据
     final userState = ref.watch(userSpaceNotifierProvider(user.username));
     final profile = userState.profile;
+    final summary = ref.watch(userStatsSummaryProvider).valueOrNull;
+    final registerDays = summary?.registerDays ?? 1;
 
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1D1E22),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 头像和统计
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 头像
               GestureDetector(
                 onTap: () => _showAvatarOptions(context),
                 child: Container(
-                  width: 72,
-                  height: 72,
+                  width: 88,
+                  height: 88,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: colorScheme.outline.withValues(alpha: 0.2),
-                      width: 2,
-                    ),
+                    color: const Color(0xFF43D1AA),
                   ),
                   child: ClipOval(
                     child: user.avatar != null && user.avatar!.isNotEmpty
@@ -190,90 +199,104 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                             user.avatar!,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
-                                _buildDefaultAvatar(colorScheme),
+                                _buildDashboardStyleAvatar(),
                           )
-                        : _buildDefaultAvatar(colorScheme),
+                        : _buildDashboardStyleAvatar(),
                   ),
                 ),
               ),
-              const SizedBox(width: 24),
-              // 统计数据
+              const SizedBox(width: 18),
               Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildStatItem(
-                      '动态',
-                      profile?.feedCount ?? 0,
-                      () => _navigateToUserFeeds(context),
-                      colorScheme,
-                      textTheme,
+                    Text(
+                      'Hello! ${user.username}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    _buildStatItem(
-                      '关注',
-                      profile?.followCount ?? 0,
-                      () => _navigateToFollowing(context),
-                      colorScheme,
-                      textTheme,
+                    const SizedBox(height: 6),
+                    Text(
+                      '这是你使用 TRAE IDE 的第 $registerDays 天',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 16,
+                      ),
                     ),
-                    _buildStatItem(
-                      '粉丝',
-                      profile?.fansCount ?? 0,
-                      () => _navigateToFollowers(context),
-                      colorScheme,
-                      textTheme,
-                    ),
+                    if (user.bio.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        user.bio,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.52),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // 用户名和简介
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.username,
-                  style: textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  label: '动态',
+                  count: profile?.feedCount ?? 0,
+                  onTap: () => _navigateToUserFeeds(context),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '@${user.username}',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatItem(
+                  label: '关注',
+                  count: profile?.followCount ?? 0,
+                  onTap: () => _navigateToFollowing(context),
                 ),
-                if (user.bio.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    user.bio,
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatItem(
+                  label: '粉丝',
+                  count: profile?.fansCount ?? 0,
+                  onTap: () => _navigateToFollowers(context),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          // 编辑资料按钮
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _buildProfileTag('# 满勤码神'),
+              _buildProfileTag('# 智能体饲养员'),
+              _buildProfileTag('# 单模型挚友'),
+              _buildProfileTag('# 编程夜行侠'),
+            ],
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => context.push(RoutePaths.userEdit),
-              icon: const Icon(Icons.edit, size: 18),
+            child: FilledButton.tonalIcon(
+              onPressed: () => _openForumProfilePreferences(context),
+              icon: const Icon(Icons.edit, size: 16),
               label: const Text('编辑资料'),
-              style: OutlinedButton.styleFrom(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF2B2E34),
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
@@ -282,8 +305,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
       ),
     );
   }
-
-
 
   /// 未登录用户卡片
   Widget _buildUnauthenticatedCard(BuildContext context) {
@@ -347,35 +368,43 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   }
 
   /// 构建统计项
-  Widget _buildStatItem(
-    String label,
-    int count,
-    VoidCallback onTap,
-    ColorScheme colorScheme,
-    TextTheme textTheme,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Column(
-          children: [
-            Text(
-              _formatCount(count),
-              style: textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colorScheme.onSurface,
+  Widget _buildStatItem({
+    required String label,
+    required int count,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF262A30),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          ),
+          child: Column(
+            children: [
+              Text(
+                _formatCount(count),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.62),
+                  fontSize: 13,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -515,11 +544,28 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     );
   }
 
-  /// 构建默认头像
-  Widget _buildDefaultAvatar(ColorScheme colorScheme) {
+  Widget _buildDashboardStyleAvatar() {
     return Container(
-      color: colorScheme.surfaceContainerHighest,
-      child: Icon(Icons.person, size: 36, color: colorScheme.onSurfaceVariant),
+      color: const Color(0xFF43D1AA),
+      child: const Icon(Icons.person, size: 42, color: Color(0xFF05614A)),
+    );
+  }
+
+  Widget _buildProfileTag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F4D3F),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFF3BE89A),
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -549,11 +595,23 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     context.push(RoutePaths.notifications);
   }
 
+  /// 打开论坛个人资料设置页面（/my/preferences/profile）
+  void _openForumProfilePreferences(BuildContext context) {
+    final baseUri = Uri.parse(AppConstants.forumUrl);
+    final profileUri = baseUri.replace(
+      pathSegments: ['my', 'preferences', 'profile'],
+    );
+
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(profileUri.toString())}&title=${Uri.encodeComponent('编辑资料')}',
+    );
+  }
+
   /// 显示头像选项
   void _showAvatarOptions(BuildContext context) {
     final currentUser = ref.read(currentUserProvider);
     final avatarUrl = currentUser?.avatar;
-    
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -574,10 +632,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                 title: const Text('查看大图'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  context.push(
-                    RoutePaths.imagePreview,
-                    extra: [avatarUrl],
-                  );
+                  context.push(RoutePaths.imagePreview, extra: [avatarUrl]);
                 },
               ),
           ],
@@ -590,24 +645,28 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   void _navigateToUserFeeds(BuildContext context) {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
-    
+
     // 跳转到用户主页，显示用户的帖子
-    context.push(RoutePaths.userProfile.replaceFirst(':uid', currentUser.username));
+    context.push(
+      RoutePaths.userProfile.replaceFirst(':uid', currentUser.username),
+    );
   }
 
   /// 导航到关注列表
   void _navigateToFollowing(BuildContext context) {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
-    
-    context.push(RoutePaths.followList.replaceFirst(':uid', currentUser.username));
+
+    context.push(
+      RoutePaths.followList.replaceFirst(':uid', currentUser.username),
+    );
   }
 
   /// 导航到粉丝列表
   void _navigateToFollowers(BuildContext context) {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
-    
+
     context.push(RoutePaths.fanList.replaceFirst(':uid', currentUser.username));
   }
 }

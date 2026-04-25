@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../config/constants.dart';
 import '../../../data/models/trae_dashboard.dart';
 import '../../providers/trae_dashboard_provider.dart';
 import 'activity_heatmap.dart';
+import 'hourly_activity_curve.dart';
 import 'language_bar_chart.dart';
 import 'model_preference_list.dart';
-import 'hourly_activity_curve.dart';
 
-/// 嵌入式 TRAE 仪表盘组件
+/// 嵌入式 TRAE 仪表盘（Banner 滑动版）
 ///
-/// 将完整的仪表盘功能直接嵌入到页面中展示
-/// 包含：用户信息、活跃热力图、代码采纳、对话次数、语言分布、模型偏好、编程时段
+/// 在“我的”页面使用可左右滑动的单区域展示 6 个模块，
+/// 避免 6 个模块直接纵向堆叠。
 class EmbeddedTraeDashboard extends ConsumerWidget {
   const EmbeddedTraeDashboard({super.key});
 
@@ -19,7 +22,7 @@ class EmbeddedTraeDashboard extends ConsumerWidget {
     final dashboardAsync = ref.watch(dashboardStateNotifierProvider);
 
     return dashboardAsync.when(
-      data: (data) => _DashboardContent(
+      data: (data) => _DashboardBannerContent(
         data: data,
         onRefresh: () =>
             ref.read(dashboardStateNotifierProvider.notifier).refresh(),
@@ -27,354 +30,379 @@ class EmbeddedTraeDashboard extends ConsumerWidget {
       loading: () => const _LoadingView(),
       error: (error, stackTrace) => _ErrorView(
         error: error.toString(),
-        onRetry: () {
-          ref.invalidate(dashboardStateNotifierProvider);
-        },
+        onRetry: () => ref.invalidate(dashboardStateNotifierProvider),
       ),
     );
   }
 }
 
-/// 仪表盘内容主体
-class _DashboardContent extends StatelessWidget {
+class _DashboardBannerContent extends StatefulWidget {
   final DashboardData data;
   final Future<void> Function() onRefresh;
 
-  const _DashboardContent({required this.data, required this.onRefresh});
+  const _DashboardBannerContent({required this.data, required this.onRefresh});
+
+  @override
+  State<_DashboardBannerContent> createState() =>
+      _DashboardBannerContentState();
+}
+
+class _DashboardBannerContentState extends State<_DashboardBannerContent> {
+  static const double _bannerHeight = 430;
+  static const int _maxLanguageItems = 6;
+  static const int _maxModelItems = 6;
+
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.97);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final stats = data.stats;
-    final userInfo = data.userInfo;
-    final colorScheme = Theme.of(context).colorScheme;
+    final stats = widget.data.stats;
+    final modules = _buildModules(stats);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFF121317),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: RefreshIndicator(
-          onRefresh: onRefresh,
-          color: const Color(0xFF32F08C),
-          backgroundColor: const Color(0xFF252525),
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
               children: [
-                // 头部标题
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.dashboard_outlined,
-                          color: colorScheme.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'TRAE 仪表盘',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      onPressed: () => onRefresh(),
-                      icon: const Icon(
-                        Icons.refresh,
-                        color: Colors.white54,
-                        size: 18,
-                      ),
-                      tooltip: '刷新数据',
-                    ),
-                  ],
+                const Text(
+                  'TRAE 仪表盘',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const SizedBox(height: 16),
-
-                // 用户信息卡片
-                _UserInfoCard(
-                  screenName: userInfo.screenName,
-                  registerDays: stats.registerDays,
-                  avatarUrl: userInfo.avatarUrl,
+                const Spacer(),
+                Text(
+                  '${_currentPage + 1}/${modules.length}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 12,
+                  ),
                 ),
-                const SizedBox(height: 20),
-
-                // 活跃天数热力图
-                _SectionTitle(title: '活跃天数', subtitle: '过去一年的编程活跃度'),
-                const SizedBox(height: 12),
-                ActivityHeatmap(data: stats.sortedDailyActivity),
-                const SizedBox(height: 20),
-
-                // 代码采纳统计
-                _CodeAcceptCard(stats: stats),
-                const SizedBox(height: 20),
-
-                // 对话次数统计
-                _ConversationCard(stats: stats),
-                const SizedBox(height: 20),
-
-                // 编程语言分布
-                _SectionTitle(title: '编程语言分布', subtitle: '近7天代码采纳按语言统计'),
-                const SizedBox(height: 12),
-                LanguageBarChart(data: stats.sortedLanguageStats),
-                const SizedBox(height: 20),
-
-                // AI 模型偏好
-                _SectionTitle(title: 'AI 模型偏好', subtitle: '近7天模型调用统计'),
-                const SizedBox(height: 12),
-                ModelPreferenceList(data: stats.sortedModelStats),
-                const SizedBox(height: 20),
-
-                // 编程时段分布
-                _SectionTitle(title: '编程时段', subtitle: '24小时活跃分布'),
-                const SizedBox(height: 12),
-                HourlyActivityCurve(data: stats.hourlyActivityList),
-                const SizedBox(height: 16),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: widget.onRefresh,
+                  icon: const Icon(
+                    Icons.refresh,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
+                  tooltip: '刷新',
+                  visualDensity: VisualDensity.compact,
+                ),
               ],
             ),
           ),
-        ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: _bannerHeight,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: modules.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                final module = modules[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: _BannerModulePage(
+                    title: module.title,
+                    subtitle: module.subtitle,
+                    child: module.child,
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(modules.length, (index) {
+              final active = _currentPage == index;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: active ? 18 : 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  color: active ? const Color(0xFF32F08C) : Colors.white24,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: () => context.push(RoutePaths.traeDashboard),
+              icon: const Icon(Icons.open_in_full, size: 16),
+              label: const Text('查看完整仪表盘'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF262A30),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  List<_BannerModule> _buildModules(TraeUserStats stats) {
+    final languageTop = stats.sortedLanguageStats
+        .take(_maxLanguageItems)
+        .toList();
+    final modelTop = stats.sortedModelStats.take(_maxModelItems).toList();
+
+    return [
+      _BannerModule(
+        title: '活跃天数',
+        subtitle: '过去一年的编程活跃度',
+        child: ActivityHeatmap(data: stats.sortedDailyActivity),
+      ),
+      _BannerModule(
+        title: '近期生成代码采纳次数',
+        subtitle: null,
+        child: _CodeAcceptContent(
+          stats: stats,
+          languageData: languageTop,
+          omittedLanguageCount:
+              stats.sortedLanguageStats.length - languageTop.length,
+        ),
+      ),
+      _BannerModule(
+        title: '近期对话次数',
+        subtitle: null,
+        child: _ConversationContent(stats: stats),
+      ),
+      _BannerModule(
+        title: '编程语言分布',
+        subtitle: '近7天代码采纳按语言统计',
+        child: _DarkCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LanguageBarChart(data: languageTop),
+              if (stats.sortedLanguageStats.length > languageTop.length) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '仅展示前$_maxLanguageItems项，更多请进入完整仪表盘',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.52),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      _BannerModule(
+        title: 'AI 模型偏好',
+        subtitle: '近7天模型调用统计',
+        child: Column(
+          children: [
+            Expanded(child: ModelPreferenceList(data: modelTop)),
+            if (stats.sortedModelStats.length > modelTop.length)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '仅展示前$_maxModelItems项，更多请进入完整仪表盘',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.52),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+      _BannerModule(
+        title: '编程时段',
+        subtitle: '24小时活跃分布',
+        child: HourlyActivityCurve(data: stats.hourlyActivityList),
+      ),
+    ];
+  }
 }
 
-/// 区块标题
-class _SectionTitle extends StatelessWidget {
+class _BannerModule {
   final String title;
   final String? subtitle;
+  final Widget child;
 
-  const _SectionTitle({required this.title, this.subtitle});
+  const _BannerModule({
+    required this.title,
+    this.subtitle,
+    required this.child,
+  });
+}
+
+class _BannerModulePage extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget child;
+
+  const _BannerModulePage({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.info_outline,
-              color: Colors.white.withValues(alpha: 0.4),
-              size: 14,
-            ),
-          ],
+              Icon(
+                Icons.info_outline,
+                size: 16,
+                color: Colors.white.withValues(alpha: 0.42),
+              ),
+            ],
+          ),
         ),
         if (subtitle != null) ...[
           const SizedBox(height: 4),
-          Text(
-            subtitle!,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 11,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Text(
+              subtitle!,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.48),
+                fontSize: 14,
+              ),
             ),
           ),
         ],
+        const SizedBox(height: 10),
+        Expanded(child: child),
       ],
     );
   }
 }
 
-/// 用户信息卡片
-class _UserInfoCard extends StatelessWidget {
-  final String screenName;
-  final int registerDays;
-  final String? avatarUrl;
+class _DarkCard extends StatelessWidget {
+  final Widget child;
 
-  const _UserInfoCard({
-    required this.screenName,
-    required this.registerDays,
-    this.avatarUrl,
+  const _DarkCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF252525),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _CodeAcceptContent extends StatelessWidget {
+  final TraeUserStats stats;
+  final List<LanguageStat> languageData;
+  final int omittedLanguageCount;
+
+  const _CodeAcceptContent({
+    required this.stats,
+    required this.languageData,
+    required this.omittedLanguageCount,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF252525),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return _DarkCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              // 头像
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF32F08C),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: avatarUrl != null
-                    ? ClipOval(
-                        child: Image.network(
-                          avatarUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 24,
-                            );
-                          },
-                        ),
-                      )
-                    : const Icon(Icons.person, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 12),
-              // 用户名
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hello! $screenName',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '这是你使用 TRAE IDE 的第 $registerDays 天',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 标签
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _buildTag('满勤码神'),
-              _buildTag('智能体饲养员'),
-              _buildTag('单模型挚友'),
-              _buildTag('编程夜行侠'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTag(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFF32F08C).withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '# $text',
-        style: const TextStyle(
-          color: Color(0xFF32F08C),
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-/// 代码采纳统计卡片
-class _CodeAcceptCard extends StatelessWidget {
-  final TraeUserStats stats;
-
-  const _CodeAcceptCard({required this.stats});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF252525),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                '近期生成代码采纳次数',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.info_outline,
-                color: Colors.white.withValues(alpha: 0.4),
-                size: 14,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Text(
             '${stats.codeAcceptCount7d}',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
+              fontSize: 64,
+              height: 1,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 12),
-          // 语言分布条形图
-          if (stats.sortedLanguageStats.isNotEmpty) ...[
-            LanguageBarChart(
-              data: stats.sortedLanguageStats.take(4).toList(),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: LanguageBarChart(data: languageData),
+                  ),
+                ),
+                if (omittedLanguageCount > 0)
+                  Text(
+                    '已省略 $omittedLanguageCount 项',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.52),
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 }
 
-/// 对话次数统计卡片
-class _ConversationCard extends StatelessWidget {
+class _ConversationContent extends StatelessWidget {
   final TraeUserStats stats;
 
-  const _ConversationCard({required this.stats});
+  const _ConversationContent({required this.stats});
 
   @override
   Widget build(BuildContext context) {
@@ -382,34 +410,10 @@ class _ConversationCard extends StatelessWidget {
         ? stats.sortedAgentStats.first
         : null;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF252525),
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return _DarkCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Text(
-                '近期对话次数',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.info_outline,
-                color: Colors.white.withValues(alpha: 0.4),
-                size: 14,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -417,20 +421,21 @@ class _ConversationCard extends StatelessWidget {
                 '${stats.conversationCount7d}',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 64,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               if (topAgent != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
+                    horizontal: 10,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF32F08C).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -438,14 +443,15 @@ class _ConversationCard extends StatelessWidget {
                       const Icon(
                         Icons.smart_toy_outlined,
                         color: Color(0xFF32F08C),
-                        size: 12,
+                        size: 16,
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
                       Text(
                         topAgent.agentName,
                         style: const TextStyle(
                           color: Color(0xFF32F08C),
-                          fontSize: 11,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -453,31 +459,33 @@ class _ConversationCard extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (topAgent != null)
+          if (topAgent != null) ...[
+            const SizedBox(height: 12),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF32F08C).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1F4D3F), Color(0xFF1C453A)],
+                ),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '${topAgent.count}',
                 style: const TextStyle(
                   color: Color(0xFF32F08C),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
+          ],
         ],
       ),
     );
   }
 }
 
-/// 加载视图
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
@@ -485,32 +493,29 @@ class _LoadingView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFF121317),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(
-              color: Color(0xFF32F08C),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
               strokeWidth: 2,
+              color: Color(0xFF32F08C),
             ),
-            SizedBox(height: 16),
-            Text(
-              '加载仪表盘数据...',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
-            ),
-          ],
-        ),
+          ),
+          SizedBox(width: 10),
+          Text('加载仪表盘中...', style: TextStyle(color: Colors.white70)),
+        ],
       ),
     );
   }
 }
 
-/// 错误视图
 class _ErrorView extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
@@ -520,49 +525,43 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAuthError =
-        error.contains('未登录') || error.contains('过期') || error.contains('NO_COOKIES');
+        error.contains('未登录') ||
+        error.contains('过期') ||
+        error.contains('NO_COOKIES') ||
+        error.contains('UNAUTHORIZED');
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A),
+        color: const Color(0xFF121317),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isAuthError ? Icons.lock_outline : Icons.error_outline,
-            color: isAuthError ? Colors.orange : Colors.red,
-            size: 40,
-          ),
-          const SizedBox(height: 12),
           Text(
-            isAuthError ? '需要登录' : '加载失败',
+            isAuthError ? '仪表盘登录凭证失效' : '仪表盘加载失败',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            isAuthError ? '请先登录 Trae 账号以查看仪表盘数据' : error,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 13,
-            ),
+            isAuthError ? '请重新登录 Trae 后再重试。' : '网络或服务异常，请稍后重试。',
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('重试'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF32F08C),
-              foregroundColor: Colors.black,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF262A30),
+              foregroundColor: Colors.white,
+              visualDensity: VisualDensity.compact,
             ),
           ),
         ],
