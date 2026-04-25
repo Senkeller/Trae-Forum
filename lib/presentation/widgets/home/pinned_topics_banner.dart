@@ -4,76 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../data/models/pinned_topic.dart';
 import '../../providers/pinned_topics_provider.dart';
 
-/// 标签汉化映射表
-/// 
-/// 用于将英文标签映射为中文显示
-const Map<String, String> _tagLocalizationMap = {
-  // SOLO 相关
-  'code-with-solo': 'Code-with-SOLO',
-  'solo': 'SOLO赛',
-  'solo-news': 'SOLO赛事速递',
-  'solo-beginner': '新SOLO初体验',
-  
-  // 活动相关
-  'event': '活动',
-  'events': '活动',
-  'activity': '活动',
-  'contest': '比赛',
-  'challenge': '挑战',
-  'hello-ai': 'Hello-AI-科技致善',
-  'more-coding': 'More-than-Coding',
-  
-  // 内容类型
-  'announcement': '公告',
-  'official': '官方',
-  'news': '新闻',
-  'update': '更新',
-  'release': '发布',
-  
-  // 主题分类
-  'help': '求助',
-  'question': '问题',
-  'support': '支持',
-  
-  // 建议反馈
-  'suggestion': '建议',
-  'feedback': '反馈',
-  'feature-request': '功能请求',
-  'bug': 'Bug',
-  
-  // 技巧分享
-  'tips': '技巧',
-  'tutorial': '教程',
-  'guide': '指南',
-  'how-to': '教程',
-  'best-practice': '最佳实践',
-  
-  // 作品展示
-  'showcase': '作品',
-  'project': '项目',
-  'demo': '演示',
-  'portfolio': '作品集',
-  
-  // 交流讨论
-  'discussion': '讨论',
-  'general': '综合',
-  'chat': '闲聊',
-  'intro': '介绍',
-  'introduction': '介绍',
-  'newbie': '新人必看',
-  
-  // 技术相关
-  'tech': '技术',
-  'code': '代码',
-  'development': '开发',
-  'ai': 'AI',
-  'ml': '机器学习',
-  
-  // 其他
-  'pinned': '置顶',
-  'featured': '精选',
-};
-
 /// 置顶话题Banner组件
 ///
 /// 展示TRAE论坛社区置顶贴，横向滚动卡片形式
@@ -129,36 +59,6 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 标题栏
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Icon(
-                Icons.push_pin_outlined,
-                size: 18,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '社区置顶贴',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const Spacer(),
-              if (isLoading)
-                SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-            ],
-          ),
-        ),
         // Banner内容
         SizedBox(
           height: 110,
@@ -273,17 +173,6 @@ class _PinnedTopicCard extends StatelessWidget {
     required this.onTap,
   });
 
-  /// 获取标签的汉化显示文本
-  /// 
-  /// [tag] 原始标签文本（英文）
-  /// @return 汉化后的标签文本，如果没有映射则返回原值
-  String _getLocalizedTag(String tag) {
-    final lowerTag = tag.toLowerCase().trim();
-    // 移除可能的 # 前缀
-    final cleanTag = lowerTag.startsWith('#') ? lowerTag.substring(1) : lowerTag;
-    return _tagLocalizationMap[cleanTag] ?? tag;
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -303,7 +192,7 @@ class _PinnedTopicCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             width: 320,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -347,7 +236,7 @@ class _PinnedTopicCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 // 话题标题
                 Text(
                   topic.title,
@@ -358,11 +247,6 @@ class _PinnedTopicCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                // 标签展示
-                if (topic.tags.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  _buildTags(context, colorScheme),
-                ],
                 const Spacer(),
                 // 底部信息
                 Row(
@@ -433,32 +317,6 @@ class _PinnedTopicCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  /// 构建标签列表
-  Widget _buildTags(BuildContext context, ColorScheme colorScheme) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      children: topic.tags.take(3).map((tag) {
-        final localizedTag = _getLocalizedTag(tag);
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: colorScheme.secondaryContainer.withOpacity(0.6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            '#$localizedTag',
-            style: TextStyle(
-              fontSize: 10,
-              color: colorScheme.onSecondaryContainer,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 

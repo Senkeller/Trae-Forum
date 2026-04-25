@@ -515,11 +515,16 @@ class TopicMagazineRenderer extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final ValueChanged<String>? onLinkTap;
 
+  /// 标题块的 GlobalKey 列表，用于目录导航定位
+  /// 索引对应 blocks 中的位置，非标题块为 null
+  final List<GlobalKey>? headingKeys;
+
   const TopicMagazineRenderer({
     super.key,
     required this.blocks,
     this.padding = const EdgeInsets.only(top: 12),
     this.onLinkTap,
+    this.headingKeys,
   });
 
   @override
