@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../../config/constants.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../data/models/discourse/discourse_notification.dart';
 import '../../providers/notification_provider.dart';
@@ -49,11 +49,8 @@ class _MessagePageState extends ConsumerState<MessagePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(
-      length: _filterTypes.length,
-      vsync: this,
-    );
-    
+    _tabController = TabController(length: _filterTypes.length, vsync: this);
+
     // 初始化时加载通知
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(notificationNotifierProvider.notifier).loadNotifications();
@@ -128,7 +125,10 @@ class _MessagePageState extends ConsumerState<MessagePage>
           }).toList(),
           onTap: (index) {
             final type = _filterTypes[index];
-            ref.read(notificationNotifierProvider.notifier).switchFilterType(type);
+            HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+            ref
+                .read(notificationNotifierProvider.notifier)
+                .switchFilterType(type);
           },
         ),
       ),
@@ -142,18 +142,26 @@ class _MessagePageState extends ConsumerState<MessagePage>
   }
 
   /// 获取指定类型的未读数量
-  int _getUnreadCountForType(NotificationFilterType type, NotificationState state) {
+  int _getUnreadCountForType(
+    NotificationFilterType type,
+    NotificationState state,
+  ) {
     if (type == NotificationFilterType.all) {
       return state.unreadCount;
     }
     // 其他类型的未读数需要从通知列表中筛选计算
     return state.notifications
-        .where((n) => !n.read && _isNotificationMatchType(n.notificationType, type))
+        .where(
+          (n) => !n.read && _isNotificationMatchType(n.notificationType, type),
+        )
         .length;
   }
 
   /// 判断通知是否匹配筛选类型
-  bool _isNotificationMatchType(int notificationType, NotificationFilterType filterType) {
+  bool _isNotificationMatchType(
+    int notificationType,
+    NotificationFilterType filterType,
+  ) {
     switch (filterType) {
       case NotificationFilterType.replies:
         return [
@@ -198,6 +206,7 @@ class _MessagePageState extends ConsumerState<MessagePage>
           FilledButton(
             onPressed: () {
               Navigator.of(context).pop();
+              HapticFeedbackUtil.trigger(ref, HapticScene.message);
               ref.read(notificationNotifierProvider.notifier).markAsRead();
             },
             child: const Text('确定'),
@@ -251,7 +260,8 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
     }
 
     // 加载中状态
-    if (notificationState.isLoading && notificationState.notifications.isEmpty) {
+    if (notificationState.isLoading &&
+        notificationState.notifications.isEmpty) {
       return const Center(child: LoadingWidget());
     }
 
@@ -279,12 +289,17 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
 
     return RefreshIndicator(
       onRefresh: () async {
-        await ref.read(notificationNotifierProvider.notifier).refreshNotifications();
+        await HapticFeedbackUtil.trigger(ref, HapticScene.refresh);
+        await ref
+            .read(notificationNotifierProvider.notifier)
+            .refreshNotifications();
+        await HapticFeedbackUtil.trigger(ref, HapticScene.refreshDone);
       },
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: notificationState.notifications.length +
+        itemCount:
+            notificationState.notifications.length +
             (notificationState.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= notificationState.notifications.length) {
@@ -310,9 +325,13 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
   }
 
   void _handleNotificationTap(DiscourseNotification notification) {
+    HapticFeedbackUtil.trigger(ref, HapticScene.message);
+
     // 标记为已读
     if (!notification.read) {
-      ref.read(notificationNotifierProvider.notifier).markAsRead(notification.id);
+      ref
+          .read(notificationNotifierProvider.notifier)
+          .markAsRead(notification.id);
     }
 
     // 跳转到对应页面
@@ -331,15 +350,22 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
   }
 
   void _handleDeleteNotification(int notificationId) {
-    ref.read(notificationNotifierProvider.notifier).deleteNotification(notificationId);
+    HapticFeedbackUtil.trigger(ref, HapticScene.message);
+    ref
+        .read(notificationNotifierProvider.notifier)
+        .deleteNotification(notificationId);
   }
 
   void _handleMarkAsRead(int notificationId) {
+    HapticFeedbackUtil.trigger(ref, HapticScene.message);
     ref.read(notificationNotifierProvider.notifier).markAsRead(notificationId);
   }
 
   void _handleMarkAsUnread(int notificationId) {
-    ref.read(notificationNotifierProvider.notifier).markAsUnread(notificationId);
+    HapticFeedbackUtil.trigger(ref, HapticScene.message);
+    ref
+        .read(notificationNotifierProvider.notifier)
+        .markAsUnread(notificationId);
   }
 }
 
@@ -376,9 +402,7 @@ class _NotificationItem extends StatelessWidget {
               ? colorScheme.primaryContainer.withOpacity(0.2)
               : null,
           border: Border(
-            bottom: BorderSide(
-              color: colorScheme.outline.withOpacity(0.2),
-            ),
+            bottom: BorderSide(color: colorScheme.outline.withOpacity(0.2)),
           ),
         ),
         child: Row(
@@ -398,7 +422,9 @@ class _NotificationItem extends StatelessWidget {
                         child: Text(
                           _getTitle(),
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isUnread
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -439,10 +465,7 @@ class _NotificationItem extends StatelessWidget {
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
           color: colorScheme.error,
-          child: Icon(
-            Icons.delete,
-            color: colorScheme.onError,
-          ),
+          child: Icon(Icons.delete, color: colorScheme.onError),
         ),
         confirmDismiss: (direction) async {
           return await showDialog(
@@ -476,7 +499,7 @@ class _NotificationItem extends StatelessWidget {
   /// 显示长按菜单
   void _showContextMenu(BuildContext context) {
     final isUnread = !notification.read;
-    
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -503,8 +526,14 @@ class _NotificationItem extends StatelessWidget {
               ),
             if (onDelete != null)
               ListTile(
-                leading: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
-                title: Text('删除', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                leading: Icon(
+                  Icons.delete,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  '删除',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
                 onTap: () {
                   Navigator.of(context).pop();
                   onDelete?.call();
@@ -546,10 +575,7 @@ class _NotificationItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: colorScheme.error,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: colorScheme.surface,
-                  width: 2,
-                ),
+                border: Border.all(color: colorScheme.surface, width: 2),
               ),
             ),
           ),
@@ -574,9 +600,7 @@ class _NotificationItem extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              notification.topicTitle ??
-                  notification.fancyTitle ??
-                  '相关内容',
+              notification.topicTitle ?? notification.fancyTitle ?? '相关内容',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -654,9 +678,8 @@ class _NotificationItem extends StatelessWidget {
     final typeName = DiscourseNotificationType.getTypeName(
       notification.notificationType,
     );
-    final username = notification.actingUserName ??
-        notification.displayUsername ??
-        '用户';
+    final username =
+        notification.actingUserName ?? notification.displayUsername ?? '用户';
     return '$username $typeName了你';
   }
 

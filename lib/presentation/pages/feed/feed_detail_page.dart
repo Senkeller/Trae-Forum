@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../config/constants.dart';
 import '../../../core/utils/date_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../data/models/comment.dart';
 import '../../../data/models/feed.dart';
 import '../../../data/repositories/bookmark_repository.dart';
@@ -587,6 +588,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   }
 
   Future<void> _toggleBookmark() async {
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+
     final topicId = int.tryParse(widget.feedId);
     if (topicId == null || topicId <= 0) {
       ScaffoldMessenger.of(
@@ -664,7 +667,11 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         children: [
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () => _loadInitialData(showLoading: false),
+              onRefresh: () async {
+                await HapticFeedbackUtil.trigger(ref, HapticScene.refresh);
+                await _loadInitialData(showLoading: false);
+                await HapticFeedbackUtil.trigger(ref, HapticScene.refreshDone);
+              },
               child: _buildContent(context),
             ),
           ),
@@ -773,7 +780,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                 const Spacer(),
                 _CommentSortButton(
                   currentSort: _commentSortType,
-                  onSortChanged: (sort) => _reloadComments(listType: sort),
+                  onSortChanged: (sort) async {
+                    await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+                    await _reloadComments(listType: sort);
+                  },
                 ),
               ],
             ),
@@ -878,6 +888,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
               title: const Text('分享话题链接'),
               onTap: () {
                 Navigator.of(context).pop();
+                HapticFeedbackUtil.trigger(ref, HapticScene.tap);
                 final topicUrl = 'https://forum.trae.cn/t/${widget.feedId}';
                 ScaffoldMessenger.of(
                   this.context,
@@ -889,6 +900,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
               title: const Text('在浏览器中打开'),
               onTap: () {
                 Navigator.of(context).pop();
+                HapticFeedbackUtil.trigger(ref, HapticScene.tap);
                 _openExternalLink('https://forum.trae.cn/t/${widget.feedId}');
               },
             ),
@@ -1252,10 +1264,16 @@ class _ReplyItem extends ConsumerWidget {
                 Row(
                   children: [
                     GestureDetector(
-                      onTap: () {
+                      onTap: () async {
                         final postId = int.tryParse(reply.id);
                         if (postId != null && postId > 0) {
-                          ref.read(likeProvider.notifier).toggleLike(postId);
+                          await HapticFeedbackUtil.trigger(
+                            ref,
+                            isLiked ? HapticScene.unlike : HapticScene.like,
+                          );
+                          await ref
+                              .read(likeProvider.notifier)
+                              .toggleLike(postId);
                         }
                       },
                       child: Row(
@@ -1284,7 +1302,10 @@ class _ReplyItem extends ConsumerWidget {
                     ),
                     const SizedBox(width: 14),
                     GestureDetector(
-                      onTap: onReplyTap,
+                      onTap: () async {
+                        await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+                        onReplyTap?.call();
+                      },
                       child: Row(
                         children: [
                           Icon(

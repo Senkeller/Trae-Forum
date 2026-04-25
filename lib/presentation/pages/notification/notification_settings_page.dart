@@ -3,23 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 
 class NotificationSettingsPage extends ConsumerStatefulWidget {
   const NotificationSettingsPage({super.key});
 
   @override
-  ConsumerState<NotificationSettingsPage> createState() => _NotificationSettingsPageState();
+  ConsumerState<NotificationSettingsPage> createState() =>
+      _NotificationSettingsPageState();
 }
 
-class _NotificationSettingsPageState extends ConsumerState<NotificationSettingsPage> {
+class _NotificationSettingsPageState
+    extends ConsumerState<NotificationSettingsPage> {
   bool _notifyReplies = true;
   bool _notifyLikes = true;
   bool _notifyMentions = true;
   bool _notifyFollows = true;
   bool _notifySystem = true;
-  bool _soundEnabled = true;
-  bool _vibrationEnabled = true;
 
   @override
   void initState() {
@@ -32,22 +34,21 @@ class _NotificationSettingsPageState extends ConsumerState<NotificationSettingsP
   }
 
   Future<void> _saveSettings() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('设置已保存')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('设置已保存')));
     context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
+    final appSettings = ref.watch(currentSettingsProvider);
     final isLoggedIn = currentUser != null && currentUser.uid.isNotEmpty;
 
     if (!isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('通知设置'),
-        ),
+        appBar: AppBar(title: const Text('通知设置')),
         body: _StateView(
           icon: Icons.account_circle_outlined,
           title: '未登录',
@@ -62,10 +63,7 @@ class _NotificationSettingsPageState extends ConsumerState<NotificationSettingsP
       appBar: AppBar(
         title: const Text('通知设置'),
         actions: [
-          TextButton(
-            onPressed: _saveSettings,
-            child: const Text('保存'),
-          ),
+          TextButton(onPressed: _saveSettings, child: const Text('保存')),
         ],
       ),
       body: ListView(
@@ -132,22 +130,29 @@ class _NotificationSettingsPageState extends ConsumerState<NotificationSettingsP
             secondary: const Icon(Icons.volume_up_outlined),
             title: const Text('声音'),
             subtitle: const Text('通知时播放声音'),
-            value: _soundEnabled,
+            value: appSettings.soundEnabled,
             onChanged: (value) {
-              setState(() {
-                _soundEnabled = value;
-              });
+              ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setSoundEnabled(value);
             },
           ),
           SwitchListTile(
             secondary: const Icon(Icons.vibration),
             title: const Text('振动'),
             subtitle: const Text('通知时振动提醒'),
-            value: _vibrationEnabled,
-            onChanged: (value) {
-              setState(() {
-                _vibrationEnabled = value;
-              });
+            value: appSettings.vibrationEnabled,
+            onChanged: (value) async {
+              await ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setVibrationEnabled(value);
+              if (value) {
+                await HapticFeedbackUtil.trigger(
+                  ref,
+                  HapticScene.tap,
+                  ignoreSettings: true,
+                );
+              }
             },
           ),
           const Divider(),
@@ -177,9 +182,9 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -225,10 +230,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

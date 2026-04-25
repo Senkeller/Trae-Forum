@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/theme.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/like_provider.dart';
 
 /// 点赞按钮组件
@@ -72,10 +73,7 @@ class _LikeButtonState extends ConsumerState<LikeButton>
     );
 
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
     // 初始化点赞状态
@@ -107,6 +105,12 @@ class _LikeButtonState extends ConsumerState<LikeButton>
     final state = ref.read(postLikeStateProvider(widget.postId));
 
     if (state == null || state.isLoading) return;
+
+    final wasLiked = state.isLiked;
+    await HapticFeedbackUtil.trigger(
+      ref,
+      wasLiked ? HapticScene.unlike : HapticScene.like,
+    );
 
     // 执行动画
     await _animationController.forward();
@@ -160,8 +164,12 @@ class _LikeButtonState extends ConsumerState<LikeButton>
         final likeCount = likeState?.likeCount ?? widget.initialLikeCount;
         final isLoading = likeState?.isLoading ?? false;
 
-        final iconColor = isLiked ? AppTheme.likeColor : colorScheme.onSurfaceVariant;
-        final textColor = isLiked ? AppTheme.likeColor : colorScheme.onSurfaceVariant;
+        final iconColor = isLiked
+            ? AppTheme.likeColor
+            : colorScheme.onSurfaceVariant;
+        final textColor = isLiked
+            ? AppTheme.likeColor
+            : colorScheme.onSurfaceVariant;
 
         return Material(
           color: Colors.transparent,
@@ -190,7 +198,9 @@ class _LikeButtonState extends ConsumerState<LikeButton>
                                 ),
                               )
                             : Icon(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                isLiked
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
                                 size: widget.iconSize,
                                 color: iconColor,
                               ),
@@ -204,7 +214,9 @@ class _LikeButtonState extends ConsumerState<LikeButton>
                       style: textTheme.bodySmall?.copyWith(
                         color: textColor,
                         fontSize: widget.fontSize,
-                        fontWeight: isLiked ? FontWeight.w600 : FontWeight.normal,
+                        fontWeight: isLiked
+                            ? FontWeight.w600
+                            : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -281,7 +293,15 @@ class LikeButtonSimple extends ConsumerWidget {
     final likeCount = likeState?.likeCount ?? initialLikeCount;
 
     return GestureDetector(
-      onTap: () => ref.read(likeProvider.notifier).toggleLike(postId),
+      onTap: () async {
+        final state = ref.read(postLikeStateProvider(postId));
+        final wasLiked = state?.isLiked ?? initialIsLiked;
+        await HapticFeedbackUtil.trigger(
+          ref,
+          wasLiked ? HapticScene.unlike : HapticScene.like,
+        );
+        await ref.read(likeProvider.notifier).toggleLike(postId);
+      },
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -294,7 +314,9 @@ class LikeButtonSimple extends ConsumerWidget {
           Text(
             _formatCount(likeCount),
             style: textTheme.bodySmall?.copyWith(
-              color: isLiked ? AppTheme.likeColor : colorScheme.onSurfaceVariant,
+              color: isLiked
+                  ? AppTheme.likeColor
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
         ],

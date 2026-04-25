@@ -638,6 +638,8 @@ class DiscourseApiService {
     int? category,
     int? replyToPostNumber,
   }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
     final data = <String, dynamic>{'title': title, 'raw': raw};
 
     if (category != null) {
@@ -656,6 +658,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
         },
       ),
     );

@@ -5,6 +5,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/performance_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
@@ -83,10 +84,12 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 
   Future<void> _onRefresh(int tabIndex) async {
+    await HapticFeedbackUtil.trigger(ref, HapticScene.refresh);
     final notifier = ref.read(homeNotifierProvider.notifier);
     notifier.switchTab(tabIndex);
     await notifier.refreshFeeds();
     _refreshControllers[tabIndex].refreshCompleted();
+    await HapticFeedbackUtil.trigger(ref, HapticScene.refreshDone);
   }
 
   Future<void> _onLoading(int tabIndex) async {
@@ -114,6 +117,7 @@ class _HomePageState extends ConsumerState<HomePage>
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined),
                   onPressed: () {
+                    HapticFeedbackUtil.trigger(ref, HapticScene.message);
                     context.push(RoutePaths.notifications);
                   },
                 ),
@@ -122,7 +126,9 @@ class _HomePageState extends ConsumerState<HomePage>
                 controller: _tabController,
                 isScrollable: true,
                 tabs: homeFeedTabs
-                    .map((type) => Tab(text: homeFeedTabLabels[type] ?? type.name))
+                    .map(
+                      (type) => Tab(text: homeFeedTabLabels[type] ?? type.name),
+                    )
                     .toList(),
               ),
             ),
@@ -149,8 +155,11 @@ class _HomePageState extends ConsumerState<HomePage>
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          context.push(RoutePaths.feedCreate);
+        onPressed: () async {
+          final created = await context.push<bool>(RoutePaths.feedCreate);
+          if (created == true && mounted) {
+            await ref.read(homeNotifierProvider.notifier).refreshFeeds();
+          }
         },
         child: const Icon(Icons.add),
       ),
@@ -199,10 +208,7 @@ class _FeedListView extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(errorMessage, style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: onRefresh,
-              child: const Text('重试'),
-            ),
+            ElevatedButton(onPressed: onRefresh, child: const Text('重试')),
           ],
         ),
       );
@@ -232,10 +238,7 @@ class _FeedListView extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 '官方公告将在这里发布',
-                style: TextStyle(
-                  color: Colors.grey[500],
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
             ],
           ],
@@ -500,11 +503,7 @@ class _FeedCard extends ConsumerStatefulWidget {
   final FeedItem feed;
   final VoidCallback onTap;
 
-  const _FeedCard({
-    super.key,
-    required this.feed,
-    required this.onTap,
-  });
+  const _FeedCard({super.key, required this.feed, required this.onTap});
 
   @override
   ConsumerState<_FeedCard> createState() => _FeedCardState();
@@ -531,12 +530,13 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     setState(() {
       _replyCount++;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('评论发送成功')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('评论发送成功')));
   }
 
   void _openQuickCommentSheet(BuildContext context) {
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
     QuickCommentSheet.show(
       context: context,
       topicId: widget.feed.topicId,
@@ -587,7 +587,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                if (widget.feed.title.isNotEmpty && widget.feed.content.isNotEmpty) const SizedBox(height: 8),
+                if (widget.feed.title.isNotEmpty &&
+                    widget.feed.content.isNotEmpty)
+                  const SizedBox(height: 8),
                 if (widget.feed.content.isNotEmpty)
                   Text(
                     widget.feed.content,
@@ -602,7 +604,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
                   const SizedBox(height: 12),
                   _buildImagePreview(context),
                 ],
-                if (widget.feed.tags.isNotEmpty || widget.feed.category.isNotEmpty || widget.feed.isPinned) ...[
+                if (widget.feed.tags.isNotEmpty ||
+                    widget.feed.category.isNotEmpty ||
+                    widget.feed.isPinned) ...[
                   const SizedBox(height: 12),
                   _buildMetaTags(context),
                 ],
@@ -631,12 +635,16 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   }
 
   Widget _buildUserInfo(BuildContext context, ColorScheme colorScheme) {
-    final initial = widget.feed.username.isNotEmpty ? widget.feed.username[0].toUpperCase() : '?';
+    final initial = widget.feed.username.isNotEmpty
+        ? widget.feed.username[0].toUpperCase()
+        : '?';
 
     return InkWell(
       onTap: () {
         if (widget.feed.username.isNotEmpty) {
-          context.push(RoutePaths.userProfile.replaceFirst(':uid', widget.feed.username));
+          context.push(
+            RoutePaths.userProfile.replaceFirst(':uid', widget.feed.username),
+          );
         }
       },
       borderRadius: BorderRadius.circular(20),
@@ -647,7 +655,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
             CircleAvatar(
               radius: 20,
               backgroundColor: colorScheme.primaryContainer,
-              backgroundImage: widget.feed.avatarUrl.isNotEmpty ? NetworkImage(widget.feed.avatarUrl) : null,
+              backgroundImage: widget.feed.avatarUrl.isNotEmpty
+                  ? NetworkImage(widget.feed.avatarUrl)
+                  : null,
               onBackgroundImageError: (error, stackTrace) {},
               child: widget.feed.avatarUrl.isEmpty
                   ? Text(
@@ -664,14 +674,14 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
                   Text(
                     widget.feed.username,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     _formatTime(widget.feed.createTime),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -710,10 +720,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
 
   /// 打开图片预览
   void _openImagePreview(BuildContext context) {
-    context.push(
-      RoutePaths.imagePreview,
-      extra: widget.feed.images,
-    );
+    context.push(RoutePaths.imagePreview, extra: widget.feed.images);
   }
 
   /// 获取标签的汉化显示文本
@@ -723,7 +730,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   String _getLocalizedTag(String tag) {
     final lowerTag = tag.toLowerCase().trim();
     // 移除可能的 # 前缀
-    final cleanTag = lowerTag.startsWith('#') ? lowerTag.substring(1) : lowerTag;
+    final cleanTag = lowerTag.startsWith('#')
+        ? lowerTag.substring(1)
+        : lowerTag;
     return _tagLocalizationMap[cleanTag] ?? tag;
   }
 
@@ -744,16 +753,28 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     // 分类标签（使用汉化映射）
     if (widget.feed.category.isNotEmpty) {
       final localizedCategory = _getLocalizedTag(widget.feed.category);
-      items.add(_metaChip(context, '#$localizedCategory', onTap: () {
-        // 分类标签点击可以跳转到对应分类
-        // 这里可以根据需要实现分类跳转逻辑
-      }));
+      items.add(
+        _metaChip(
+          context,
+          '#$localizedCategory',
+          onTap: () {
+            // 分类标签点击可以跳转到对应分类
+            // 这里可以根据需要实现分类跳转逻辑
+          },
+        ),
+      );
     }
 
     // 普通标签（使用汉化映射，可点击）
     for (final tag in widget.feed.tags.take(3)) {
       final localizedTag = _getLocalizedTag(tag);
-      items.add(_metaChip(context, '#$localizedTag', onTap: () => _onTagTap(context, tag)));
+      items.add(
+        _metaChip(
+          context,
+          '#$localizedTag',
+          onTap: () => _onTagTap(context, tag),
+        ),
+      );
     }
 
     // 置顶标签（汉化）
@@ -761,11 +782,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
       items.add(_metaChip(context, '置顶'));
     }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 6,
-      children: items,
-    );
+    return Wrap(spacing: 8, runSpacing: 6, children: items);
   }
 
   Widget _metaChip(BuildContext context, String label, {VoidCallback? onTap}) {
@@ -778,8 +795,8 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+        ),
       ),
     );
 
@@ -794,11 +811,17 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     return chip;
   }
 
-  Widget _buildActions(BuildContext context, ColorScheme colorScheme, int replyCount) {
-    final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: colorScheme.onSurfaceVariant,
-        );
-    final bookmarkState = ref.watch(postBookmarkStateProvider(widget.feed.topicId));
+  Widget _buildActions(
+    BuildContext context,
+    ColorScheme colorScheme,
+    int replyCount,
+  ) {
+    final textStyle = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant);
+    final bookmarkState = ref.watch(
+      postBookmarkStateProvider(widget.feed.topicId),
+    );
 
     return Row(
       children: [
@@ -810,11 +833,19 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
           fontSize: 12,
         ),
         const SizedBox(width: 16),
-        Icon(Icons.comment_outlined, size: 20, color: colorScheme.onSurfaceVariant),
+        Icon(
+          Icons.comment_outlined,
+          size: 20,
+          color: colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
         Text('$replyCount', style: textStyle),
         const SizedBox(width: 16),
-        Icon(Icons.visibility_outlined, size: 20, color: colorScheme.onSurfaceVariant),
+        Icon(
+          Icons.visibility_outlined,
+          size: 20,
+          color: colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
         Text('${widget.feed.viewCount}', style: textStyle),
         const Spacer(),
@@ -828,7 +859,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   }
 
   /// 构建收藏按钮
-  Widget _buildBookmarkButton(ColorScheme colorScheme, PostBookmarkState? bookmarkState) {
+  Widget _buildBookmarkButton(
+    ColorScheme colorScheme,
+    PostBookmarkState? bookmarkState,
+  ) {
     final isBookmarked = bookmarkState?.isBookmarked ?? false;
     final isLoading = bookmarkState?.isLoading ?? false;
 
@@ -836,7 +870,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
       onTap: isLoading
           ? null
           : () {
-              ref.read(bookmarkProvider.notifier).toggleBookmark(widget.feed.topicId);
+              HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+              ref
+                  .read(bookmarkProvider.notifier)
+                  .toggleBookmark(widget.feed.topicId);
             },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
@@ -853,7 +890,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
             : Icon(
                 isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
                 size: 20,
-                color: isBookmarked ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                color: isBookmarked
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
               ),
       ),
     );
@@ -862,7 +901,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   /// 构建分享按钮
   Widget _buildShareButton(ColorScheme colorScheme) {
     return InkWell(
-      onTap: () => _showShareOptions(context),
+      onTap: () {
+        HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+        _showShareOptions(context);
+      },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.all(4),
@@ -878,7 +920,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   /// 显示分享选项
   void _showShareOptions(BuildContext context) {
     final feedUrl = 'https://forum.trae.cn/t/${widget.feed.topicId}';
-    
+
     showModalBottomSheet(
       context: context,
       builder: (context) => SafeArea(
@@ -985,7 +1027,9 @@ class _HomeAppBarTitle extends ConsumerWidget {
                 color: colorScheme.primaryContainer,
               ),
               child: ClipOval(
-                child: currentUser?.avatar != null && currentUser!.avatar!.isNotEmpty
+                child:
+                    currentUser?.avatar != null &&
+                        currentUser!.avatar!.isNotEmpty
                     ? Image.network(
                         currentUser.avatar!,
                         width: 36,

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 
 /// 设置页面
 ///
@@ -24,6 +26,7 @@ class SettingsPage extends ConsumerWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final currentUser = ref.watch(currentUserProvider);
+    final appSettings = ref.watch(currentSettingsProvider);
     final isLoggedIn = currentUser != null;
 
     return Scaffold(
@@ -75,27 +78,40 @@ class SettingsPage extends ConsumerWidget {
             icon: Icons.notifications_outlined,
             title: '接收通知',
             subtitle: '开启后接收推送通知',
-            value: true,
+            value: appSettings.pushNotification,
             onChanged: (value) {
-              // TODO: 切换通知设置
+              ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setPushNotification(value);
             },
           ),
           _SwitchSettingItem(
             icon: Icons.volume_up_outlined,
             title: '声音',
             subtitle: '开启通知声音',
-            value: true,
+            value: appSettings.soundEnabled,
             onChanged: (value) {
-              // TODO: 切换声音设置
+              ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setSoundEnabled(value);
             },
           ),
           _SwitchSettingItem(
             icon: Icons.vibration_outlined,
             title: '振动',
             subtitle: '开启通知振动',
-            value: false,
-            onChanged: (value) {
-              // TODO: 切换振动设置
+            value: appSettings.vibrationEnabled,
+            onChanged: (value) async {
+              await ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setVibrationEnabled(value);
+              if (value) {
+                await HapticFeedbackUtil.trigger(
+                  ref,
+                  HapticScene.tap,
+                  ignoreSettings: true,
+                );
+              }
             },
           ),
 

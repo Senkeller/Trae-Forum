@@ -5,6 +5,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:intl/intl.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../data/models/discourse/discourse_notification.dart';
 import '../../providers/auth_provider.dart';
@@ -48,21 +49,32 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Future<void> _onRefresh() async {
-    await ref.read(notificationNotifierProvider.notifier).refreshNotifications();
+    await HapticFeedbackUtil.trigger(ref, HapticScene.refresh);
+    await ref
+        .read(notificationNotifierProvider.notifier)
+        .refreshNotifications();
     _refreshController.refreshCompleted();
+    await HapticFeedbackUtil.trigger(ref, HapticScene.refreshDone);
   }
 
   Future<void> _markAsRead(int notificationId) async {
-    await ref.read(notificationNotifierProvider.notifier).markAsRead(notificationId);
+    await HapticFeedbackUtil.trigger(ref, HapticScene.message);
+    await ref
+        .read(notificationNotifierProvider.notifier)
+        .markAsRead(notificationId);
   }
 
   Future<void> _markAllAsRead() async {
+    await HapticFeedbackUtil.trigger(ref, HapticScene.message);
     await ref.read(notificationNotifierProvider.notifier).markAsRead();
   }
 
   void _handleNotificationTap(DiscourseNotification notification) {
+    HapticFeedbackUtil.trigger(ref, HapticScene.message);
     if (!notification.read) {
-      ref.read(notificationNotifierProvider.notifier).markAsRead(notification.id);
+      ref
+          .read(notificationNotifierProvider.notifier)
+          .markAsRead(notification.id);
     }
 
     if (notification.topicId != null) {
@@ -83,9 +95,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
     if (!isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('通知'),
-        ),
+        appBar: AppBar(title: const Text('通知')),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -110,7 +120,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.done_all),
-            onPressed: notificationState.notifications.isNotEmpty ? _markAllAsRead : null,
+            onPressed: notificationState.notifications.isNotEmpty
+                ? _markAllAsRead
+                : null,
             tooltip: '全部标为已读',
           ),
         ],
@@ -120,7 +132,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   Widget _buildBody(NotificationState notificationState) {
-    if (notificationState.isLoading && notificationState.notifications.isEmpty) {
+    if (notificationState.isLoading &&
+        notificationState.notifications.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -136,7 +149,9 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () {
-                ref.read(notificationNotifierProvider.notifier).loadNotifications();
+                ref
+                    .read(notificationNotifierProvider.notifier)
+                    .loadNotifications();
               },
               child: const Text('重试'),
             ),
@@ -165,14 +180,17 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       onRefresh: _onRefresh,
       onLoading: notificationState.hasMore
           ? () {
-              ref.read(notificationNotifierProvider.notifier).loadMoreNotifications();
+              ref
+                  .read(notificationNotifierProvider.notifier)
+                  .loadMoreNotifications();
               _refreshController.loadComplete();
             }
           : null,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: notificationState.notifications.length +
+        itemCount:
+            notificationState.notifications.length +
             (notificationState.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= notificationState.notifications.length) {
@@ -225,7 +243,9 @@ class _NotificationCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: isUnread ? colorScheme.primaryContainer.withValues(alpha: 0.3) : null,
+      color: isUnread
+          ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -292,7 +312,9 @@ class _NotificationCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          color: colorScheme.surfaceContainerHighest.withValues(
+                            alpha: 0.5,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -404,14 +426,16 @@ class _NotificationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         typeName,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }
@@ -420,9 +444,8 @@ class _NotificationCard extends StatelessWidget {
     final typeName = DiscourseNotificationType.getTypeName(
       notification.notificationType,
     );
-    final username = notification.actingUserName ??
-        notification.displayUsername ??
-        '用户';
+    final username =
+        notification.actingUserName ?? notification.displayUsername ?? '用户';
 
     switch (notification.notificationType) {
       case DiscourseNotificationType.mentioned:
