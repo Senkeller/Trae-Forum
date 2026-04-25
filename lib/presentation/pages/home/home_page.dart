@@ -416,61 +416,80 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     final colorScheme = theme.colorScheme;
     final currentUser = ref.watch(currentUserProvider);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: InkWell(
-        onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildUserInfo(context, colorScheme),
-              const SizedBox(height: 10),
-              if (widget.feed.title.isNotEmpty)
-                Text(
-                  widget.feed.title,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.shadow.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildUserInfo(context, colorScheme),
+                const SizedBox(height: 12),
+                if (widget.feed.title.isNotEmpty)
+                  Text(
+                    widget.feed.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              if (widget.feed.title.isNotEmpty && widget.feed.content.isNotEmpty) const SizedBox(height: 8),
-              if (widget.feed.content.isNotEmpty)
-                Text(
-                  widget.feed.content,
-                  style: theme.textTheme.bodyMedium,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              if (widget.feed.images.isNotEmpty) ...[
+                if (widget.feed.title.isNotEmpty && widget.feed.content.isNotEmpty) const SizedBox(height: 8),
+                if (widget.feed.content.isNotEmpty)
+                  Text(
+                    widget.feed.content,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      height: 1.5,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                if (widget.feed.images.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildImagePreview(context),
+                ],
+                if (widget.feed.tags.isNotEmpty || widget.feed.category.isNotEmpty || widget.feed.isPinned) ...[
+                  const SizedBox(height: 12),
+                  _buildMetaTags(context),
+                ],
+                // 精选评论
+                if (widget.feed.topComment != null) ...[
+                  const SizedBox(height: 12),
+                  FeaturedComment(
+                    comment: widget.feed.topComment,
+                    onTap: widget.onTap,
+                  ),
+                ],
                 const SizedBox(height: 12),
-                _buildImagePreview(context),
-              ],
-              if (widget.feed.tags.isNotEmpty || widget.feed.category.isNotEmpty || widget.feed.isPinned) ...[
+                _buildActions(context, colorScheme, _replyCount),
+                // 快速输入栏
                 const SizedBox(height: 12),
-                _buildMetaTags(context),
-              ],
-              // 精选评论
-              if (widget.feed.topComment != null) ...[
-                const SizedBox(height: 12),
-                FeaturedComment(
-                  comment: widget.feed.topComment,
-                  onTap: widget.onTap,
+                QuickCommentBar(
+                  currentUserAvatar: currentUser?.avatar,
+                  onTap: () => _openQuickCommentSheet(context),
                 ),
               ],
-              const SizedBox(height: 12),
-              _buildActions(context, colorScheme, _replyCount),
-              // 快速输入栏
-              const SizedBox(height: 12),
-              QuickCommentBar(
-                currentUserAvatar: currentUser?.avatar,
-                onTap: () => _openQuickCommentSheet(context),
-              ),
-            ],
+            ),
           ),
         ),
       ),

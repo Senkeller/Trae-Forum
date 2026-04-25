@@ -176,124 +176,148 @@ class _PinnedTopicCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 6),
-      child: Card(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: colorScheme.outline.withOpacity(0.1),
-          ),
-        ),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      child: Material(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 2,
+        shadowColor: colorScheme.shadow.withOpacity(0.1),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            width: 320,
-            padding: const EdgeInsets.all(10),
+            width: 300,
+            height: 140,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colorScheme.primaryContainer.withOpacity(0.3),
+                  colorScheme.surface,
+                ],
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 置顶标签和标题在同一行
+                // 顶部：置顶标签 + 分类
                 Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 置顶标识
                     Container(
-                      margin: const EdgeInsets.only(right: 8, top: 2),
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(4),
+                        color: colorScheme.primary,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        '置顶',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onPrimaryContainer,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.push_pin,
+                            size: 12,
+                            color: colorScheme.onPrimary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '置顶',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: colorScheme.onPrimary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    // 话题标题
-                    Expanded(
-                      child: Text(
-                        topic.title,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              height: 1.3,
-                            ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    const Spacer(),
+                    // 互动数据
+                    _buildStatChip(
+                      icon: Icons.visibility_outlined,
+                      value: topic.views,
+                      colorScheme: colorScheme,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildStatChip(
+                      icon: Icons.comment_outlined,
+                      value: topic.replyCount,
+                      colorScheme: colorScheme,
                     ),
                   ],
                 ),
-                const Spacer(),
-                // 底部信息
+                const SizedBox(height: 12),
+                // 话题标题
+                Flexible(
+                  child: Text(
+                    topic.title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                          color: colorScheme.onSurface,
+                        ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // 底部：作者信息
                 Row(
                   children: [
                     // 作者头像
-                    CircleAvatar(
-                      radius: 10,
-                      backgroundColor: colorScheme.primaryContainer,
-                      backgroundImage: topic.avatarUrl.isNotEmpty
-                          ? NetworkImage(topic.avatarUrl)
-                          : null,
-                      onBackgroundImageError: (_, __) {},
-                      child: topic.avatarUrl.isEmpty
-                          ? Text(
-                              topic.username.isNotEmpty
-                                  ? topic.username[0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: colorScheme.onPrimaryContainer,
-                              ),
-                            )
-                          : null,
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: colorScheme.primary.withOpacity(0.3),
+                          width: 2,
+                        ),
+                      ),
+                      child: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: colorScheme.primaryContainer,
+                        backgroundImage: topic.avatarUrl.isNotEmpty
+                            ? NetworkImage(topic.avatarUrl)
+                            : null,
+                        onBackgroundImageError: (_, __) {},
+                        child: topic.avatarUrl.isEmpty
+                            ? Text(
+                                topic.username.isNotEmpty
+                                    ? topic.username[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onPrimaryContainer,
+                                ),
+                              )
+                            : null,
+                      ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 10),
                     // 作者名
                     Expanded(
                       child: Text(
                         topic.username,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
                               color: colorScheme.onSurfaceVariant,
                             ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // 浏览数
+                    // 箭头指示
                     Icon(
-                      Icons.visibility_outlined,
+                      Icons.arrow_forward_ios,
                       size: 14,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${topic.views}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                    ),
-                    const SizedBox(width: 12),
-                    // 回复数
-                    Icon(
-                      Icons.comment_outlined,
-                      size: 14,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${topic.replyCount}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                      color: colorScheme.primary,
                     ),
                   ],
                 ),
@@ -305,4 +329,45 @@ class _PinnedTopicCard extends StatelessWidget {
     );
   }
 
+  Widget _buildStatChip({
+    required IconData icon,
+    required int value,
+    required ColorScheme colorScheme,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 12,
+            color: colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 2),
+          Text(
+            _formatNumber(value),
+            style: TextStyle(
+              fontSize: 11,
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatNumber(int num) {
+    if (num >= 10000) {
+      return '${(num / 10000).toStringAsFixed(1)}w';
+    } else if (num >= 1000) {
+      return '${(num / 1000).toStringAsFixed(1)}k';
+    }
+    return num.toString();
+  }
 }

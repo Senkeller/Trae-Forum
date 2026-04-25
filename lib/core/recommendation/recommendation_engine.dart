@@ -107,11 +107,14 @@ class RecommendationEngine {
     final allItems = merged.values.toList();
 
     // 分离置顶内容和非置顶内容
+    // 置顶内容：isPinned=true 且 非官方分类
     final pinnedItems = allItems
         .where((s) => s.item.isPinned && s.item.categoryId != _getOfficialCategoryId())
         .toList();
+    // 普通内容：非置顶内容（无论是否官方分类）
+    // 注意：官方分类的内容已经在数据源层面被过滤，这里只需要过滤掉置顶内容
     final normalItems = allItems
-        .where((s) => !s.item.isPinned || s.item.categoryId == _getOfficialCategoryId())
+        .where((s) => !s.item.isPinned)
         .toList();
 
     // 置顶内容按分数排序（保持置顶内容在前）
