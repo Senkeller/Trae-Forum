@@ -141,4 +141,150 @@ def create_round_icon(input_path: str, size: int, gradient_colors: list) -> Imag
     # 创建圆形遮罩
     mask = Image.new('L', (size, size), 0)
     draw = ImageDraw.Draw(mask)
-    draw.ellipse((
+    draw.ellipse((0, 0, size, size), fill=255)
+
+    # 应用圆形遮罩
+    icon.putalpha(mask)
+
+    return icon
+
+
+def generate_ios_icons(input_path: str, output_dir: str, gradient_colors: list):
+    """生成 iOS 图标"""
+    # iOS 图标尺寸配置
+    ios_configs = [
+        ('Icon-App-20x20@1x', 20),
+        ('Icon-App-20x20@2x', 40),
+        ('Icon-App-20x20@3x', 60),
+        ('Icon-App-29x29@1x', 29),
+        ('Icon-App-29x29@2x', 58),
+        ('Icon-App-29x29@3x', 87),
+        ('Icon-App-40x40@1x', 40),
+        ('Icon-App-40x40@2x', 80),
+        ('Icon-App-40x40@3x', 120),
+        ('Icon-App-60x60@2x', 120),
+        ('Icon-App-60x60@3x', 180),
+        ('Icon-App-76x76@1x', 76),
+        ('Icon-App-76x76@2x', 152),
+        ('Icon-App-83.5x83.5@2x', 167),
+        ('Icon-App-1024x1024@1x', 1024),
+    ]
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    for name, size in ios_configs:
+        # iOS 图标需要圆角
+        icon = create_app_icon(input_path, size, gradient_colors, padding=size//8)
+
+        # 应用 iOS 圆角（1024 的 App Store 图标不需要圆角）
+        if size < 1024:
+            icon = apply_ios_rounded_corners(icon, size)
+
+        icon.save(os.path.join(output_dir, f'{name}.png'), 'PNG')
+        print(f"✓ iOS {name}: {size}x{size}")
+
+
+def apply_ios_rounded_corners(img: Image.Image, size: int) -> Image.Image:
+    """应用 iOS 圆角效果"""
+    # iOS 圆角半径约为尺寸的 20%
+    radius = int(size * 0.2)
+
+    # 创建圆角遮罩
+    mask = Image.new('L', (size, size), 0)
+    draw = ImageDraw.Draw(mask)
+
+    # 绘制圆角矩形
+    draw.rounded_rectangle((0, 0, size, size), radius=radius, fill=255)
+
+    # 应用遮罩
+    result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    result.paste(img, (0, 0), mask)
+
+    return result
+
+
+def update_ios_contents_json(output_dir: str):
+    """更新 iOS Contents.json 文件"""
+    contents = {
+        "images": [
+            {"size": "20x20", "idiom": "iphone", "filename": "Icon-App-20x20@2x.png", "scale": "2x"},
+            {"size": "20x20", "idiom": "iphone", "filename": "Icon-App-20x20@3x.png", "scale": "3x"},
+            {"size": "29x29", "idiom": "iphone", "filename": "Icon-App-29x29@1x.png", "scale": "1x"},
+            {"size": "29x29", "idiom": "iphone", "filename": "Icon-App-29x29@2x.png", "scale": "2x"},
+            {"size": "29x29", "idiom": "iphone", "filename": "Icon-App-29x29@3x.png", "scale": "3x"},
+            {"size": "40x40", "idiom": "iphone", "filename": "Icon-App-40x40@2x.png", "scale": "2x"},
+            {"size": "40x40", "idiom": "iphone", "filename": "Icon-App-40x40@3x.png", "scale": "3x"},
+            {"size": "60x60", "idiom": "iphone", "filename": "Icon-App-60x60@2x.png", "scale": "2x"},
+            {"size": "60x60", "idiom": "iphone", "filename": "Icon-App-60x60@3x.png", "scale": "3x"},
+            {"size": "20x20", "idiom": "ipad", "filename": "Icon-App-20x20@1x.png", "scale": "1x"},
+            {"size": "20x20", "idiom": "ipad", "filename": "Icon-App-20x20@2x.png", "scale": "2x"},
+            {"size": "29x29", "idiom": "ipad", "filename": "Icon-App-29x29@1x.png", "scale": "1x"},
+            {"size": "29x29", "idiom": "ipad", "filename": "Icon-App-29x29@2x.png", "scale": "2x"},
+            {"size": "40x40", "idiom": "ipad", "filename": "Icon-App-40x40@1x.png", "scale": "1x"},
+            {"size": "40x40", "idiom": "ipad", "filename": "Icon-App-40x40@2x.png", "scale": "2x"},
+            {"size": "76x76", "idiom": "ipad", "filename": "Icon-App-76x76@1x.png", "scale": "1x"},
+            {"size": "76x76", "idiom": "ipad", "filename": "Icon-App-76x76@2x.png", "scale": "2x"},
+            {"size": "83.5x83.5", "idiom": "ipad", "filename": "Icon-App-83.5x83.5@2x.png", "scale": "2x"},
+            {"size": "1024x1024", "idiom": "ios-marketing", "filename": "Icon-App-1024x1024@1x.png", "scale": "1x"},
+        ],
+        "info": {
+            "author": "xcode",
+            "version": 1
+        }
+    }
+
+    import json
+    with open(os.path.join(output_dir, 'Contents.json'), 'w') as f:
+        json.dump(contents, f, indent=2)
+
+    print("✓ iOS Contents.json 已更新")
+
+
+def main():
+    # 输入图标路径
+    input_icon = "/Users/jason/Documents/codex/TraeU/traeu/ic_maskable.png"
+
+    # 渐变配色方案（紫粉渐变 - 推荐）
+    gradient_colors = [
+        (15, 23, 42, 255),    # 深蓝
+        (88, 28, 135, 255),   # 紫色
+        (190, 24, 93, 255),   # 粉色
+    ]
+
+    # 项目路径
+    project_dir = "/Users/jason/Documents/codex/TraeU/traeu"
+
+    print("=" * 50)
+    print("开始生成 Flutter 应用图标")
+    print("=" * 50)
+
+    # 生成 Android 图标
+    print("\n📱 生成 Android 图标...")
+    android_output = os.path.join(project_dir, "android/app/src/main/res")
+    generate_android_icons(input_icon, android_output, gradient_colors)
+
+    # 生成 iOS 图标
+    print("\n🍎 生成 iOS 图标...")
+    ios_output = os.path.join(project_dir, "ios/Runner/Assets.xcassets/AppIcon.appiconset")
+    generate_ios_icons(input_icon, ios_output, gradient_colors)
+    update_ios_contents_json(ios_output)
+
+    # 同时生成一个高清版本到 assets
+    print("\n🎨 生成高清版本到 assets...")
+    assets_output = os.path.join(project_dir, "assets/icons")
+    os.makedirs(assets_output, exist_ok=True)
+    hd_icon = create_app_icon(input_icon, 1024, gradient_colors, padding=100)
+    hd_icon.save(os.path.join(assets_output, "app_icon_hd.png"), 'PNG')
+
+    print("\n" + "=" * 50)
+    print("✅ 所有图标生成完成！")
+    print("=" * 50)
+    print("\n请运行以下命令验证：")
+    print("  flutter clean")
+    print("  flutter pub get")
+    print("  flutter build apk --debug (Android)")
+    print("  flutter build ios --debug (iOS)")
+
+
+if __name__ == "__main__":
+    main()

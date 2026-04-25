@@ -103,34 +103,12 @@ class _HomePageState extends ConsumerState<HomePage>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              title: const Text('TRAE Forum'),
+              title: const _HomeAppBarTitle(),
               pinned: true,
               floating: true,
               snap: true,
               forceElevated: innerBoxIsScrolled,
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.dashboard_outlined),
-                  tooltip: 'TRAE 仪表盘',
-                  onPressed: () {
-                    context.push(RoutePaths.traeDashboard);
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.language),
-                  tooltip: '访问论坛网页',
-                  onPressed: () {
-                    context.push(
-                      '${RoutePaths.webview}?url=${Uri.encodeComponent(AppConstants.forumUrl)}&title=TRAE 论坛',
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {
-                    context.push(RoutePaths.search);
-                  },
-                ),
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined),
                   onPressed: () {
@@ -687,5 +665,100 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     } catch (_) {
       return timestamp;
     }
+  }
+}
+
+/// 首页顶部AppBar自定义标题
+///
+/// 包含用户头像、搜索框，类似酷安首页顶部布局
+class _HomeAppBarTitle extends ConsumerWidget {
+  const _HomeAppBarTitle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final authState = ref.watch(authNotifierProvider);
+    final currentUser = authState.valueOrNull;
+
+    return SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          // 用户头像
+          GestureDetector(
+            onTap: () {
+              if (currentUser != null) {
+                context.push('/profile/${currentUser.uid}');
+              } else {
+                context.push(RoutePaths.login);
+              }
+            },
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.primaryContainer,
+              ),
+              child: ClipOval(
+                child: currentUser?.avatar != null && currentUser!.avatar!.isNotEmpty
+                    ? Image.network(
+                        currentUser.avatar!,
+                        width: 36,
+                        height: 36,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person,
+                            size: 20,
+                            color: colorScheme.onPrimaryContainer,
+                          );
+                        },
+                      )
+                    : Icon(
+                        Icons.person,
+                        size: 20,
+                        color: colorScheme.onPrimaryContainer,
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 搜索框
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                context.push(RoutePaths.search);
+              },
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search,
+                      size: 18,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '搜索话题、用户...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

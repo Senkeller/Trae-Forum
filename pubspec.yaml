@@ -106,5 +106,16 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/emojis/
+
+# 启动图标配置
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon_hd.png"
+  adaptive_icon_background: "#0F172A"
+  adaptive_icon_foreground: "assets/icons/app_icon_hd.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  background_color_ios: "#0F172A"
   
 
