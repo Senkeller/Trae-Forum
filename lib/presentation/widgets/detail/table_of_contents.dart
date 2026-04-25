@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../widgets/detail/topic_magazine_renderer.dart';
+import 'topic_magazine_renderer.dart';
 
 /// 目录项数据模型
 ///
@@ -336,9 +336,7 @@ class TocUtils {
         if (renderBox != null) {
           final position = renderBox.localToGlobal(Offset.zero);
           final scrollController = Scrollable.of(context);
-          if (scrollController != null) {
-            item.offset = position.dy + scrollController.position.pixels;
-          }
+          item.offset = position.dy + scrollController.position.pixels;
         }
       }
     }

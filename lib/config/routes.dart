@@ -119,7 +119,7 @@ class AppRouter {
         path: RoutePaths.topicList,
         builder: (context, state) => const TopicListPage(),
       ),
-      
+
       // 话题详情
       GoRoute(
         path: RoutePaths.topicDetail,
@@ -128,7 +128,16 @@ class AppRouter {
           return TopicDetailPage(tag: tag);
         },
       ),
-      
+
+      // 标签详情
+      GoRoute(
+        path: RoutePaths.tagDetail,
+        builder: (context, state) {
+          final tag = state.pathParameters['tag']!;
+          return TopicDetailPage(tag: tag);
+        },
+      ),
+
       // 数码详情
       GoRoute(
         path: RoutePaths.productDetail,

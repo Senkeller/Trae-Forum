@@ -599,7 +599,13 @@ class TopicMagazineRenderer extends StatelessWidget {
         );
       case TopicContentBlockType.heading:
         final headingStyle = _headingStyle(context, block.headingLevel);
-        return Text(block.text, style: headingStyle);
+        final key = headingKeys != null && index < headingKeys!.length
+            ? headingKeys![index]
+            : null;
+        return Container(
+          key: key,
+          child: Text(block.text, style: headingStyle),
+        );
       case TopicContentBlockType.quote:
         final colorScheme = Theme.of(context).colorScheme;
         return Container(

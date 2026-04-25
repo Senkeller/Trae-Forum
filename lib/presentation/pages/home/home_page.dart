@@ -566,8 +566,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   /// [context] 上下文
   /// [tag] 标签名称
   void _onTagTap(BuildContext context, String tag) {
+    // 将标签转换为 URL 友好的格式（小写，空格转连字符）
+    final urlFriendlyTag = tag.toLowerCase().trim().replaceAll(' ', '-');
     // 跳转到标签详情页
-    context.push(RoutePaths.topicDetail.replaceFirst(':tag', tag));
+    context.push(RoutePaths.tagDetail.replaceFirst(':tag', urlFriendlyTag));
   }
 
   Widget _buildMetaTags(BuildContext context) {

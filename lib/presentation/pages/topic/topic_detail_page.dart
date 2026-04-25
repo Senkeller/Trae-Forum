@@ -263,7 +263,16 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
       images: imageUrl.isNotEmpty ? [imageUrl] : const [],
       type: 'topic',
       tags: (topic['tags'] as List<dynamic>? ?? const [])
-          .map((e) => e.toString())
+          .map((e) {
+            // 处理标签可能是对象或字符串的情况
+            if (e is Map<String, dynamic>) {
+              // 如果是对象，使用 name 字段（用于URL路径）
+              // Discourse 标签URL使用 name 的小写格式，如 code-with-solo
+              final name = e['name']?.toString() ?? '';
+              return name.isNotEmpty ? name.toLowerCase() : '';
+            }
+            return e.toString().toLowerCase();
+          })
           .where((e) => e.isNotEmpty)
           .toList(),
       isPinned: topic['pinned'] == true,
@@ -332,8 +341,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
             icon: const Icon(Icons.open_in_browser),
             tooltip: '在论坛中查看',
             onPressed: () {
+              // 构建论坛标签URL（使用原始标签值）
               final url = '${AppConstants.baseUrl}/tag/${widget.tag}';
-              context.push('${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=$localizedTag');
+              context.push('${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(localizedTag)}');
             },
           ),
         ],

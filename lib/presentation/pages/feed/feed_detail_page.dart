@@ -17,6 +17,8 @@ import '../../providers/bookmark_provider.dart';
 import '../../providers/like_provider.dart';
 import '../../widgets/common/cached_image.dart';
 import '../../widgets/common/rich_text_view.dart';
+import '../../widgets/detail/table_of_contents.dart';
+import '../../widgets/detail/toc_progress_bar.dart';
 import '../../widgets/detail/topic_magazine_renderer.dart';
 
 class FeedDetailPage extends ConsumerStatefulWidget {
@@ -36,6 +38,12 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   FeedContentData? _topicDetail;
   List<TopicContentBlock> _topicBlocks = const [];
   List<ReplyData> _comments = const [];
+
+  /// 目录项列表
+  List<TocItem> _tocItems = const [];
+
+  /// 标题块的 GlobalKey 列表
+  List<GlobalKey> _headingKeys = const [];
 
   bool _isTopicLoading = true;
   bool _isCommentsLoading = true;
@@ -72,6 +80,26 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     final threshold = _scrollController.position.maxScrollExtent - 220;
     if (_scrollController.position.pixels >= threshold) {
       _loadMoreComments();
+    }
+  }
+
+  /// 计算目录项的滚动位置
+  void _calculateTocOffsets() {
+    if (_tocItems.isEmpty || _headingKeys.isEmpty) return;
+
+    for (final item in _tocItems) {
+      final blockIndex = item.blockIndex;
+      if (blockIndex >= 0 && blockIndex < _headingKeys.length) {
+        final key = _headingKeys[blockIndex];
+        if (key.currentContext != null) {
+          final renderBox = key.currentContext!.findRenderObject() as RenderBox?;
+          if (renderBox != null) {
+            final position = renderBox.localToGlobal(Offset.zero);
+            // 获取 CustomScrollView 的滚动位置
+            item.offset = position.dy + _scrollController.offset - 100; // 减去顶部偏移
+          }
+        }
+      }
     }
   }
 
@@ -112,6 +140,15 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       final topicDetail = detailResponse.data!;
       final topicBlocks = TopicCookedParser.parse(topicDetail.message);
 
+      // 提取目录项并为每个标题创建 GlobalKey
+      final tocItems = TocUtils.extractFromBlocks(topicBlocks);
+      final headingKeys = List<GlobalKey>.generate(
+        topicBlocks.length,
+        (index) => topicBlocks[index].type == TopicContentBlockType.heading
+            ? GlobalKey()
+            : GlobalKey(),
+      );
+
       final rawComments = _isSuccessStatus(commentResponse.status)
           ? commentResponse.data
           : const <ReplyData>[];
@@ -124,6 +161,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       setState(() {
         _topicDetail = topicDetail;
         _topicBlocks = topicBlocks;
+        _tocItems = tocItems;
+        _headingKeys = headingKeys;
         _comments = comments;
         _commentsPage = 1;
         _hasMoreComments = rawComments.length >= AppConstants.pageSize;
@@ -134,6 +173,11 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             : (commentResponse.message.isNotEmpty
                   ? commentResponse.message
                   : '回复加载失败');
+      });
+
+      // 延迟计算目录项的滚动位置
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _calculateTocOffsets();
       });
       _initializeLikeStatesForReplies(comments);
       _initializeBookmarkState(topicDetail);
@@ -532,6 +576,12 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
               child: _buildContent(context),
             ),
           ),
+          // 目录进度条（放在回复输入栏上方）
+          TocProgressBar(
+            items: _tocItems,
+            scrollController: _scrollController,
+            visible: _tocItems.length >= 2,
+          ),
           _BottomCommentBar(
             controller: _commentController,
             focusNode: _commentFocusNode,
@@ -598,6 +648,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
           child: _TopicHeaderSection(
             detail: detail,
             blocks: _topicBlocks,
+            headingKeys: _headingKeys,
             onLinkTap: _openExternalLink,
             isBookmarked: isBookmarked,
             isBookmarkLoading: isBookmarkLoading,
@@ -770,6 +821,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 class _TopicHeaderSection extends StatelessWidget {
   final FeedContentData detail;
   final List<TopicContentBlock> blocks;
+  final List<GlobalKey> headingKeys;
   final ValueChanged<String> onLinkTap;
   final bool isBookmarked;
   final bool isBookmarkLoading;
@@ -779,6 +831,7 @@ class _TopicHeaderSection extends StatelessWidget {
   const _TopicHeaderSection({
     required this.detail,
     required this.blocks,
+    required this.headingKeys,
     required this.onLinkTap,
     required this.isBookmarked,
     required this.isBookmarkLoading,
@@ -869,7 +922,11 @@ class _TopicHeaderSection extends StatelessWidget {
               ),
             ],
           ),
-          TopicMagazineRenderer(blocks: blocks, onLinkTap: onLinkTap),
+          TopicMagazineRenderer(
+            blocks: blocks,
+            onLinkTap: onLinkTap,
+            headingKeys: headingKeys,
+          ),
           const SizedBox(height: 14),
           Row(
             children: [

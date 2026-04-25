@@ -61,7 +61,7 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
       children: [
         // Banner内容
         SizedBox(
-          height: 110,
+          height: 100,
           child: isLoading && pinnedTopics.isEmpty
               ? _buildLoadingPlaceholder()
               : errorMessage != null && pinnedTopics.isEmpty
@@ -197,11 +197,13 @@ class _PinnedTopicCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 标题行
+                // 置顶标签和标题在同一行
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 置顶标识
                     Container(
+                      margin: const EdgeInsets.only(right: 8, top: 2),
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
@@ -216,36 +218,19 @@ class _PinnedTopicCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    // 分类标签
-                    if (topic.categoryName.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: _getCategoryColor(colorScheme, topic.categoryColor)
-                              .withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          topic.categoryName,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: _getCategoryColor(colorScheme, topic.categoryColor),
-                          ),
-                        ),
+                    // 话题标题
+                    Expanded(
+                      child: Text(
+                        topic.title,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
                   ],
-                ),
-                const SizedBox(height: 6),
-                // 话题标题
-                Text(
-                  topic.title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                      ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 const Spacer(),
                 // 底部信息
@@ -320,15 +305,4 @@ class _PinnedTopicCard extends StatelessWidget {
     );
   }
 
-  /// 获取分类颜色
-  Color _getCategoryColor(ColorScheme colorScheme, String? categoryColor) {
-    if (categoryColor == null || categoryColor.isEmpty) {
-      return colorScheme.primary;
-    }
-    try {
-      return Color(int.parse('FF$categoryColor', radix: 16));
-    } catch (_) {
-      return colorScheme.primary;
-    }
-  }
 }
