@@ -149,6 +149,18 @@ class DiscourseApiService {
     return _dio.get('$_baseUrl/top.json', queryParameters: {'page': page});
   }
 
+  /// 根据标签获取话题列表
+  ///
+  /// [tag] 标签名称
+  /// [page] 页码，从0开始
+  /// 调用 Discourse GET /tag/{tag}.json API
+  Future<Response> getTopicsByTag(String tag, {int page = 0}) async {
+    return _dio.get(
+      '$_baseUrl/tag/$tag.json',
+      queryParameters: {'page': page},
+    );
+  }
+
   // ==================== 通知相关 API ====================
 
   /// 获取通知列表

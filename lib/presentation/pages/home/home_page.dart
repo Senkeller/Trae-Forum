@@ -11,6 +11,7 @@ import '../../widgets/common/like_button.dart';
 import '../../widgets/feed/featured_comment.dart';
 import '../../widgets/feed/quick_comment_bar.dart';
 import '../../widgets/comment/quick_comment_sheet.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -156,6 +157,7 @@ class _HomePageState extends ConsumerState<HomePage>
               onLoading: () => _onLoading(index),
               refreshController: _refreshControllers[index],
               scrollController: _scrollControllers[index],
+              showBanner: index == 0,
             );
           }),
         ),
@@ -176,6 +178,7 @@ class _FeedListView extends ConsumerWidget {
   final Future<void> Function() onLoading;
   final RefreshController refreshController;
   final ScrollController? scrollController;
+  final bool showBanner;
 
   const _FeedListView({
     super.key,
@@ -184,6 +187,7 @@ class _FeedListView extends ConsumerWidget {
     required this.onLoading,
     required this.refreshController,
     this.scrollController,
+    this.showBanner = false,
   });
 
   @override
@@ -256,13 +260,20 @@ class _FeedListView extends ConsumerWidget {
       child: ListView.builder(
         controller: scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: feedList.length,
+        itemCount: feedList.length + (showBanner ? 1 : 0),
         cacheExtent: 250,
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
         addSemanticIndexes: true,
         itemBuilder: (context, index) {
-          final feed = feedList[index];
+          // 如果是第一个位置且需要显示Banner
+          if (showBanner && index == 0) {
+            return const PinnedTopicsBanner();
+          }
+
+          // 计算实际的feed索引
+          final feedIndex = showBanner ? index - 1 : index;
+          final feed = feedList[feedIndex];
 
           return RepaintBoundary(
             child: _FeedCard(
@@ -280,64 +291,73 @@ class _FeedListView extends ConsumerWidget {
 }
 
 /// 标签汉化映射表
-/// 
+///
 /// 用于将英文标签映射为中文显示
 const Map<String, String> _tagLocalizationMap = {
+  // SOLO 相关
+  'code-with-solo': 'Code-with-SOLO',
+  'solo': 'SOLO赛',
+  'solo-news': 'SOLO赛事速递',
+  'solo-beginner': '新SOLO初体验',
+
   // 活动相关
   'event': '活动',
   'events': '活动',
   'activity': '活动',
   'contest': '比赛',
   'challenge': '挑战',
-  'solo': 'SOLO赛',
-  
+  'hello-ai': 'Hello-AI-科技致善',
+  'more-coding': 'More-than-Coding',
+
   // 内容类型
   'announcement': '公告',
   'official': '官方',
   'news': '新闻',
   'update': '更新',
   'release': '发布',
-  
+
   // 主题分类
   'help': '求助',
   'question': '问题',
   'support': '支持',
-  
+
   // 建议反馈
   'suggestion': '建议',
   'feedback': '反馈',
   'feature-request': '功能请求',
   'bug': 'Bug',
-  
+
   // 技巧分享
   'tips': '技巧',
   'tutorial': '教程',
   'guide': '指南',
   'how-to': '教程',
   'best-practice': '最佳实践',
-  
+
   // 作品展示
   'showcase': '作品',
   'project': '项目',
   'demo': '演示',
   'portfolio': '作品集',
-  
+
   // 交流讨论
   'discussion': '讨论',
   'general': '综合',
   'chat': '闲聊',
   'intro': '介绍',
   'introduction': '介绍',
-  
+  'newbie': '新人必看',
+
   // 技术相关
   'tech': '技术',
   'code': '代码',
   'development': '开发',
   'ai': 'AI',
   'ml': '机器学习',
-  
+
   // 其他
   'pinned': '置顶',
+  'featured': '精选',
 };
 
 class _FeedCard extends ConsumerStatefulWidget {
@@ -531,7 +551,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   }
 
   /// 获取标签的汉化显示文本
-  /// 
+  ///
   /// [tag] 原始标签文本（英文）
   /// @return 汉化后的标签文本，如果没有映射则返回原值
   String _getLocalizedTag(String tag) {
@@ -541,19 +561,31 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     return _tagLocalizationMap[cleanTag] ?? tag;
   }
 
+  /// 处理标签点击
+  ///
+  /// [context] 上下文
+  /// [tag] 标签名称
+  void _onTagTap(BuildContext context, String tag) {
+    // 跳转到标签详情页
+    context.push(RoutePaths.topicDetail.replaceFirst(':tag', tag));
+  }
+
   Widget _buildMetaTags(BuildContext context) {
     final items = <Widget>[];
 
     // 分类标签（使用汉化映射）
     if (widget.feed.category.isNotEmpty) {
       final localizedCategory = _getLocalizedTag(widget.feed.category);
-      items.add(_metaChip(context, '#$localizedCategory'));
+      items.add(_metaChip(context, '#$localizedCategory', onTap: () {
+        // 分类标签点击可以跳转到对应分类
+        // 这里可以根据需要实现分类跳转逻辑
+      }));
     }
 
-    // 普通标签（使用汉化映射）
+    // 普通标签（使用汉化映射，可点击）
     for (final tag in widget.feed.tags.take(3)) {
       final localizedTag = _getLocalizedTag(tag);
-      items.add(_metaChip(context, '#$localizedTag'));
+      items.add(_metaChip(context, '#$localizedTag', onTap: () => _onTagTap(context, tag)));
     }
 
     // 置顶标签（汉化）
@@ -568,8 +600,8 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     );
   }
 
-  Widget _metaChip(BuildContext context, String label) {
-    return Container(
+  Widget _metaChip(BuildContext context, String label, {VoidCallback? onTap}) {
+    final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.primaryContainer,
@@ -582,6 +614,16 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
             ),
       ),
     );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: chip,
+      );
+    }
+
+    return chip;
   }
 
   Widget _buildActions(BuildContext context, ColorScheme colorScheme, int replyCount) {
