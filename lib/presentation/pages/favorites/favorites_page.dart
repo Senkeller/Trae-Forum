@@ -8,11 +8,9 @@ import '../../../core/utils/date_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../data/repositories/bookmark_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
-enum _FavoritesSortType {
-  bookmarkedAt,
-  lastActive,
-}
+enum _FavoritesSortType { bookmarkedAt, lastActive }
 
 class FavoritesPage extends ConsumerStatefulWidget {
   const FavoritesPage({super.key});
@@ -164,9 +162,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
 
     if (!isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('我的收藏'),
-        ),
+        appBar: AppBar(title: const Text('我的收藏')),
         body: _StateView(
           icon: Icons.account_circle_outlined,
           title: '未登录',
@@ -253,14 +249,21 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
       onLoading: _hasMore ? _onLoading : null,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: displayList.length,
+        itemCount: displayList.length + 1,
         itemBuilder: (context, index) {
-          final item = displayList[index];
+          if (index == 0) {
+            return const PinnedTopicsBanner();
+          }
+
+          final item = displayList[index - 1];
           return _FavoriteCard(
             item: item,
             onTap: () {
               context.push(
-                RoutePaths.feedDetail.replaceFirst(':id', item.topicId.toString()),
+                RoutePaths.feedDetail.replaceFirst(
+                  ':id',
+                  item.topicId.toString(),
+                ),
               );
             },
             onRemove: () => _removeFavorite(item),
@@ -360,24 +363,19 @@ class _FavoriteCard extends StatelessWidget {
                       children: [
                         Text(
                           username,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Text(
                           time,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(
-                      Icons.bookmark,
-                      color: colorScheme.primary,
-                    ),
+                    icon: Icon(Icons.bookmark, color: colorScheme.primary),
                     onPressed: onRemove,
                     tooltip: '取消收藏',
                   ),
@@ -386,9 +384,9 @@ class _FavoriteCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -397,8 +395,8 @@ class _FavoriteCard extends StatelessWidget {
                 Text(
                   excerpt,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -495,10 +493,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),
@@ -541,9 +536,19 @@ class _FavoriteSkeletonCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _SkeletonBox(width: 120, height: 12, radius: 6, color: color),
+                      _SkeletonBox(
+                        width: 120,
+                        height: 12,
+                        radius: 6,
+                        color: color,
+                      ),
                       const SizedBox(height: 8),
-                      _SkeletonBox(width: 80, height: 10, radius: 5, color: color),
+                      _SkeletonBox(
+                        width: 80,
+                        height: 10,
+                        radius: 5,
+                        color: color,
+                      ),
                     ],
                   ),
                 ),
@@ -551,7 +556,12 @@ class _FavoriteSkeletonCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            _SkeletonBox(width: double.infinity, height: 14, radius: 7, color: color),
+            _SkeletonBox(
+              width: double.infinity,
+              height: 14,
+              radius: 7,
+              color: color,
+            ),
             const SizedBox(height: 8),
             _SkeletonBox(width: 220, height: 12, radius: 6, color: color),
             const SizedBox(height: 12),

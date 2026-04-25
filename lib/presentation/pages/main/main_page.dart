@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/main_provider.dart';
 import '../home/home_page.dart';
-import '../search/search_page.dart';
 import '../message/message_page.dart';
+import '../topics/topics_page.dart';
 import '../user/profile_page_new.dart';
 
 /// 主页面
 ///
 /// 应用的主入口页面，包含底部导航栏和四个主要页面：
 /// - 首页：Feed 流列表
-/// - 发现：搜索和推荐内容
+/// - 话题：话题聚合页面
 /// - 消息：消息通知列表
 /// - 我的：用户个人中心
 class MainPage extends ConsumerWidget {
@@ -20,33 +21,9 @@ class MainPage extends ConsumerWidget {
   /// 页面列表
   static const List<Widget> _pages = [
     HomePage(),
-    SearchPage(),
+    TopicsPage(),
     MessagePage(),
     ProfilePageNew(),
-  ];
-
-  /// 底部导航项列表
-  static const List<BottomNavigationBarItem> _navItems = [
-    BottomNavigationBarItem(
-      icon: Icon(Icons.home_outlined),
-      activeIcon: Icon(Icons.home),
-      label: '首页',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.explore_outlined),
-      activeIcon: Icon(Icons.explore),
-      label: '发现',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.message_outlined),
-      activeIcon: Icon(Icons.message),
-      label: '消息',
-    ),
-    BottomNavigationBarItem(
-      icon: Icon(Icons.person_outline),
-      activeIcon: Icon(Icons.person),
-      label: '我的',
-    ),
   ];
 
   @override
@@ -54,13 +31,14 @@ class MainPage extends ConsumerWidget {
     final currentIndex = ref.watch(mainPageIndexProvider);
 
     return Scaffold(
-      body: IndexedStack(
-        index: currentIndex,
-        children: _pages,
-      ),
+      body: _pages[currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
+          if (index == currentIndex) {
+            return;
+          }
+          HapticFeedbackUtil.trigger(ref, HapticScene.navSwitch);
           ref.read(mainPageIndexProvider.notifier).setIndex(index);
         },
         destinations: const [
@@ -70,9 +48,9 @@ class MainPage extends ConsumerWidget {
             label: '首页',
           ),
           NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore),
-            label: '发现',
+            icon: Icon(Icons.forum_outlined),
+            selectedIcon: Icon(Icons.forum),
+            label: '话题',
           ),
           NavigationDestination(
             icon: Icon(Icons.message_outlined),

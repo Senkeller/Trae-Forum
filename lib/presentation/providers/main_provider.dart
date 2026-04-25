@@ -20,8 +20,11 @@ class MainPageIndexNotifier extends StateNotifier<int> {
   /// 切换到首页
   void goToHome() => setIndex(0);
 
-  /// 切换到发现页
-  void goToDiscover() => setIndex(1);
+  /// 切换到话题页
+  void goToTopics() => setIndex(1);
+
+  /// 兼容旧命名：切换到第二个底部页（现为话题页）
+  void goToDiscover() => goToTopics();
 
   /// 切换到消息页
   void goToMessage() => setIndex(2);
@@ -38,7 +41,7 @@ final mainPageIndexProvider = StateNotifierProvider<MainPageIndexNotifier, int>(
 );
 
 /// 页面标题列表
-const List<String> _pageTitles = ['首页', '发现', '消息', '我的'];
+const List<String> _pageTitles = ['首页', '话题', '消息', '我的'];
 
 /// 获取当前页面标题 Provider
 ///

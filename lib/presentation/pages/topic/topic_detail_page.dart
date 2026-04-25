@@ -5,7 +5,9 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/network/discourse_api_service.dart';
+import '../../../core/utils/tag_util.dart';
 import '../../providers/home_provider.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
 /// 标签详情页
 ///
@@ -13,10 +15,7 @@ import '../../providers/home_provider.dart';
 class TopicDetailPage extends ConsumerStatefulWidget {
   final String tag;
 
-  const TopicDetailPage({
-    super.key,
-    required this.tag,
-  });
+  const TopicDetailPage({super.key, required this.tag});
 
   @override
   ConsumerState<TopicDetailPage> createState() => _TopicDetailPageState();
@@ -31,7 +30,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   String? _errorMessage;
-  int _currentPage = 1;
+  int _currentPage = 0;
 
   /// 标签汉化映射表
   final Map<String, String> _tagLocalizationMap = const {
@@ -104,7 +103,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   /// 获取标签的汉化显示文本
   String _getLocalizedTag(String tag) {
     final lowerTag = tag.toLowerCase().trim();
-    final cleanTag = lowerTag.startsWith('#') ? lowerTag.substring(1) : lowerTag;
+    final cleanTag = lowerTag.startsWith('#')
+        ? lowerTag.substring(1)
+        : lowerTag;
     return _tagLocalizationMap[cleanTag] ?? tag;
   }
 
@@ -127,18 +128,19 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
-      _currentPage = 1;
+      _currentPage = 0;
     });
 
     try {
       final discourseApi = ref.read(discourseApiServiceProvider);
-      final response = await discourseApi.getTopicsByTag(widget.tag, page: 1);
+      final response = await discourseApi.getTopicsByTag(widget.tag, page: 0);
 
       final topics = _parseTopicsFromResponse(response);
 
       setState(() {
         _isLoading = false;
         _topics = topics;
+        _currentPage = 0;
         _hasMore = topics.length >= AppConstants.pageSize;
       });
     } catch (e) {
@@ -167,7 +169,10 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
     try {
       final nextPage = _currentPage + 1;
       final discourseApi = ref.read(discourseApiServiceProvider);
-      final response = await discourseApi.getTopicsByTag(widget.tag, page: nextPage);
+      final response = await discourseApi.getTopicsByTag(
+        widget.tag,
+        page: nextPage,
+      );
 
       final newTopics = _parseTopicsFromResponse(response);
 
@@ -179,7 +184,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
           _hasMore = false;
         } else {
           final existingIds = _topics.map((e) => e.id).toSet();
-          final dedupedNewTopics = newTopics.where((e) => !existingIds.contains(e.id)).toList();
+          final dedupedNewTopics = newTopics
+              .where((e) => !existingIds.contains(e.id))
+              .toList();
           _topics = [..._topics, ...dedupedNewTopics];
           _hasMore = newTopics.length >= AppConstants.pageSize;
         }
@@ -196,7 +203,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   /// 从响应中解析话题列表
   List<FeedItem> _parseTopicsFromResponse(dynamic response) {
     final raw = response.data;
-    final data = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+    final data = raw is Map<String, dynamic>
+        ? raw
+        : Map<String, dynamic>.from(raw as Map);
 
     final topicListMap = data['topic_list'] as Map<String, dynamic>?;
     final topics = (topicListMap?['topics'] as List<dynamic>? ?? const [])
@@ -216,7 +225,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
       }
     }
 
-    return topics.map((topic) => _adaptTopicToFeedItem(topic, userMap)).toList();
+    return topics
+        .map((topic) => _adaptTopicToFeedItem(topic, userMap))
+        .toList();
   }
 
   FeedItem _adaptTopicToFeedItem(
@@ -228,10 +239,13 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
-    final firstPosterUserId = posterList.isNotEmpty ? _parseInt(posterList.first['user_id']) : 0;
+    final firstPosterUserId = posterList.isNotEmpty
+        ? _parseInt(posterList.first['user_id'])
+        : 0;
     final author = userMap[firstPosterUserId] ?? const <String, dynamic>{};
 
-    final username = (author['username'] ?? topic['last_poster_username'] ?? '').toString();
+    final username = (author['username'] ?? topic['last_poster_username'] ?? '')
+        .toString();
     final categoryId = _parseInt(topic['category_id']);
     final title = (topic['title'] ?? '').toString();
     final excerpt = _normalizeExcerpt(topic['excerpt']);
@@ -255,26 +269,16 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
       content: excerpt.isNotEmpty ? excerpt : title,
       category: 'Category $categoryId',
       categoryId: categoryId,
-      createTime: _toUnixTimestamp(topic['last_posted_at'] ?? topic['created_at']),
+      createTime: _toUnixTimestamp(
+        topic['last_posted_at'] ?? topic['created_at'],
+      ),
       likeCount: _parseInt(topic['like_count']),
       replyCount: replyCount,
       viewCount: _parseInt(topic['views']),
       isLiked: false,
       images: imageUrl.isNotEmpty ? [imageUrl] : const [],
       type: 'topic',
-      tags: (topic['tags'] as List<dynamic>? ?? const [])
-          .map((e) {
-            // 处理标签可能是对象或字符串的情况
-            if (e is Map<String, dynamic>) {
-              // 如果是对象，使用 name 字段（用于URL路径）
-              // Discourse 标签URL使用 name 的小写格式，如 code-with-solo
-              final name = e['name']?.toString() ?? '';
-              return name.isNotEmpty ? name.toLowerCase() : '';
-            }
-            return e.toString().toLowerCase();
-          })
-          .where((e) => e.isNotEmpty)
-          .toList(),
+      tags: TagUtil.parseTagList(topic['tags']),
       isPinned: topic['pinned'] == true,
     );
   }
@@ -343,7 +347,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
             onPressed: () {
               // 构建论坛标签URL（使用原始标签值）
               final url = '${AppConstants.baseUrl}/tag/${widget.tag}';
-              context.push('${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(localizedTag)}');
+              context.push(
+                '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(localizedTag)}',
+              );
             },
           ),
         ],
@@ -395,9 +401,13 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _topics.length,
+        itemCount: _topics.length + 1,
         itemBuilder: (context, index) {
-          final topic = _topics[index];
+          if (index == 0) {
+            return const PinnedTopicsBanner();
+          }
+
+          final topic = _topics[index - 1];
           return _TopicCard(
             topic: topic,
             onTap: () {
@@ -414,10 +424,7 @@ class _TopicCard extends StatelessWidget {
   final FeedItem topic;
   final VoidCallback onTap;
 
-  const _TopicCard({
-    required this.topic,
-    required this.onTap,
-  });
+  const _TopicCard({required this.topic, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -451,15 +458,13 @@ class _TopicCard extends StatelessWidget {
                       children: [
                         Text(
                           topic.username,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Text(
                           _formatTime(topic.createTime),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -469,9 +474,9 @@ class _TopicCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 topic.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -587,10 +592,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

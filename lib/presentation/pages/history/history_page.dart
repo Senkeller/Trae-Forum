@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
@@ -83,9 +84,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   Future<void> _deleteHistory(String topicId) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已从历史记录中删除')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已从历史记录中删除')));
 
     setState(() {
       _historyList.removeWhere((item) => item['topicId'] == topicId);
@@ -118,9 +119,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       setState(() {
         _historyList.clear();
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('历史记录已清除')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('历史记录已清除')));
     }
   }
 
@@ -173,15 +174,21 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       onLoading: _hasMore ? _onLoading : null,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _historyList.length,
+        itemCount: _historyList.length + 1,
         itemBuilder: (context, index) {
-          final item = _historyList[index];
+          if (index == 0) {
+            return const PinnedTopicsBanner();
+          }
+
+          final item = _historyList[index - 1];
           return _HistoryCard(
             item: item,
             onTap: () {
               final topicId = item['topicId']?.toString();
               if (topicId != null && topicId.isNotEmpty) {
-                context.push(RoutePaths.feedDetail.replaceFirst(':id', topicId));
+                context.push(
+                  RoutePaths.feedDetail.replaceFirst(':id', topicId),
+                );
               }
             },
             onDelete: () => _deleteHistory(item['topicId']?.toString() ?? ''),
@@ -237,8 +244,8 @@ class _HistoryCard extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -247,16 +254,14 @@ class _HistoryCard extends StatelessWidget {
                       children: [
                         Text(
                           '@$username',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.primary,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.primary),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           time,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -264,10 +269,7 @@ class _HistoryCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(
-                  Icons.delete_outline,
-                  color: colorScheme.error,
-                ),
+                icon: Icon(Icons.delete_outline, color: colorScheme.error),
                 onPressed: onDelete,
                 tooltip: '删除',
               ),
@@ -319,10 +321,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

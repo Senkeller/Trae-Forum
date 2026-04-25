@@ -8,6 +8,7 @@ import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
 /// 用户资料页
 class UserProfilePage extends ConsumerStatefulWidget {
@@ -374,6 +375,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
     }
 
     return [
+      const SliverToBoxAdapter(child: PinnedTopicsBanner()),
       SliverList.builder(
         itemCount: userState.feeds.length,
         itemBuilder: (context, index) {

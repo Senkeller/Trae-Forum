@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../data/models/tag_group.dart';
+import '../../widgets/common/main_top_app_bar_title.dart';
 
 /// 话题页面
 ///
@@ -13,10 +15,7 @@ class TopicsPage extends ConsumerStatefulWidget {
   final bool asStandalonePage;
 
   /// 构造函数
-  const TopicsPage({
-    super.key,
-    this.asStandalonePage = false,
-  });
+  const TopicsPage({super.key, this.asStandalonePage = false});
 
   @override
   ConsumerState<TopicsPage> createState() => _TopicsPageState();
@@ -64,22 +63,20 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
         // 左侧分类导航
         _buildCategorySidebar(colorScheme),
         // 右侧内容区域
-        Expanded(
-          child: _buildContentArea(theme, colorScheme),
-        ),
+        Expanded(child: _buildContentArea(theme, colorScheme)),
       ],
     );
 
     if (widget.asStandalonePage) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('话题'),
-          centerTitle: true,
+          title: const MainTopAppBarTitle(),
           actions: [
             IconButton(
-              icon: const Icon(Icons.search),
+              icon: const Icon(Icons.notifications_outlined),
               onPressed: () {
-                context.push(RoutePaths.search);
+                HapticFeedbackUtil.trigger(ref, HapticScene.message);
+                context.push(RoutePaths.notifications);
               },
             ),
           ],
@@ -88,7 +85,29 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
       );
     }
 
-    return body;
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverAppBar(
+            title: const MainTopAppBarTitle(),
+            pinned: true,
+            floating: true,
+            snap: true,
+            forceElevated: innerBoxIsScrolled,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () {
+                  HapticFeedbackUtil.trigger(ref, HapticScene.message);
+                  context.push(RoutePaths.notifications);
+                },
+              ),
+            ],
+          ),
+        ];
+      },
+      body: body,
+    );
   }
 
   /// 构建左侧分类导航栏
@@ -217,48 +236,43 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
               crossAxisSpacing: 12,
               childAspectRatio: 1.2,
             ),
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final tag = tags[index];
-                return AnimatedBuilder(
-                  animation: _animationController,
-                  builder: (context, child) {
-                    final delay = index * 0.05;
-                    final value = (_animationController.value - delay)
-                        .clamp(0.0, 1.0);
-                    return FadeTransition(
-                      opacity: CurvedAnimation(
-                        parent: AlwaysStoppedAnimation(value),
-                        curve: Curves.easeOut,
-                      ),
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0, 0.1),
-                          end: Offset.zero,
-                        ).animate(
-                          CurvedAnimation(
-                            parent: AlwaysStoppedAnimation(value),
-                            curve: Curves.easeOut,
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final tag = tags[index];
+              return AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  final delay = index * 0.05;
+                  final value = (_animationController.value - delay).clamp(
+                    0.0,
+                    1.0,
+                  );
+                  return FadeTransition(
+                    opacity: CurvedAnimation(
+                      parent: AlwaysStoppedAnimation(value),
+                      curve: Curves.easeOut,
+                    ),
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 0.1),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: AlwaysStoppedAnimation(value),
+                              curve: Curves.easeOut,
+                            ),
                           ),
-                        ),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: _TagCard(
-                    tag: tag,
-                    onTap: () => _onTagTap(tag),
-                  ),
-                );
-              },
-              childCount: tags.length,
-            ),
+                      child: child,
+                    ),
+                  );
+                },
+                child: _TagCard(tag: tag, onTap: () => _onTagTap(tag)),
+              );
+            }, childCount: tags.length),
           ),
         ),
         // 底部间距
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 24),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
     );
   }
@@ -292,7 +306,11 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   ///
   /// [tag] 被点击的标签
   void _onTagTap(TagItem tag) {
-    context.push(RoutePaths.tagDetail.replaceFirst(':tag', tag.slug));
+    final rawTag = tag.name.trim().isNotEmpty
+        ? tag.name.trim()
+        : tag.slug.trim();
+    final encodedTag = Uri.encodeComponent(rawTag);
+    context.push(RoutePaths.tagDetail.replaceFirst(':tag', encodedTag));
   }
 }
 
@@ -385,10 +403,7 @@ class _TagCard extends StatelessWidget {
   final VoidCallback onTap;
 
   /// 构造函数
-  const _TagCard({
-    required this.tag,
-    required this.onTap,
-  });
+  const _TagCard({required this.tag, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -418,15 +433,12 @@ class _TagCard extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                tagColor.withOpacity(0.06),
-                tagColor.withOpacity(0.02),
-              ],
+              colors: [tagColor.withOpacity(0.06), tagColor.withOpacity(0.02)],
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             children: [
               // 顶部：图标和数量
               Row(
@@ -460,8 +472,10 @@ class _TagCard extends StatelessWidget {
                   ),
                   // 话题数量
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
@@ -514,11 +528,7 @@ class _TagCard extends StatelessWidget {
   Widget _buildFallbackIcon(Color color) {
     return Text(
       tag.name.isNotEmpty ? tag.name[0].toUpperCase() : '#',
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        color: color,
-      ),
+      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
     );
   }
 

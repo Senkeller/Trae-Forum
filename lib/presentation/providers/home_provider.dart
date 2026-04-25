@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../config/constants.dart';
 import '../../core/network/discourse_api_service.dart';
 import '../../core/recommendation/recommendation_engine.dart';
+import '../../core/utils/tag_util.dart';
 import '../../data/models/feed.dart';
 
 part 'home_provider.g.dart';
@@ -19,7 +20,6 @@ enum FeedType {
   showcase,
   discussion,
   events,
-  topics,
 }
 
 const List<FeedType> homeFeedTabs = [
@@ -33,7 +33,6 @@ const List<FeedType> homeFeedTabs = [
   FeedType.showcase,
   FeedType.discussion,
   FeedType.events,
-  FeedType.topics,
 ];
 
 const Map<FeedType, String> homeFeedTabLabels = {
@@ -47,7 +46,6 @@ const Map<FeedType, String> homeFeedTabLabels = {
   FeedType.showcase: '作品',
   FeedType.discussion: '交流',
   FeedType.events: '活动',
-  FeedType.topics: '话题',
 };
 
 const Map<int, String> _categoryLabelById = {
@@ -145,9 +143,12 @@ class FeedItem {
   /// 从 JSON 创建
   factory FeedItem.fromJson(Map<String, dynamic> json) {
     TopComment? topComment;
-    if (json['topComment'] != null && json['topComment'] is Map<String, dynamic>) {
+    if (json['topComment'] != null &&
+        json['topComment'] is Map<String, dynamic>) {
       try {
-        topComment = TopComment.fromJson(json['topComment'] as Map<String, dynamic>);
+        topComment = TopComment.fromJson(
+          json['topComment'] as Map<String, dynamic>,
+        );
       } catch (_) {
         topComment = null;
       }
@@ -168,14 +169,14 @@ class FeedItem {
       replyCount: _parseInt(json['replyCount']),
       viewCount: _parseInt(json['viewCount']),
       isLiked: json['isLiked'] == true,
-      images: (json['images'] as List<dynamic>?)
+      images:
+          (json['images'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
       type: json['type']?.toString() ?? 'topic',
-      tags: (json['tags'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
+      tags:
+          (json['tags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
           const [],
       isPinned: json['isPinned'] == true,
       topComment: topComment,
@@ -273,10 +274,7 @@ class HomeState {
   /// 各 Tab 的 Feed 列表
   final Map<FeedType, TabFeedState> tabStates;
 
-  const HomeState({
-    this.currentTabIndex = 0,
-    this.tabStates = const {},
-  });
+  const HomeState({this.currentTabIndex = 0, this.tabStates = const {}});
 
   FeedType get currentFeedType {
     final index = currentTabIndex.clamp(0, homeFeedTabs.length - 1);
@@ -387,10 +385,7 @@ class HomeNotifier extends _$HomeNotifier {
       final latestState = _getTabState(feedType);
       _updateTabState(
         feedType,
-        latestState.copyWith(
-          isRefreshing: false,
-          errorMessage: '网络错误: $e',
-        ),
+        latestState.copyWith(isRefreshing: false, errorMessage: '网络错误: $e'),
       );
     }
   }
@@ -405,10 +400,7 @@ class HomeNotifier extends _$HomeNotifier {
 
     _updateTabState(
       feedType,
-      currentTabState.copyWith(
-        isLoadingMore: true,
-        errorMessage: null,
-      ),
+      currentTabState.copyWith(isLoadingMore: true, errorMessage: null),
     );
 
     final nextPage = currentTabState.currentPage + 1;
@@ -420,16 +412,15 @@ class HomeNotifier extends _$HomeNotifier {
       if (newFeeds.isEmpty) {
         _updateTabState(
           feedType,
-          latestState.copyWith(
-            isLoadingMore: false,
-            hasMore: false,
-          ),
+          latestState.copyWith(isLoadingMore: false, hasMore: false),
         );
         return;
       }
 
       final existingIds = latestState.feedList.map((e) => e.id).toSet();
-      final dedupedNewFeeds = newFeeds.where((e) => !existingIds.contains(e.id)).toList();
+      final dedupedNewFeeds = newFeeds
+          .where((e) => !existingIds.contains(e.id))
+          .toList();
 
       _updateTabState(
         feedType,
@@ -445,10 +436,7 @@ class HomeNotifier extends _$HomeNotifier {
       final latestState = _getTabState(feedType);
       _updateTabState(
         feedType,
-        latestState.copyWith(
-          isLoadingMore: false,
-          errorMessage: '网络错误: $e',
-        ),
+        latestState.copyWith(isLoadingMore: false, errorMessage: '网络错误: $e'),
       );
     }
   }
@@ -476,24 +464,30 @@ class HomeNotifier extends _$HomeNotifier {
           );
         }
       case FeedType.official:
-        debugPrint('🏛️ [HomeProvider] 获取官方公告，分类ID: ${AppConstants.forumCategoryIds['official']}, page: $page');
+        debugPrint(
+          '🏛️ [HomeProvider] 获取官方公告，分类ID: ${AppConstants.forumCategoryIds['official']}, page: $page',
+        );
         final response = await _discourseApiService.getTopicsByCategory(
           AppConstants.forumCategoryIds['official']!,
           page: page,
         );
         debugPrint('🏛️ [HomeProvider] 官方公告API响应状态: ${response.statusCode}');
-        debugPrint('🏛️ [HomeProvider] 官方公告API响应数据类型: ${response.data.runtimeType}');
-        
+        debugPrint(
+          '🏛️ [HomeProvider] 官方公告API响应数据类型: ${response.data.runtimeType}',
+        );
+
         final raw = response.data;
-        final data = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+        final data = raw is Map<String, dynamic>
+            ? raw
+            : Map<String, dynamic>.from(raw as Map);
         final topicListMap = data['topic_list'] as Map<String, dynamic>?;
         final topics = topicListMap?['topics'] as List<dynamic>?;
         debugPrint('🏛️ [HomeProvider] 官方公告话题数量: ${topics?.length ?? 0}');
-        
+
         if (topics != null && topics.isNotEmpty) {
           debugPrint('🏛️ [HomeProvider] 第一个话题标题: ${topics.first['title']}');
         }
-        
+
         return _fetchFromResponse(response);
       case FeedType.help:
         return _fetchFromResponse(
@@ -532,11 +526,6 @@ class HomeNotifier extends _$HomeNotifier {
         );
       case FeedType.events:
         return _fetchEvents(page);
-      case FeedType.topics:
-        // 话题Tab使用推荐数据作为默认
-        return _fetchFromResponse(
-          await _discourseApiService.getLatestTopics(page: page),
-        );
     }
   }
 
@@ -560,13 +549,21 @@ class HomeNotifier extends _$HomeNotifier {
       }
     }
 
-    merged.sort((a, b) => int.tryParse(b.createTime)?.compareTo(int.tryParse(a.createTime) ?? 0) ?? 0);
+    merged.sort(
+      (a, b) =>
+          int.tryParse(
+            b.createTime,
+          )?.compareTo(int.tryParse(a.createTime) ?? 0) ??
+          0,
+    );
     return merged;
   }
 
   List<FeedItem> _fetchFromResponse(dynamic response) {
     final raw = response.data;
-    final data = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+    final data = raw is Map<String, dynamic>
+        ? raw
+        : Map<String, dynamic>.from(raw as Map);
 
     final topicListMap = data['topic_list'] as Map<String, dynamic>?;
     final topics = (topicListMap?['topics'] as List<dynamic>? ?? const [])
@@ -586,7 +583,9 @@ class HomeNotifier extends _$HomeNotifier {
       }
     }
 
-    return topics.map((topic) => _adaptTopicToFeedItem(topic, userMap)).toList();
+    return topics
+        .map((topic) => _adaptTopicToFeedItem(topic, userMap))
+        .toList();
   }
 
   FeedItem _adaptTopicToFeedItem(
@@ -598,10 +597,13 @@ class HomeNotifier extends _$HomeNotifier {
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
-    final firstPosterUserId = posterList.isNotEmpty ? _parseInt(posterList.first['user_id']) : 0;
+    final firstPosterUserId = posterList.isNotEmpty
+        ? _parseInt(posterList.first['user_id'])
+        : 0;
     final author = userMap[firstPosterUserId] ?? const <String, dynamic>{};
 
-    final username = (author['username'] ?? topic['last_poster_username'] ?? '').toString();
+    final username = (author['username'] ?? topic['last_poster_username'] ?? '')
+        .toString();
     final categoryId = _parseInt(topic['category_id']);
     final title = (topic['title'] ?? '').toString();
     final excerpt = _normalizeExcerpt(topic['excerpt']);
@@ -636,26 +638,16 @@ class HomeNotifier extends _$HomeNotifier {
       content: excerpt.isNotEmpty ? excerpt : title,
       category: _categoryLabelById[categoryId] ?? 'Category $categoryId',
       categoryId: categoryId,
-      createTime: _toUnixTimestamp(topic['last_posted_at'] ?? topic['created_at']),
+      createTime: _toUnixTimestamp(
+        topic['last_posted_at'] ?? topic['created_at'],
+      ),
       likeCount: _parseInt(topic['like_count']),
       replyCount: replyCount,
       viewCount: _parseInt(topic['views']),
       isLiked: false,
       images: imageUrl.isNotEmpty ? [imageUrl] : const [],
       type: 'topic',
-      tags: (topic['tags'] as List<dynamic>? ?? const [])
-          .map((e) {
-            // 处理标签可能是对象或字符串的情况
-            if (e is Map<String, dynamic>) {
-              // 如果是对象，使用 name 字段（用于URL路径）
-              // Discourse 标签URL使用 name 的小写格式，如 code-with-solo
-              final name = e['name']?.toString() ?? '';
-              return name.isNotEmpty ? name.toLowerCase() : '';
-            }
-            return e.toString().toLowerCase();
-          })
-          .where((e) => e.isNotEmpty)
-          .toList(),
+      tags: TagUtil.parseTagList(topic['tags']),
       isPinned: topic['pinned'] == true,
       topComment: topComment,
     );
@@ -735,7 +727,9 @@ class HomeNotifier extends _$HomeNotifier {
   void removeFeed(String feedId) {
     final feedType = _indexToFeedType(state.currentTabIndex);
     final currentTabState = _getTabState(feedType);
-    final updatedList = currentTabState.feedList.where((feed) => feed.id != feedId).toList();
+    final updatedList = currentTabState.feedList
+        .where((feed) => feed.id != feedId)
+        .toList();
     _updateTabState(feedType, currentTabState.copyWith(feedList: updatedList));
   }
 

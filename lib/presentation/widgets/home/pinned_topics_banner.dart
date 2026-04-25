@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/network/discourse_api_service.dart';
 import '../../../data/models/pinned_topic.dart';
 import '../../providers/pinned_topics_provider.dart';
 
@@ -8,7 +9,13 @@ import '../../providers/pinned_topics_provider.dart';
 ///
 /// 展示TRAE论坛社区置顶贴，横向滚动卡片形式
 class PinnedTopicsBanner extends ConsumerStatefulWidget {
-  const PinnedTopicsBanner({super.key});
+  /// 可选分类ID。
+  ///
+  /// - `null`：使用全局置顶聚合逻辑
+  /// - 非 `null`：只展示指定分类中的置顶话题
+  final int? categoryId;
+
+  const PinnedTopicsBanner({super.key, this.categoryId});
 
   @override
   ConsumerState<PinnedTopicsBanner> createState() => _PinnedTopicsBannerState();
@@ -17,15 +24,25 @@ class PinnedTopicsBanner extends ConsumerStatefulWidget {
 class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
   final PageController _pageController = PageController(viewportFraction: 0.92);
   int _currentPage = 0;
+  List<PinnedTopic> _categoryPinnedTopics = const [];
+  bool _isCategoryLoading = false;
+  String? _categoryErrorMessage;
 
   @override
   void initState() {
     super.initState();
-    // 页面加载时获取置顶话题
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(pinnedTopicsNotifierProvider.notifier).loadPinnedTopics();
+      _loadData();
     });
     _pageController.addListener(_onPageChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant PinnedTopicsBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.categoryId != widget.categoryId) {
+      _loadData();
+    }
   }
 
   @override
@@ -44,11 +61,121 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
     }
   }
 
+  Future<void> _loadData() async {
+    if (widget.categoryId == null) {
+      ref.read(pinnedTopicsNotifierProvider.notifier).loadPinnedTopics();
+      return;
+    }
+    await _loadCategoryPinnedTopics(widget.categoryId!);
+  }
+
+  Future<void> _loadCategoryPinnedTopics(int categoryId) async {
+    if (_isCategoryLoading) return;
+
+    setState(() {
+      _isCategoryLoading = true;
+      _categoryErrorMessage = null;
+    });
+
+    try {
+      final discourseApiService = ref.read(discourseApiServiceProvider);
+      final response = await discourseApiService.getTopicsByCategory(
+        categoryId,
+        page: 0,
+      );
+      final raw = response.data;
+      final data = raw is Map<String, dynamic>
+          ? raw
+          : Map<String, dynamic>.from(raw as Map);
+
+      final topicListMap = data['topic_list'] as Map<String, dynamic>?;
+      final topics = (topicListMap?['topics'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      final users = (data['users'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      final categories = (data['categories'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      final userMap = <int, Map<String, dynamic>>{};
+      for (final user in users) {
+        final id = _parseInt(user['id']);
+        if (id > 0) userMap[id] = user;
+      }
+
+      final categoryMap = <int, Map<String, dynamic>>{};
+      for (final category in categories) {
+        final id = _parseInt(category['id']);
+        if (id > 0) categoryMap[id] = category;
+      }
+
+      final pinnedTopics = topics
+          .where(_isTopicPinned)
+          .take(10)
+          .map(
+            (topic) => PinnedTopic.fromTopicData(topic, userMap, categoryMap),
+          )
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _categoryPinnedTopics = pinnedTopics;
+        _isCategoryLoading = false;
+        _categoryErrorMessage = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isCategoryLoading = false;
+        _categoryErrorMessage = '加载失败';
+      });
+    }
+  }
+
+  bool _isTopicPinned(Map<String, dynamic> topic) {
+    final pinned = topic['pinned'];
+    final pinnedGlobally = topic['pinned_globally'];
+
+    bool isPinned = false;
+    if (pinned is bool) {
+      isPinned = pinned;
+    } else if (pinned is int) {
+      isPinned = pinned > 0;
+    } else if (pinned is String) {
+      isPinned = pinned.toLowerCase() == 'true' || pinned == '1';
+    }
+
+    if (!isPinned) {
+      if (pinnedGlobally is bool) {
+        isPinned = pinnedGlobally;
+      } else if (pinnedGlobally is int) {
+        isPinned = pinnedGlobally > 0;
+      } else if (pinnedGlobally is String) {
+        isPinned =
+            pinnedGlobally.toLowerCase() == 'true' || pinnedGlobally == '1';
+      }
+    }
+
+    return isPinned;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final pinnedTopics = ref.watch(pinnedTopicsListProvider);
-    final isLoading = ref.watch(isPinnedTopicsLoadingProvider);
-    final errorMessage = ref.watch(pinnedTopicsErrorProvider);
+    final pinnedTopics = widget.categoryId == null
+        ? ref.watch(pinnedTopicsListProvider)
+        : _categoryPinnedTopics;
+    final isLoading = widget.categoryId == null
+        ? ref.watch(isPinnedTopicsLoadingProvider)
+        : _isCategoryLoading;
+    final errorMessage = widget.categoryId == null
+        ? ref.watch(pinnedTopicsErrorProvider)
+        : _categoryErrorMessage;
 
     // 如果没有置顶话题且不加载中，不显示Banner
     if (pinnedTopics.isEmpty && !isLoading && errorMessage == null) {
@@ -65,8 +192,8 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
           child: isLoading && pinnedTopics.isEmpty
               ? _buildLoadingPlaceholder()
               : errorMessage != null && pinnedTopics.isEmpty
-                  ? _buildErrorPlaceholder(errorMessage)
-                  : _buildTopicsCarousel(pinnedTopics),
+              ? _buildErrorPlaceholder(errorMessage)
+              : _buildTopicsCarousel(pinnedTopics),
         ),
         // 指示器
         if (pinnedTopics.length > 1)
@@ -85,7 +212,9 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
                     borderRadius: BorderRadius.circular(3),
                     color: _currentPage == index
                         ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                        : Theme.of(
+                            context,
+                          ).colorScheme.outline.withOpacity(0.3),
                   ),
                 ),
               ),
@@ -104,10 +233,7 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
       padEnds: false,
       itemBuilder: (context, index) {
         final topic = topics[index];
-        return _PinnedTopicCard(
-          topic: topic,
-          onTap: () => _onTopicTap(topic),
-        );
+        return _PinnedTopicCard(topic: topic, onTap: () => _onTopicTap(topic));
       },
     );
   }
@@ -126,9 +252,7 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Center(
-            child: CircularProgressIndicator(),
-          ),
+          child: const Center(child: CircularProgressIndicator()),
         );
       },
     );
@@ -149,8 +273,8 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
           Text(
             '加载失败',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+              color: Theme.of(context).colorScheme.error,
+            ),
           ),
         ],
       ),
@@ -163,15 +287,19 @@ class _PinnedTopicsBannerState extends ConsumerState<PinnedTopicsBanner> {
   }
 }
 
+int _parseInt(dynamic value) {
+  if (value == null) return 0;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString()) ?? 0;
+}
+
 /// 置顶话题卡片
 class _PinnedTopicCard extends StatelessWidget {
   final PinnedTopic topic;
   final VoidCallback onTap;
 
-  const _PinnedTopicCard({
-    required this.topic,
-    required this.onTap,
-  });
+  const _PinnedTopicCard({required this.topic, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +340,10 @@ class _PinnedTopicCard extends StatelessWidget {
                   children: [
                     // 置顶标识
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: colorScheme.primary,
                         borderRadius: BorderRadius.circular(8),
@@ -258,10 +389,10 @@ class _PinnedTopicCard extends StatelessWidget {
                   child: Text(
                     topic.title,
                     style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.4,
-                          color: colorScheme.onSurface,
-                        ),
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                      color: colorScheme.onSurface,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -306,9 +437,9 @@ class _PinnedTopicCard extends StatelessWidget {
                       child: Text(
                         topic.username,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -343,11 +474,7 @@ class _PinnedTopicCard extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(icon, size: 12, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 2),
           Text(
             _formatNumber(value),

@@ -5,6 +5,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
 import '../../providers/home_provider.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
 class TopicListPage extends ConsumerStatefulWidget {
   const TopicListPage({super.key});
@@ -152,9 +153,13 @@ class _TopicListPageState extends ConsumerState<TopicListPage>
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _topics.length,
+        itemCount: _topics.length + 1,
         itemBuilder: (context, index) {
-          final topic = _topics[index];
+          if (index == 0) {
+            return const PinnedTopicsBanner();
+          }
+
+          final topic = _topics[index - 1];
           return _TopicCard(
             topic: topic,
             onTap: () {
@@ -171,10 +176,7 @@ class _TopicCard extends StatelessWidget {
   final FeedItem topic;
   final VoidCallback onTap;
 
-  const _TopicCard({
-    required this.topic,
-    required this.onTap,
-  });
+  const _TopicCard({required this.topic, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -208,22 +210,23 @@ class _TopicCard extends StatelessWidget {
                       children: [
                         Text(
                           topic.username,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Text(
                           _formatTime(topic.createTime),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
                   ),
                   if (topic.isPinned)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(8),
@@ -231,8 +234,8 @@ class _TopicCard extends StatelessWidget {
                       child: Text(
                         '置顶',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onPrimaryContainer,
-                            ),
+                          color: colorScheme.onPrimaryContainer,
+                        ),
                       ),
                     ),
                 ],
@@ -240,9 +243,9 @@ class _TopicCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 topic.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -262,16 +265,21 @@ class _TopicCard extends StatelessWidget {
                   runSpacing: 6,
                   children: topic.tags.take(3).map((tag) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.5,
+                        ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         '#$tag',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.primary,
-                            ),
+                          color: colorScheme.primary,
+                        ),
                       ),
                     );
                   }).toList(),
@@ -391,10 +399,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

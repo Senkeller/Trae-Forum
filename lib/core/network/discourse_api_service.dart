@@ -162,7 +162,11 @@ class DiscourseApiService {
   /// [page] 页码，从0开始
   /// 调用 Discourse GET /tag/{tag}.json API
   Future<Response> getTopicsByTag(String tag, {int page = 0}) async {
-    return _dio.get('$_baseUrl/tag/$tag.json', queryParameters: {'page': page});
+    final encodedTag = Uri.encodeComponent(tag);
+    return _dio.get(
+      '$_baseUrl/tag/$encodedTag.json',
+      queryParameters: {'page': page},
+    );
   }
 
   // ==================== 通知相关 API ====================

@@ -6,7 +6,17 @@ import '../../presentation/providers/settings_provider.dart';
 /// 统一管理应用触觉反馈。
 ///
 /// 通过设置页的「振动」开关控制是否启用。
-enum HapticScene { tap, like, unlike, refresh, refreshDone, message }
+enum HapticScene {
+  tap,
+  navSwitch,
+  like,
+  unlike,
+  refresh,
+  refreshDone,
+  message,
+  commentSuccess,
+  copySuccess,
+}
 
 class HapticFeedbackUtil {
   const HapticFeedbackUtil._();
@@ -26,8 +36,11 @@ class HapticFeedbackUtil {
         case HapticScene.tap:
           await HapticFeedback.selectionClick();
           break;
+        case HapticScene.navSwitch:
+          await HapticFeedback.selectionClick();
+          break;
         case HapticScene.like:
-          await HapticFeedback.mediumImpact();
+          await HapticFeedback.lightImpact();
           break;
         case HapticScene.unlike:
           await HapticFeedback.selectionClick();
@@ -36,10 +49,16 @@ class HapticFeedbackUtil {
           await HapticFeedback.lightImpact();
           break;
         case HapticScene.refreshDone:
-          await HapticFeedback.mediumImpact();
+          await HapticFeedback.lightImpact();
           break;
         case HapticScene.message:
           await HapticFeedback.lightImpact();
+          break;
+        case HapticScene.commentSuccess:
+          await HapticFeedback.lightImpact();
+          break;
+        case HapticScene.copySuccess:
+          await HapticFeedback.selectionClick();
           break;
       }
     } catch (_) {

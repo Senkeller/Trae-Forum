@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
@@ -11,11 +12,11 @@ import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../widgets/common/like_button.dart';
+import '../../widgets/common/main_top_app_bar_title.dart';
 import '../../widgets/feed/featured_comment.dart';
 import '../../widgets/feed/quick_comment_bar.dart';
 import '../../widgets/comment/quick_comment_sheet.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
-import '../topics/topics_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -99,6 +100,29 @@ class _HomePageState extends ConsumerState<HomePage>
     _refreshControllers[tabIndex].loadComplete();
   }
 
+  int? _resolveBannerCategoryId(FeedType feedType) {
+    switch (feedType) {
+      case FeedType.official:
+        return AppConstants.forumCategoryIds['official'];
+      case FeedType.help:
+        return AppConstants.forumCategoryIds['help'];
+      case FeedType.suggestions:
+        return AppConstants.forumCategoryIds['suggestions'];
+      case FeedType.tips:
+        return AppConstants.forumCategoryIds['tips'];
+      case FeedType.showcase:
+        return AppConstants.forumCategoryIds['showcase'];
+      case FeedType.discussion:
+        return AppConstants.forumCategoryIds['discussion'];
+      case FeedType.events:
+        return AppConstants.forumCategoryIds['events'];
+      case FeedType.recommended:
+      case FeedType.latest:
+      case FeedType.hot:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -108,7 +132,7 @@ class _HomePageState extends ConsumerState<HomePage>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              title: const _HomeAppBarTitle(),
+              title: const MainTopAppBarTitle(),
               pinned: true,
               floating: true,
               snap: true,
@@ -138,18 +162,17 @@ class _HomePageState extends ConsumerState<HomePage>
           controller: _tabController,
           children: List.generate(homeFeedTabs.length, (index) {
             final feedType = homeFeedTabs[index];
-            // 话题Tab显示独立的话题页面
-            if (feedType == FeedType.topics) {
-              return const TopicsPage();
-            }
+            final bannerCategoryId = _resolveBannerCategoryId(feedType);
+
             return _FeedListView(
-              key: ValueKey('feed_${homeFeedTabs[index].name}'),
+              key: ValueKey('feed_${feedType.name}'),
               tabIndex: index,
               onRefresh: () => _onRefresh(index),
               onLoading: () => _onLoading(index),
               refreshController: _refreshControllers[index],
               scrollController: _scrollControllers[index],
-              showBanner: index == 0,
+              showBanner: true,
+              bannerCategoryId: bannerCategoryId,
             );
           }),
         ),
@@ -174,6 +197,7 @@ class _FeedListView extends ConsumerWidget {
   final RefreshController refreshController;
   final ScrollController? scrollController;
   final bool showBanner;
+  final int? bannerCategoryId;
 
   const _FeedListView({
     super.key,
@@ -183,6 +207,7 @@ class _FeedListView extends ConsumerWidget {
     required this.refreshController,
     this.scrollController,
     this.showBanner = false,
+    this.bannerCategoryId,
   });
 
   @override
@@ -273,7 +298,7 @@ class _FeedListView extends ConsumerWidget {
         itemBuilder: (context, index) {
           // 如果是第一个位置且需要显示Banner
           if (showBanner && index == 0) {
-            return const PinnedTopicsBanner();
+            return PinnedTopicsBanner(categoryId: bannerCategoryId);
           }
 
           // 计算实际的feed索引
@@ -530,6 +555,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     setState(() {
       _replyCount++;
     });
+    HapticFeedbackUtil.trigger(ref, HapticScene.commentSuccess);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('评论发送成功')));
@@ -542,6 +568,55 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
       topicId: widget.feed.topicId,
       onSubmit: (content) => _handleCommentSuccess(content),
     );
+  }
+
+  Future<void> _toggleBookmarkFromFeed() async {
+    final topicId = widget.feed.topicId;
+    if (topicId <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无效的话题ID，无法操作书签')));
+      return;
+    }
+
+    final hasSession = await ref.read(isAuthenticatedAsyncProvider.future);
+    if (!hasSession) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('请先登录后再使用书签'),
+          action: SnackBarAction(
+            label: '登录',
+            onPressed: () => context.push(RoutePaths.login),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final notifier = ref.read(bookmarkProvider.notifier);
+    final beforeState = ref.read(postBookmarkStateProvider(topicId));
+    if (beforeState == null) {
+      notifier.initializePost(topicId, isBookmarked: false);
+    }
+
+    await notifier.toggleBookmark(topicId, bookmarkId: beforeState?.bookmarkId);
+
+    if (!mounted) return;
+
+    final currentState = ref.read(postBookmarkStateProvider(topicId));
+    final message = currentState?.errorMessage;
+    if (message != null && message.isNotEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      notifier.clearError(topicId);
+      return;
+    }
+
+    final tips = (currentState?.isBookmarked ?? false) ? '已添加论坛书签' : '已取消论坛书签';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tips)));
   }
 
   @override
@@ -741,10 +816,19 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   /// [context] 上下文
   /// [tag] 标签名称
   void _onTagTap(BuildContext context, String tag) {
-    // 将标签转换为 URL 友好的格式（小写，空格转连字符）
-    final urlFriendlyTag = tag.toLowerCase().trim().replaceAll(' ', '-');
-    // 跳转到标签详情页
-    context.push(RoutePaths.tagDetail.replaceFirst(':tag', urlFriendlyTag));
+    final rawTag = tag.trim().replaceFirst(RegExp(r'^#+\s*'), '');
+    if (rawTag.isEmpty) return;
+    final encodedTag = Uri.encodeComponent(rawTag);
+    context.push(RoutePaths.tagDetail.replaceFirst(':tag', encodedTag));
+  }
+
+  /// 处理分类（话题）点击
+  void _onCategoryTap(BuildContext context) {
+    if (widget.feed.categoryId <= 0) return;
+    final categoryUrl = '${AppConstants.forumUrl}/c/${widget.feed.categoryId}';
+    final encodedUrl = Uri.encodeComponent(categoryUrl);
+    final encodedTitle = Uri.encodeComponent(widget.feed.category);
+    context.push('${RoutePaths.webview}?url=$encodedUrl&title=$encodedTitle');
   }
 
   Widget _buildMetaTags(BuildContext context) {
@@ -757,10 +841,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
         _metaChip(
           context,
           '#$localizedCategory',
-          onTap: () {
-            // 分类标签点击可以跳转到对应分类
-            // 这里可以根据需要实现分类跳转逻辑
-          },
+          onTap: () => _onCategoryTap(context),
         ),
       );
     }
@@ -869,11 +950,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     return InkWell(
       onTap: isLoading
           ? null
-          : () {
+          : () async {
               HapticFeedbackUtil.trigger(ref, HapticScene.tap);
-              ref
-                  .read(bookmarkProvider.notifier)
-                  .toggleBookmark(widget.feed.topicId);
+              await _toggleBookmarkFromFeed();
             },
       borderRadius: BorderRadius.circular(12),
       child: Padding(
@@ -954,8 +1033,8 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
 
   /// 复制到剪贴板
   void _copyToClipboard(BuildContext context, String text) {
-    // 使用 Clipboard 复制文本
-    // 这里简化处理，实际项目中可以使用 flutter/services.dart 中的 Clipboard
+    Clipboard.setData(ClipboardData(text: text));
+    HapticFeedbackUtil.trigger(ref, HapticScene.copySuccess);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('链接已复制到剪贴板'),
@@ -991,102 +1070,5 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     } catch (_) {
       return timestamp;
     }
-  }
-}
-
-/// 首页顶部AppBar自定义标题
-///
-/// 包含用户头像、搜索框，类似酷安首页顶部布局
-class _HomeAppBarTitle extends ConsumerWidget {
-  const _HomeAppBarTitle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final authState = ref.watch(authNotifierProvider);
-    final currentUser = authState.valueOrNull;
-
-    return SizedBox(
-      height: 40,
-      child: Row(
-        children: [
-          // 用户头像
-          GestureDetector(
-            onTap: () {
-              if (currentUser != null) {
-                context.push('/profile/${currentUser.uid}');
-              } else {
-                context.push(RoutePaths.login);
-              }
-            },
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.primaryContainer,
-              ),
-              child: ClipOval(
-                child:
-                    currentUser?.avatar != null &&
-                        currentUser!.avatar!.isNotEmpty
-                    ? Image.network(
-                        currentUser.avatar!,
-                        width: 36,
-                        height: 36,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
-                            Icons.person,
-                            size: 20,
-                            color: colorScheme.onPrimaryContainer,
-                          );
-                        },
-                      )
-                    : Icon(
-                        Icons.person,
-                        size: 20,
-                        color: colorScheme.onPrimaryContainer,
-                      ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // 搜索框
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                context.push(RoutePaths.search);
-              },
-              child: Container(
-                height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search,
-                      size: 18,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '搜索话题、用户...',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

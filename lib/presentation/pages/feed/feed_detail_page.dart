@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +18,7 @@ import '../../pages/common/image_preview_page.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../providers/like_provider.dart';
+import '../../providers/user_activity_provider.dart';
 import '../../widgets/common/cached_image.dart';
 import '../../widgets/common/rich_text_view.dart';
 import '../../widgets/detail/table_of_contents.dart';
@@ -187,6 +189,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       });
       _initializeLikeStatesForReplies(comments);
       _initializeBookmarkState(topicDetail);
+
+      // 记录浏览历史
+      _recordBrowseHistory(topicDetail);
     } catch (error) {
       if (!mounted) {
         return;
@@ -351,6 +356,37 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     return html.replaceAll(RegExp(r'\s+'), '').replaceAll('&nbsp;', '').trim();
   }
 
+  /// 记录浏览历史
+  ///
+  /// 当用户查看帖子详情时，将帖子信息保存到本地浏览历史
+  /// [topicDetail] 帖子详情数据
+  Future<void> _recordBrowseHistory(FeedContentData topicDetail) async {
+    try {
+      final userInfo = topicDetail.userInfo;
+      if (userInfo == null) return;
+
+      await ref.read(browseHistoriesProvider.notifier).addHistory(
+        feedId: widget.feedId,
+        uid: userInfo.uid,
+        username: userInfo.username,
+        avatarUrl: userInfo.avatar ?? '',
+        deviceTitle: topicDetail.title ?? '',
+        message: topicDetail.message.isNotEmpty
+            ? topicDetail.message.substring(
+                0,
+                topicDetail.message.length > 100
+                    ? 100
+                    : topicDetail.message.length,
+              )
+            : '',
+        dateline: topicDetail.dateline,
+      );
+    } catch (e) {
+      // 记录浏览历史失败不应影响用户体验，静默处理
+      debugPrint('记录浏览历史失败: $e');
+    }
+  }
+
   Future<void> _openExternalLink(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null) {
@@ -443,6 +479,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         if (!mounted) {
           return;
         }
+        HapticFeedbackUtil.trigger(ref, HapticScene.commentSuccess);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('回复发送成功')));
@@ -890,9 +927,11 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                 Navigator.of(context).pop();
                 HapticFeedbackUtil.trigger(ref, HapticScene.tap);
                 final topicUrl = 'https://forum.trae.cn/t/${widget.feedId}';
+                Clipboard.setData(ClipboardData(text: topicUrl));
+                HapticFeedbackUtil.trigger(ref, HapticScene.copySuccess);
                 ScaffoldMessenger.of(
                   this.context,
-                ).showSnackBar(SnackBar(content: Text('链接: $topicUrl')));
+                ).showSnackBar(const SnackBar(content: Text('链接已复制到剪贴板')));
               },
             ),
             ListTile(

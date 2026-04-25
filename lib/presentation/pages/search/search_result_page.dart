@@ -4,14 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
 class SearchResultPage extends ConsumerStatefulWidget {
   final String query;
 
-  const SearchResultPage({
-    super.key,
-    required this.query,
-  });
+  const SearchResultPage({super.key, required this.query});
 
   @override
   ConsumerState<SearchResultPage> createState() => _SearchResultPageState();
@@ -92,9 +90,7 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('搜索: ${widget.query}'),
-      ),
+      appBar: AppBar(title: Text('搜索: ${widget.query}')),
       body: _buildBody(),
     );
   }
@@ -131,15 +127,21 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage> {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _results.length,
+        itemCount: _results.length + 1,
         itemBuilder: (context, index) {
-          final result = _results[index];
+          if (index == 0) {
+            return const PinnedTopicsBanner();
+          }
+
+          final result = _results[index - 1];
           return _ResultCard(
             result: result,
             onTap: () {
               final topicId = result['topicId']?.toString() ?? '';
               if (topicId.isNotEmpty) {
-                context.push(RoutePaths.feedDetail.replaceFirst(':id', topicId));
+                context.push(
+                  RoutePaths.feedDetail.replaceFirst(':id', topicId),
+                );
               }
             },
           );
@@ -153,10 +155,7 @@ class _ResultCard extends StatelessWidget {
   final Map<String, dynamic> result;
   final VoidCallback onTap;
 
-  const _ResultCard({
-    required this.result,
-    required this.onTap,
-  });
+  const _ResultCard({required this.result, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -193,8 +192,8 @@ class _ResultCard extends StatelessWidget {
                     Text(
                       title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -203,8 +202,8 @@ class _ResultCard extends StatelessWidget {
                       Text(
                         excerpt,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -213,8 +212,8 @@ class _ResultCard extends StatelessWidget {
                     Text(
                       '@$username',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.primary,
-                          ),
+                        color: colorScheme.primary,
+                      ),
                     ),
                   ],
                 ),
@@ -268,10 +267,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

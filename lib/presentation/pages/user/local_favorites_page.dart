@@ -6,6 +6,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../../../config/constants.dart';
 import '../../../data/models/user_activity.dart';
 import '../../providers/user_activity_provider.dart';
+import '../../widgets/home/pinned_topics_banner.dart';
 
 /// 本地收藏页面
 class LocalFavoritesPage extends ConsumerStatefulWidget {
@@ -54,9 +55,9 @@ class _LocalFavoritesPageState extends ConsumerState<LocalFavoritesPage> {
     if (confirmed == true) {
       await ref.read(localFavoritesProvider.notifier).clearAll();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('收藏已清空')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('收藏已清空')));
       }
     }
   }
@@ -101,9 +102,13 @@ class _LocalFavoritesPageState extends ConsumerState<LocalFavoritesPage> {
       onRefresh: _onRefresh,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: list.length,
+        itemCount: list.length + 1,
         itemBuilder: (context, index) {
-          final item = list[index];
+          if (index == 0) {
+            return const PinnedTopicsBanner();
+          }
+
+          final item = list[index - 1];
           return _FavoriteCard(
             item: item,
             onTap: () => _navigateToDetail(item.feedId),
@@ -125,16 +130,13 @@ class _LocalFavoritesPageState extends ConsumerState<LocalFavoritesPage> {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(height: 16),
-          Text(
-            '暂无本地收藏',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          Text('暂无本地收藏', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           Text(
             '浏览帖子时点击收藏按钮即可添加',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -148,9 +150,9 @@ class _LocalFavoritesPageState extends ConsumerState<LocalFavoritesPage> {
   Future<void> _removeFavorite(String feedId) async {
     await ref.read(localFavoritesProvider.notifier).removeFavorite(feedId);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已从收藏中移除')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('已从收藏中移除')));
     }
   }
 }
@@ -196,8 +198,8 @@ class _FavoriteCard extends StatelessWidget {
                     Text(
                       item.message,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -206,16 +208,14 @@ class _FavoriteCard extends StatelessWidget {
                       children: [
                         Text(
                           '@${item.username}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.primary,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.primary),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           item.deviceTitle,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -223,10 +223,7 @@ class _FavoriteCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: Icon(
-                  Icons.delete_outline,
-                  color: colorScheme.error,
-                ),
+                icon: Icon(Icons.delete_outline, color: colorScheme.error),
                 onPressed: onDelete,
                 tooltip: '删除',
               ),

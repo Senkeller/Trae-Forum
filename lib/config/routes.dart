@@ -136,7 +136,8 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.topicDetail,
         builder: (context, state) {
-          final tag = state.pathParameters['tag']!;
+          final rawTag = state.pathParameters['tag']!;
+          final tag = Uri.decodeComponent(rawTag);
           return TopicDetailPage(tag: tag);
         },
       ),
@@ -145,7 +146,8 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.tagDetail,
         builder: (context, state) {
-          final tag = state.pathParameters['tag']!;
+          final rawTag = state.pathParameters['tag']!;
+          final tag = Uri.decodeComponent(rawTag);
           return TopicDetailPage(tag: tag);
         },
       ),
