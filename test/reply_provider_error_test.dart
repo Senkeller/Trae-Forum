@@ -6,8 +6,6 @@ import 'package:traeu/presentation/providers/reply_provider.dart';
 /// 测试各种错误场景下的错误码映射和重试机制
 void main() {
   group('ReplyProvider 错误码映射测试', () {
-    late ReplyNotifier notifier;
-
     setUp(() {
       // 注意：实际测试中需要使用 ProviderContainer 来创建 notifier
       // 这里仅作为错误码映射逻辑的测试示例

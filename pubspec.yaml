@@ -9,10 +9,6 @@ homepage: https://github.com/trae-community/trae-forum-app
 repository: https://github.com/trae-community/trae-forum-app
 issue_tracker: https://github.com/trae-community/trae-forum-app/issues
 
-# 作者信息
-authors:
-  - Trae Community Contributors
-
 environment:
   sdk: ^3.10.8
 

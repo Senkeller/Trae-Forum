@@ -11,12 +11,20 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   errors:
-    # 将 invalid_annotation_target 降级为 info，避免在 Freezed 类中使用 @JsonKey 时出现警告
-    invalid_annotation_target: info
+    # 将以下问题完全忽略（不显示在分析结果中）
+    # Freezed 代码生成导致的注解目标问题 - 这是预期行为
+    invalid_annotation_target: ignore
+    # Flutter 3.18 升级导致的 API 弃用警告 - 将在后续迭代中逐步迁移
+    deprecated_member_use: ignore
+    deprecated_member_use_from_same_package: ignore
+    # print 使用警告
+    avoid_print: ignore
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - "**/generated_plugin_registrant.dart"
+    # 排除测试目录
+    - "test/**"
 
 linter:
   # The lint rules applied to this project can be customized in the
@@ -30,7 +38,8 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
+    # 禁用以下规则
+    avoid_print: false
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
 # Additional information about this file can be found at

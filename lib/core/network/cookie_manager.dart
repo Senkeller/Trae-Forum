@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:logger/logger.dart';
 import 'native_cookie_bridge.dart';
 
 /// Trae Cookie 管理器
@@ -8,6 +9,7 @@ import 'native_cookie_bridge.dart';
 /// 包括提取、保存、读取和清除 Cookie
 class TraeCookieManager {
   static const String _prefix = 'trae_cookie_';
+  static final Logger _logger = Logger();
 
   /// 关键 Cookie 名称列表
   static const List<String> _essentialCookies = [
@@ -42,20 +44,20 @@ class TraeCookieManager {
       );
 
       if (cookiesString.toString().isEmpty) {
-        print('⚠️ [TraeCookieManager] 未获取到 Cookie');
+        _logger.w('⚠️ [TraeCookieManager] 未获取到 Cookie');
         return false;
       }
 
       final cookies = _parseCookieString(cookiesString.toString());
       if (cookies.isEmpty) {
-        print('⚠️ [TraeCookieManager] 解析 Cookie 为空');
+        _logger.w('⚠️ [TraeCookieManager] 解析 Cookie 为空');
         return false;
       }
 
       await _saveCookies(cookies);
       return true;
     } catch (e) {
-      print('❌ [TraeCookieManager] 提取 Cookie 失败: $e');
+      _logger.e('❌ [TraeCookieManager] 提取 Cookie 失败: $e');
       return false;
     }
   }
@@ -77,9 +79,9 @@ class TraeCookieManager {
 
         mergedCookies.addAll(cookies);
         hasAny = true;
-        print('✅ [TraeCookieManager] 从 NativeBridge 同步 Cookie 成功: $url');
+        _logger.i('✅ [TraeCookieManager] 从 NativeBridge 同步 Cookie 成功: $url');
       } catch (e) {
-        print(
+        _logger.w(
           '⚠️ [TraeCookieManager] 从 NativeBridge 同步 Cookie 失败: $url, error=$e',
         );
       }
@@ -130,14 +132,14 @@ class TraeCookieManager {
     int savedCount = 0;
 
     // 打印所有获取到的 Cookie 名称
-    print('🔍 [TraeCookieManager] 获取到的所有 Cookie: ${cookies.keys.toList()}');
+    _logger.i('🔍 [TraeCookieManager] 获取到的所有 Cookie: ${cookies.keys.toList()}');
 
     for (final entry in cookies.entries) {
       // 保存所有 Cookie（不只是关键 Cookie）
       final key = '$_prefix${entry.key}';
       await prefs.setString(key, entry.value);
       savedCount++;
-      print(
+      _logger.i(
         '💾 [TraeCookieManager] 保存 Cookie: ${entry.key}=${entry.value.substring(0, entry.value.length > 20 ? 20 : entry.value.length)}...',
       );
     }
@@ -147,8 +149,8 @@ class TraeCookieManager {
       '${_prefix}saved_at',
       DateTime.now().millisecondsSinceEpoch,
     );
-    print('✅ [TraeCookieManager] Cookie 保存完成，共 $savedCount 个 Cookie');
-    print(
+    _logger.i('✅ [TraeCookieManager] Cookie 保存完成，共 $savedCount 个 Cookie');
+    _logger.i(
       '🔍 [TraeCookieManager] 关键 Cookie 检查: sessionid=${cookies.containsKey('sessionid')}, ttwid=${cookies.containsKey('ttwid')}',
     );
   }
@@ -219,7 +221,7 @@ class TraeCookieManager {
 
     final cookies = await getAllCookies();
     if (cookies.isEmpty) {
-      print('[TraeCookieManager] hasValidCookies check: no cookies');
+      _logger.i('[TraeCookieManager] hasValidCookies check: no cookies');
       return false;
     }
 
@@ -228,7 +230,7 @@ class TraeCookieManager {
         _essentialCookies.any(cookies.containsKey) ||
         cookies.containsKey('passport_csrf_token');
 
-    print(
+    _logger.i(
       '[TraeCookieManager] hasValidCookies check: sessionid=${cookies.containsKey('sessionid')}, '
       'ttwid=${cookies.containsKey('ttwid')}, '
       'passport_csrf_token=${cookies.containsKey('passport_csrf_token')}, '
@@ -249,7 +251,7 @@ class TraeCookieManager {
       await prefs.remove(key);
     }
 
-    print('🗑️ [TraeCookieManager] Cookie 已清除');
+    _logger.i('🗑️ [TraeCookieManager] Cookie 已清除');
   }
 
   /// 获取 Cookie 保存时间

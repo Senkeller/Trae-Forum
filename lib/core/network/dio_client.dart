@@ -3,6 +3,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:logger/logger.dart';
 import '../../config/constants.dart';
 import 'interceptors/auth_interceptor.dart';
 import 'interceptors/log_interceptor.dart' as app_log;
@@ -13,6 +14,7 @@ import 'interceptors/retry_interceptor.dart';
 class DioClient {
   static dio_lib.Dio? _dio;
   static CookieJar? _cookieJar;
+  static final Logger _logger = Logger();
 
   /// 获取 Dio 实例
   static dio_lib.Dio get dio {
@@ -25,7 +27,7 @@ class DioClient {
 
   /// 创建 Dio 实例
   static dio_lib.Dio _createDio() {
-    print('🔧 [DioClient] 创建 Dio 实例...');
+    _logger.i('🔧 [DioClient] 创建 Dio 实例...');
 
     final dio = dio_lib.Dio(
       dio_lib.BaseOptions(
@@ -40,13 +42,13 @@ class DioClient {
         },
         // 允许所有状态码，让 ErrorInterceptor 来处理错误
         validateStatus: (status) {
-          print('🔍 [DioClient] validateStatus called: $status');
+          _logger.i('🔍 [DioClient] validateStatus called: $status');
           return true;
         },
       ),
     );
 
-    print('✅ [DioClient] Dio 实例创建完成，validateStatus 已配置');
+    _logger.i('✅ [DioClient] Dio 实例创建完成，validateStatus 已配置');
 
     // 添加拦截器
     dio.interceptors.addAll([
@@ -78,17 +80,17 @@ class DioClient {
   /// 初始化持久化 CookieManager
   /// 在应用启动时调用，确保 Cookie 持久化
   static Future<void> initPersistentCookieManager() async {
-    print('🔧 [DioClient] 初始化持久化 CookieManager...');
+    _logger.i('🔧 [DioClient] 初始化持久化 CookieManager...');
     try {
       // 如果 Dio 实例已存在，先重置
       if (_dio != null) {
-        print('🔄 [DioClient] 重置现有 Dio 实例');
+        _logger.i('🔄 [DioClient] 重置现有 Dio 实例');
         reset();
       }
 
       final directory = await getApplicationDocumentsDirectory();
       final cookiePath = path.join(directory.path, '.cookies/');
-      print('📁 [DioClient] Cookie 存储路径: $cookiePath');
+      _logger.i('📁 [DioClient] Cookie 存储路径: $cookiePath');
 
       // 先设置持久化的 CookieJar
       // cookie_jar 4.x 版本使用路径字符串而不是 FileStorage
@@ -96,20 +98,20 @@ class DioClient {
         ignoreExpires: true,
         storage: FileStorage(cookiePath),
       );
-      print('✅ [DioClient] PersistCookieJar 已创建');
+      _logger.i('✅ [DioClient] PersistCookieJar 已创建');
 
       // 创建新的 Dio 实例
       // 此时 _createDio 中的 _initCookieManager 会使用已设置的 _cookieJar
       final dio = DioClient.dio;
-      print('✅ [DioClient] Dio 实例已获取，拦截器数量: ${dio.interceptors.length}');
+      _logger.i('✅ [DioClient] Dio 实例已获取，拦截器数量: ${dio.interceptors.length}');
 
-      print('✅ [DioClient] 持久化 CookieManager 初始化成功');
+      _logger.i('✅ [DioClient] 持久化 CookieManager 初始化成功');
     } catch (e, stackTrace) {
-      print('❌ [DioClient] 初始化持久化 CookieManager 失败: $e');
-      print('❌ [DioClient] 错误堆栈: $stackTrace');
+      _logger.e('❌ [DioClient] 初始化持久化 CookieManager 失败: $e');
+      _logger.e('❌ [DioClient] 错误堆栈: $stackTrace');
       // 使用内存 CookieJar 作为降级方案
       _cookieJar = CookieJar();
-      print('⚠️ [DioClient] 已降级使用内存 CookieJar');
+      _logger.w('⚠️ [DioClient] 已降级使用内存 CookieJar');
     }
   }
 
@@ -121,7 +123,7 @@ class DioClient {
   ) async {
     try {
       if (_cookieJar == null) {
-        print('⚠️ [DioClient] CookieJar 未初始化');
+        _logger.w('⚠️ [DioClient] CookieJar 未初始化');
         return;
       }
 
@@ -152,12 +154,12 @@ class DioClient {
           if (name.contains('"') ||
               name.contains('\n') ||
               name.contains('\r')) {
-            print('⚠️ [DioClient] 跳过非法 Cookie 名称: $name');
+            _logger.w('⚠️ [DioClient] 跳过非法 Cookie 名称: $name');
             continue;
           }
 
           cookies.add(Cookie(name, cleanValue));
-          print(
+          _logger.i(
             '🍪 [DioClient] 加载 Cookie: $name=${cleanValue.length > 20 ? cleanValue.substring(0, 20) + "..." : cleanValue}',
           );
         }
@@ -165,9 +167,9 @@ class DioClient {
 
       // 保存 Cookie 到 CookieJar
       await _cookieJar!.saveFromResponse(uri, cookies);
-      print('✅ [DioClient] WebView Cookie 已同步到 Dio，共 ${cookies.length} 个');
+      _logger.i('✅ [DioClient] WebView Cookie 已同步到 Dio，共 ${cookies.length} 个');
     } catch (e) {
-      print('❌ [DioClient] 加载 WebView Cookie 失败: $e');
+      _logger.e('❌ [DioClient] 加载 WebView Cookie 失败: $e');
     }
   }
 
@@ -183,7 +185,7 @@ class DioClient {
 
       return cookies.map((c) => '${c.name}=${c.value}').join('; ');
     } catch (e) {
-      print('❌ [DioClient] 获取 Cookie 字符串失败: $e');
+      _logger.e('❌ [DioClient] 获取 Cookie 字符串失败: $e');
       return '';
     }
   }
@@ -196,7 +198,7 @@ class DioClient {
       final cookies = await _cookieJar!.loadForRequest(uri);
       return cookies.map((c) => c.name).toList();
     } catch (e) {
-      print('❌ [DioClient] 获取 Cookie 名称失败: $e');
+      _logger.e('❌ [DioClient] 获取 Cookie 名称失败: $e');
       return const [];
     }
   }
@@ -206,10 +208,10 @@ class DioClient {
     try {
       if (_cookieJar != null) {
         await _cookieJar!.deleteAll();
-        print('🗑️ [DioClient] 所有 Cookie 已清除');
+        _logger.i('🗑️ [DioClient] 所有 Cookie 已清除');
       }
     } catch (e) {
-      print('❌ [DioClient] 清除 Cookie 失败: $e');
+      _logger.e('❌ [DioClient] 清除 Cookie 失败: $e');
     }
   }
 
@@ -251,12 +253,12 @@ class DioClient {
         (cookie) => cookie.name == '_t' || cookie.name == '_forum_session',
       );
 
-      print(
+      _logger.i(
         '🔍 [DioClient] Discourse session check: $hasSession, cookies: ${cookies.map((c) => c.name).join(', ')}',
       );
       return hasSession;
     } catch (e) {
-      print('❌ [DioClient] 检查 Discourse session 失败: $e');
+      _logger.e('❌ [DioClient] 检查 Discourse session 失败: $e');
       return false;
     }
   }

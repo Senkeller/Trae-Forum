@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:traeu/core/network/api_service.dart';
 import 'package:traeu/core/network/discourse_api_service.dart';
 import 'package:traeu/data/repositories/user_repository.dart';
 

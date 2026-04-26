@@ -24,12 +24,10 @@ class MockDiscourseApiService extends Mock implements DiscourseApiService {}
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late MockApiService mockApiService;
   late MockDiscourseApiService mockDiscourseApi;
   late ProviderContainer container;
 
   setUp(() {
-    mockApiService = MockApiService();
     mockDiscourseApi = MockDiscourseApiService();
 
     // 初始化 SharedPreferences
