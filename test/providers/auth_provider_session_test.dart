@@ -21,6 +21,28 @@ void main() {
   setUp(() async {
     mockDiscourseApi = MockDiscourseApiService();
 
+    when(() => mockDiscourseApi.getCurrentSession()).thenAnswer(
+      (_) async => Response(
+        requestOptions: RequestOptions(path: '/session/current.json'),
+        statusCode: 200,
+        data: {'current_user': null},
+      ),
+    );
+    when(
+      () => mockDiscourseApi.getNotifications(
+        limit: any(named: 'limit'),
+        recent: any(named: 'recent'),
+        bumpLastSeen: any(named: 'bumpLastSeen'),
+        filterByTypes: any(named: 'filterByTypes'),
+      ),
+    ).thenAnswer(
+      (_) async => Response(
+        requestOptions: RequestOptions(path: '/notifications'),
+        statusCode: 401,
+        data: const {},
+      ),
+    );
+
     // 初始化 SharedPreferences 为 empty
     SharedPreferences.setMockInitialValues({});
 
@@ -36,6 +58,38 @@ void main() {
   });
 
   group('AuthProvider 登录态恢复测试', () {
+    test(
+      'isAuthenticatedAsync 在 Cookie 名称缺失时可通过 current session 判定已登录',
+      () async {
+        when(() => mockDiscourseApi.getCurrentSession()).thenAnswer(
+          (_) async => Response(
+            requestOptions: RequestOptions(path: '/session/current.json'),
+            statusCode: 200,
+            data: {
+              'current_user': {'username': 'session_user', 'id': 9527},
+            },
+          ),
+        );
+
+        final isAuthenticated = await container.read(
+          isAuthenticatedAsyncProvider.future,
+        );
+
+        expect(isAuthenticated, isTrue);
+        verify(
+          () => mockDiscourseApi.getCurrentSession(),
+        ).called(greaterThan(0));
+        verifyNever(
+          () => mockDiscourseApi.getNotifications(
+            limit: any(named: 'limit'),
+            recent: any(named: 'recent'),
+            bumpLastSeen: any(named: 'bumpLastSeen'),
+            filterByTypes: any(named: 'filterByTypes'),
+          ),
+        );
+      },
+    );
+
     test('refreshFromSession 在测试环境中应返回 null', () async {
       // Arrange - 注意：在测试环境中，DioClient.hasDiscourseSession() 会返回 false
       // 所以 refreshFromSession 会返回 null
@@ -50,7 +104,9 @@ void main() {
 
     test('checkLoginStatus 无用户时应返回 false', () async {
       // Act
-      final isLoggedIn = await container.read(authNotifierProvider.notifier).checkLoginStatus();
+      final isLoggedIn = await container
+          .read(authNotifierProvider.notifier)
+          .checkLoginStatus();
 
       // Assert - 没有用户时应返回 false
       expect(isLoggedIn, isFalse);
@@ -101,7 +157,10 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('uid'), equals('99999'));
       expect(prefs.getString('username'), equals('set_user'));
-      expect(prefs.getString('avatarUrl'), equals('https://example.com/new_avatar.png'));
+      expect(
+        prefs.getString('avatarUrl'),
+        equals('https://example.com/new_avatar.png'),
+      );
     });
 
     test('本地有有效用户信息时状态应正确加载', () async {
@@ -125,11 +184,11 @@ void main() {
       final authState = container.read(authNotifierProvider);
       final username = authState.valueOrNull?.username;
       final uid = authState.valueOrNull?.uid;
-      
+
       // 验证 SharedPreferences 中的值已正确保存
       expect(prefs.getString('username'), equals('testuser'));
       expect(prefs.getString('uid'), equals('12345'));
-      
+
       // 验证状态已更新（可能是 null 或正确的值，取决于异步状态）
       if (username != null) {
         expect(username, equals('testuser'));

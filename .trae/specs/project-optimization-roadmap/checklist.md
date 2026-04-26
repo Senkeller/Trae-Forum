@@ -103,4 +103,57 @@
 - [x] `README.md` 重写
 - [x] README 包含架构说明
 - [x] README 包含登录链路说明
--
+- [x] README 包含构建命令
+- [x] README 包含常见故障排查
+- [x] 文档可支持新成员独立完成本地运行与调试
+
+### P3-1: 静态告警治理
+- [x] `flutter analyze` 完整问题列表已获取
+- [x] errors 已清零
+- [x] `invalid_annotation_target` warnings 已修复
+- [x] `deprecated_member_use` warnings 已修复
+- [x] `avoid_print` warnings 已修复
+- [x] infos 已治理
+- [x] CI 增量门禁已配置（禁止新增 error/warning）
+- [x] `flutter analyze` 问题数 < 500
+
+## 综合验收检查点
+
+### 第 1 周综合验收
+- [x] `flutter analyze` errors = 0
+- [x] 关注/取关动作方向正确
+- [x] 登录门禁行为一致
+- [x] 无"页面显示已登录但操作提示未登录"问题
+
+### 第 2 周综合验收
+- [x] Dashboard/搜索只保留单一真源状态链
+- [x] `/search/result` 不再是空占位逻辑
+- [x] API 参数语义清晰
+- [x] Header 值正确
+
+### 第 3 周综合验收
+- [x] 现有失败用例清零（25 个失败全部修复）
+- [x] 新增关键链路测试通过
+- [x] 运行 `flutter test -r compact` 结果：+174 -0
+
+### 第 4 周综合验收
+- [x] `flutter analyze` 问题数 < 500
+- [x] 文档可支持新成员独立完成本地运行与调试
+- [x] README 包含完整架构、登录链路、构建命令、常见故障
+- [x] CI 增量门禁已生效
+
+## 风险检查点
+
+### 状态清理风险
+- [x] 重复状态清理前已补回归测试
+- [x] 旧实现删除后行为一致
+
+### 登录链路风险
+- [x] 日志分层保留
+- [x] 错误码透传正确
+- [x] 不会用"网络异常"掩盖真实原因
+
+### 测试修复风险
+- [x] 关键链路用例优先修复
+- [x] 非关键 UI 断言分批恢复
+- [x] 测试修复不破坏现有功能

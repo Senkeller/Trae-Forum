@@ -237,8 +237,13 @@ class AppRouter {
         path: RoutePaths.topicDetail,
         builder: (context, state) {
           final rawTag = state.pathParameters['tag']!;
-          final tag = Uri.decodeComponent(rawTag);
-          return TopicDetailPage(tag: tag);
+          try {
+            final tag = Uri.decodeComponent(rawTag);
+            return TopicDetailPage(tag: tag);
+          } catch (e) {
+            // 如果解码失败，直接使用原始标签
+            return TopicDetailPage(tag: rawTag);
+          }
         },
       ),
 
@@ -247,8 +252,13 @@ class AppRouter {
         path: RoutePaths.tagDetail,
         builder: (context, state) {
           final rawTag = state.pathParameters['tag']!;
-          final tag = Uri.decodeComponent(rawTag);
-          return TopicDetailPage(tag: tag);
+          try {
+            final tag = Uri.decodeComponent(rawTag);
+            return TopicDetailPage(tag: tag);
+          } catch (e) {
+            // 如果解码失败，直接使用原始标签
+            return TopicDetailPage(tag: rawTag);
+          }
         },
       ),
 

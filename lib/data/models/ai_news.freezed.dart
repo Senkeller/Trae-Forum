@@ -42,6 +42,9 @@ mixin _$AINews {
   /// 标签列表
   List<String> get tags => throw _privateConstructorUsedError;
 
+  /// 分类
+  AINewsCategory get category => throw _privateConstructorUsedError;
+
   /// 封面图片URL
   String? get coverImage => throw _privateConstructorUsedError;
 
@@ -51,8 +54,32 @@ mixin _$AINews {
   /// 浏览次数
   int get viewCount => throw _privateConstructorUsedError;
 
+  /// 点赞数
+  int get likeCount => throw _privateConstructorUsedError;
+
+  /// 评论数
+  int get commentCount => throw _privateConstructorUsedError;
+
   /// 是否热门
   bool get isHot => throw _privateConstructorUsedError;
+
+  /// 是否置顶
+  bool get isPinned => throw _privateConstructorUsedError;
+
+  /// 是否已读
+  bool get isRead => throw _privateConstructorUsedError;
+
+  /// 是否已收藏
+  bool get isBookmarked => throw _privateConstructorUsedError;
+
+  /// 摘要（比content更简短）
+  String? get summary => throw _privateConstructorUsedError;
+
+  /// 原始HTML内容（用于详情页）
+  String? get rawContent => throw _privateConstructorUsedError;
+
+  /// 最后更新时间
+  String? get updatedAt => throw _privateConstructorUsedError;
 
   /// Serializes this AINews to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -76,10 +103,19 @@ abstract class $AINewsCopyWith<$Res> {
     String sourceUrl,
     String publishTime,
     List<String> tags,
+    AINewsCategory category,
     String? coverImage,
     String? author,
     int viewCount,
+    int likeCount,
+    int commentCount,
     bool isHot,
+    bool isPinned,
+    bool isRead,
+    bool isBookmarked,
+    String? summary,
+    String? rawContent,
+    String? updatedAt,
   });
 }
 
@@ -105,10 +141,19 @@ class _$AINewsCopyWithImpl<$Res, $Val extends AINews>
     Object? sourceUrl = null,
     Object? publishTime = null,
     Object? tags = null,
+    Object? category = null,
     Object? coverImage = freezed,
     Object? author = freezed,
     Object? viewCount = null,
+    Object? likeCount = null,
+    Object? commentCount = null,
     Object? isHot = null,
+    Object? isPinned = null,
+    Object? isRead = null,
+    Object? isBookmarked = null,
+    Object? summary = freezed,
+    Object? rawContent = freezed,
+    Object? updatedAt = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -140,6 +185,10 @@ class _$AINewsCopyWithImpl<$Res, $Val extends AINews>
                 ? _value.tags
                 : tags // ignore: cast_nullable_to_non_nullable
                       as List<String>,
+            category: null == category
+                ? _value.category
+                : category // ignore: cast_nullable_to_non_nullable
+                      as AINewsCategory,
             coverImage: freezed == coverImage
                 ? _value.coverImage
                 : coverImage // ignore: cast_nullable_to_non_nullable
@@ -152,10 +201,42 @@ class _$AINewsCopyWithImpl<$Res, $Val extends AINews>
                 ? _value.viewCount
                 : viewCount // ignore: cast_nullable_to_non_nullable
                       as int,
+            likeCount: null == likeCount
+                ? _value.likeCount
+                : likeCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            commentCount: null == commentCount
+                ? _value.commentCount
+                : commentCount // ignore: cast_nullable_to_non_nullable
+                      as int,
             isHot: null == isHot
                 ? _value.isHot
                 : isHot // ignore: cast_nullable_to_non_nullable
                       as bool,
+            isPinned: null == isPinned
+                ? _value.isPinned
+                : isPinned // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isRead: null == isRead
+                ? _value.isRead
+                : isRead // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isBookmarked: null == isBookmarked
+                ? _value.isBookmarked
+                : isBookmarked // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            summary: freezed == summary
+                ? _value.summary
+                : summary // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            rawContent: freezed == rawContent
+                ? _value.rawContent
+                : rawContent // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            updatedAt: freezed == updatedAt
+                ? _value.updatedAt
+                : updatedAt // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -178,10 +259,19 @@ abstract class _$$AINewsImplCopyWith<$Res> implements $AINewsCopyWith<$Res> {
     String sourceUrl,
     String publishTime,
     List<String> tags,
+    AINewsCategory category,
     String? coverImage,
     String? author,
     int viewCount,
+    int likeCount,
+    int commentCount,
     bool isHot,
+    bool isPinned,
+    bool isRead,
+    bool isBookmarked,
+    String? summary,
+    String? rawContent,
+    String? updatedAt,
   });
 }
 
@@ -206,10 +296,19 @@ class __$$AINewsImplCopyWithImpl<$Res>
     Object? sourceUrl = null,
     Object? publishTime = null,
     Object? tags = null,
+    Object? category = null,
     Object? coverImage = freezed,
     Object? author = freezed,
     Object? viewCount = null,
+    Object? likeCount = null,
+    Object? commentCount = null,
     Object? isHot = null,
+    Object? isPinned = null,
+    Object? isRead = null,
+    Object? isBookmarked = null,
+    Object? summary = freezed,
+    Object? rawContent = freezed,
+    Object? updatedAt = freezed,
   }) {
     return _then(
       _$AINewsImpl(
@@ -241,6 +340,10 @@ class __$$AINewsImplCopyWithImpl<$Res>
             ? _value._tags
             : tags // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        category: null == category
+            ? _value.category
+            : category // ignore: cast_nullable_to_non_nullable
+                  as AINewsCategory,
         coverImage: freezed == coverImage
             ? _value.coverImage
             : coverImage // ignore: cast_nullable_to_non_nullable
@@ -253,10 +356,42 @@ class __$$AINewsImplCopyWithImpl<$Res>
             ? _value.viewCount
             : viewCount // ignore: cast_nullable_to_non_nullable
                   as int,
+        likeCount: null == likeCount
+            ? _value.likeCount
+            : likeCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        commentCount: null == commentCount
+            ? _value.commentCount
+            : commentCount // ignore: cast_nullable_to_non_nullable
+                  as int,
         isHot: null == isHot
             ? _value.isHot
             : isHot // ignore: cast_nullable_to_non_nullable
                   as bool,
+        isPinned: null == isPinned
+            ? _value.isPinned
+            : isPinned // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isRead: null == isRead
+            ? _value.isRead
+            : isRead // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isBookmarked: null == isBookmarked
+            ? _value.isBookmarked
+            : isBookmarked // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        summary: freezed == summary
+            ? _value.summary
+            : summary // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        rawContent: freezed == rawContent
+            ? _value.rawContent
+            : rawContent // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        updatedAt: freezed == updatedAt
+            ? _value.updatedAt
+            : updatedAt // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -264,7 +399,7 @@ class __$$AINewsImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$AINewsImpl implements _AINews {
+class _$AINewsImpl extends _AINews {
   const _$AINewsImpl({
     required this.id,
     required this.title,
@@ -273,11 +408,21 @@ class _$AINewsImpl implements _AINews {
     required this.sourceUrl,
     required this.publishTime,
     final List<String> tags = const [],
+    this.category = AINewsCategory.other,
     this.coverImage,
     this.author,
     this.viewCount = 0,
+    this.likeCount = 0,
+    this.commentCount = 0,
     this.isHot = false,
-  }) : _tags = tags;
+    this.isPinned = false,
+    this.isRead = false,
+    this.isBookmarked = false,
+    this.summary,
+    this.rawContent,
+    this.updatedAt,
+  }) : _tags = tags,
+       super._();
 
   factory _$AINewsImpl.fromJson(Map<String, dynamic> json) =>
       _$$AINewsImplFromJson(json);
@@ -318,6 +463,11 @@ class _$AINewsImpl implements _AINews {
     return EqualUnmodifiableListView(_tags);
   }
 
+  /// 分类
+  @override
+  @JsonKey()
+  final AINewsCategory category;
+
   /// 封面图片URL
   @override
   final String? coverImage;
@@ -331,14 +481,51 @@ class _$AINewsImpl implements _AINews {
   @JsonKey()
   final int viewCount;
 
+  /// 点赞数
+  @override
+  @JsonKey()
+  final int likeCount;
+
+  /// 评论数
+  @override
+  @JsonKey()
+  final int commentCount;
+
   /// 是否热门
   @override
   @JsonKey()
   final bool isHot;
 
+  /// 是否置顶
+  @override
+  @JsonKey()
+  final bool isPinned;
+
+  /// 是否已读
+  @override
+  @JsonKey()
+  final bool isRead;
+
+  /// 是否已收藏
+  @override
+  @JsonKey()
+  final bool isBookmarked;
+
+  /// 摘要（比content更简短）
+  @override
+  final String? summary;
+
+  /// 原始HTML内容（用于详情页）
+  @override
+  final String? rawContent;
+
+  /// 最后更新时间
+  @override
+  final String? updatedAt;
+
   @override
   String toString() {
-    return 'AINews(id: $id, title: $title, content: $content, source: $source, sourceUrl: $sourceUrl, publishTime: $publishTime, tags: $tags, coverImage: $coverImage, author: $author, viewCount: $viewCount, isHot: $isHot)';
+    return 'AINews(id: $id, title: $title, content: $content, source: $source, sourceUrl: $sourceUrl, publishTime: $publishTime, tags: $tags, category: $category, coverImage: $coverImage, author: $author, viewCount: $viewCount, likeCount: $likeCount, commentCount: $commentCount, isHot: $isHot, isPinned: $isPinned, isRead: $isRead, isBookmarked: $isBookmarked, summary: $summary, rawContent: $rawContent, updatedAt: $updatedAt)';
   }
 
   @override
@@ -355,17 +542,33 @@ class _$AINewsImpl implements _AINews {
             (identical(other.publishTime, publishTime) ||
                 other.publishTime == publishTime) &&
             const DeepCollectionEquality().equals(other._tags, _tags) &&
+            (identical(other.category, category) ||
+                other.category == category) &&
             (identical(other.coverImage, coverImage) ||
                 other.coverImage == coverImage) &&
             (identical(other.author, author) || other.author == author) &&
             (identical(other.viewCount, viewCount) ||
                 other.viewCount == viewCount) &&
-            (identical(other.isHot, isHot) || other.isHot == isHot));
+            (identical(other.likeCount, likeCount) ||
+                other.likeCount == likeCount) &&
+            (identical(other.commentCount, commentCount) ||
+                other.commentCount == commentCount) &&
+            (identical(other.isHot, isHot) || other.isHot == isHot) &&
+            (identical(other.isPinned, isPinned) ||
+                other.isPinned == isPinned) &&
+            (identical(other.isRead, isRead) || other.isRead == isRead) &&
+            (identical(other.isBookmarked, isBookmarked) ||
+                other.isBookmarked == isBookmarked) &&
+            (identical(other.summary, summary) || other.summary == summary) &&
+            (identical(other.rawContent, rawContent) ||
+                other.rawContent == rawContent) &&
+            (identical(other.updatedAt, updatedAt) ||
+                other.updatedAt == updatedAt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     runtimeType,
     id,
     title,
@@ -374,11 +577,20 @@ class _$AINewsImpl implements _AINews {
     sourceUrl,
     publishTime,
     const DeepCollectionEquality().hash(_tags),
+    category,
     coverImage,
     author,
     viewCount,
+    likeCount,
+    commentCount,
     isHot,
-  );
+    isPinned,
+    isRead,
+    isBookmarked,
+    summary,
+    rawContent,
+    updatedAt,
+  ]);
 
   /// Create a copy of AINews
   /// with the given fields replaced by the non-null parameter values.
@@ -394,7 +606,7 @@ class _$AINewsImpl implements _AINews {
   }
 }
 
-abstract class _AINews implements AINews {
+abstract class _AINews extends AINews {
   const factory _AINews({
     required final String id,
     required final String title,
@@ -403,11 +615,21 @@ abstract class _AINews implements AINews {
     required final String sourceUrl,
     required final String publishTime,
     final List<String> tags,
+    final AINewsCategory category,
     final String? coverImage,
     final String? author,
     final int viewCount,
+    final int likeCount,
+    final int commentCount,
     final bool isHot,
+    final bool isPinned,
+    final bool isRead,
+    final bool isBookmarked,
+    final String? summary,
+    final String? rawContent,
+    final String? updatedAt,
   }) = _$AINewsImpl;
+  const _AINews._() : super._();
 
   factory _AINews.fromJson(Map<String, dynamic> json) = _$AINewsImpl.fromJson;
 
@@ -439,6 +661,10 @@ abstract class _AINews implements AINews {
   @override
   List<String> get tags;
 
+  /// 分类
+  @override
+  AINewsCategory get category;
+
   /// 封面图片URL
   @override
   String? get coverImage;
@@ -451,9 +677,41 @@ abstract class _AINews implements AINews {
   @override
   int get viewCount;
 
+  /// 点赞数
+  @override
+  int get likeCount;
+
+  /// 评论数
+  @override
+  int get commentCount;
+
   /// 是否热门
   @override
   bool get isHot;
+
+  /// 是否置顶
+  @override
+  bool get isPinned;
+
+  /// 是否已读
+  @override
+  bool get isRead;
+
+  /// 是否已收藏
+  @override
+  bool get isBookmarked;
+
+  /// 摘要（比content更简短）
+  @override
+  String? get summary;
+
+  /// 原始HTML内容（用于详情页）
+  @override
+  String? get rawContent;
+
+  /// 最后更新时间
+  @override
+  String? get updatedAt;
 
   /// Create a copy of AINews
   /// with the given fields replaced by the non-null parameter values.

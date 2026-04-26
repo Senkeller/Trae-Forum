@@ -147,20 +147,8 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
       );
     }
 
-    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
       child: _buildUnauthenticatedCard(context),
     );
   }
@@ -336,57 +324,124 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
   /// 未登录用户卡片
   Widget _buildUnauthenticatedCard(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Padding(
-      padding: const EdgeInsets.all(32),
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1D1E22),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 默认头像占位
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colorScheme.surfaceContainerHighest,
-              border: Border.all(
-                color: colorScheme.outline.withValues(alpha: 0.2),
-                width: 2,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 88,
+                height: 88,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFF43D1AA),
+                ),
+                child: ClipOval(child: _buildDashboardStyleAvatar()),
               ),
-            ),
-            child: Icon(
-              Icons.person_outline,
-              size: 40,
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '登录后体验更多功能',
-            style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          // 登录按钮
-          SizedBox(
-            width: 160,
-            height: 44,
-            child: FilledButton(
-              onPressed: () => context.push(RoutePaths.login),
-              style: FilledButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Hello! 游客',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '登录后可同步你的数据与消息',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '登录后体验完整个人主页能力',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.52),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: const Text(
-                '点击登录',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  label: '动态',
+                  count: 0,
+                  onTap: () => context.push(RoutePaths.login),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatItem(
+                  label: '关注',
+                  count: 0,
+                  onTap: () => context.push(RoutePaths.login),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildStatItem(
+                  label: '粉丝',
+                  count: 0,
+                  onTap: () => context.push(RoutePaths.login),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: const [
+              _ProfileGhostTag('# 登录后解锁'),
+              _ProfileGhostTag('# 个性标签'),
+              _ProfileGhostTag('# 成长轨迹'),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: () => context.push(RoutePaths.login),
+              icon: const Icon(Icons.login, size: 16),
+              label: const Text('去登录'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF2B2E34),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ),
@@ -703,5 +758,30 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     if (currentUser == null) return;
 
     context.push(RoutePaths.fanList.replaceFirst(':uid', currentUser.username));
+  }
+}
+
+class _ProfileGhostTag extends StatelessWidget {
+  final String text;
+
+  const _ProfileGhostTag(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2B2E34),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFF9AA0AA),
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 }

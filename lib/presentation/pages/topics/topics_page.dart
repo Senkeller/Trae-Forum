@@ -309,7 +309,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     final rawTag = tag.name.trim().isNotEmpty
         ? tag.name.trim()
         : tag.slug.trim();
-    final encodedTag = Uri.encodeComponent(rawTag);
+    // 使用 Uri.encodeComponent 对标签进行编码，确保特殊字符不会破坏 URL
+    // 同时处理可能的 % 字符，避免双重编码问题
+    final sanitizedTag = rawTag.replaceAll('%', '%25');
+    final encodedTag = Uri.encodeComponent(sanitizedTag);
     context.push(RoutePaths.tagDetail.replaceFirst(':tag', encodedTag));
   }
 }

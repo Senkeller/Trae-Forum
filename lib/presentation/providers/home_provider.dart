@@ -460,7 +460,7 @@ class HomeNotifier extends _$HomeNotifier {
         );
       case FeedType.latest:
         return _fetchFromResponse(
-          await _discourseApiService.getNewTopics(page: page),
+          await _discourseApiService.getLatestTopics(page: page),
         );
       case FeedType.hot:
         try {

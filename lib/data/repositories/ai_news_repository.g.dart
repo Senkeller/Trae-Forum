@@ -6,7 +6,7 @@ part of 'ai_news_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$aiNewsRepositoryHash() => r'394635c2b8ebbf955f973f02d59d4287c353bebb';
+String _$aiNewsRepositoryHash() => r'a830707f0f975a520ed86b1d86a3dc6c84cb4fca';
 
 /// AI快讯仓库
 ///

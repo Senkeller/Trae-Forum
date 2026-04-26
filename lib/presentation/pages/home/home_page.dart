@@ -17,7 +17,7 @@ import '../../widgets/feed/featured_comment.dart';
 import '../../widgets/feed/quick_comment_bar.dart';
 import '../../widgets/comment/quick_comment_sheet.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
-import '../../widgets/ai_news/ai_news_list_view.dart';
+import '../../widgets/ai_news/ai_news_list_view_v2.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -169,7 +169,7 @@ class _HomePageState extends ConsumerState<HomePage>
 
             // AI快讯Tab使用独立的视图组件
             if (feedType == FeedType.aiNews) {
-              return const AINewsListView();
+              return const AINewsListViewV2();
             }
 
             final bannerCategoryId = _resolveBannerCategoryId(feedType);
@@ -938,7 +938,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   void _onTagTap(BuildContext context, String tag) {
     final rawTag = tag.trim().replaceFirst(RegExp(r'^#+\s*'), '');
     if (rawTag.isEmpty) return;
-    final encodedTag = Uri.encodeComponent(rawTag);
+    // 先处理 % 字符避免双重编码，然后进行 URL 编码
+    final sanitizedTag = rawTag.replaceAll('%', '%25');
+    final encodedTag = Uri.encodeComponent(sanitizedTag);
     context.push(RoutePaths.tagDetail.replaceFirst(':tag', encodedTag));
   }
 

@@ -6,7 +6,7 @@ part of 'ai_news_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$aiNewsListHash() => r'b5a42e44f528e90a6e38f9865b6b960f0731a69a';
+String _$aiNewsListHash() => r'3a3fd5deb16e8bba4bff10781a56041e58e8aaef';
 
 /// AI快讯列表Provider
 ///
@@ -26,7 +26,7 @@ final aiNewsListProvider = AutoDisposeProvider<List<AINews>>.internal(
 // ignore: unused_element
 typedef AiNewsListRef = AutoDisposeProviderRef<List<AINews>>;
 String _$isAINewsRefreshingHash() =>
-    r'71e7140c9749ca5cef695102c6180a42975cb91b';
+    r'b3c4b2e3ac6f2cceec44931d03c5854118f9fbf6';
 
 /// 是否正在刷新Provider
 ///
@@ -46,7 +46,7 @@ final isAINewsRefreshingProvider = AutoDisposeProvider<bool>.internal(
 // ignore: unused_element
 typedef IsAINewsRefreshingRef = AutoDisposeProviderRef<bool>;
 String _$isAINewsLoadingMoreHash() =>
-    r'1dc843f16d2c51205d3ac8492fe422b6d3cf7bbc';
+    r'997f1bf5f868f07c87519ca554cf134ce0ddd861';
 
 /// 是否正在加载更多Provider
 ///
@@ -65,7 +65,7 @@ final isAINewsLoadingMoreProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsAINewsLoadingMoreRef = AutoDisposeProviderRef<bool>;
-String _$hasMoreAINewsHash() => r'37e106b6d8694b6f6d73d7f63ba6112510d88012';
+String _$hasMoreAINewsHash() => r'488c6e78159a3af1fec58c86d08bd451a94e317c';
 
 /// 是否有更多数据Provider
 ///
@@ -85,7 +85,7 @@ final hasMoreAINewsProvider = AutoDisposeProvider<bool>.internal(
 // ignore: unused_element
 typedef HasMoreAINewsRef = AutoDisposeProviderRef<bool>;
 String _$aiNewsErrorMessageHash() =>
-    r'cb5147b23c0008ffc98908e7163f635a39b20232';
+    r'4dca674a4506222a4db249f555b2b55f5f1fc107';
 
 /// AI快讯错误信息Provider
 ///

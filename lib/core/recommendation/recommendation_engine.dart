@@ -64,14 +64,17 @@ class RecommendationEngine {
     // 针对冷启动社区：获取更多分类的内容，确保多样性
     // 注意：推荐内容不包含官方公告（有专门的"官方"Tab）
     final responses = await Future.wait([
-      _apiService.getHotTopics(page: page),
-      _apiService.getTopTopics(page: page),
-      _apiService.getLatestTopics(page: page),
-      _apiService.getNewTopics(page: page), // 新增：最新创建
+      _safeFetch(() => _apiService.getHotTopics(page: page)),
+      _safeFetch(() => _apiService.getTopTopics(page: page)),
+      _safeFetch(() => _apiService.getLatestTopics(page: page)),
       // 不包含官方公告分类 (ID: 4)
-      _apiService.getTopicsByCategory(7, page: page), // Help
-      _apiService.getTopicsByCategory(10, page: page), // Showcase
-      _apiService.getTopicsByCategory(11, page: page), // Discussion
+      _safeFetch(() => _apiService.getTopicsByCategory(7, page: page)), // Help
+      _safeFetch(
+        () => _apiService.getTopicsByCategory(10, page: page),
+      ), // Showcase
+      _safeFetch(
+        () => _apiService.getTopicsByCategory(11, page: page),
+      ), // Discussion
     ]);
 
     // 合并所有内容，并过滤7天以内的内容
@@ -79,21 +82,25 @@ class RecommendationEngine {
     final now = DateTime.now();
     final maxAge = Duration(hours: _weights['maxAgeHours']!.toInt());
 
-    for (final response in responses) {
+    for (final response in responses.where((response) => response != null)) {
       final items = _parseResponse(response);
       for (final item in items) {
         if (!merged.containsKey(item.id)) {
           // 检查内容是否在7天以内（置顶内容除外）
           final createTime = int.tryParse(item.createTime) ?? 0;
-          final itemDate = DateTime.fromMillisecondsSinceEpoch(createTime * 1000);
+          final itemDate = DateTime.fromMillisecondsSinceEpoch(
+            createTime * 1000,
+          );
           final age = now.difference(itemDate);
-          
+
           // 只保留7天以内的内容，或者置顶内容
           if (item.isPinned || age <= maxAge) {
             // 计算基础分数
             final baseScore = _calculateScore(item);
             // 添加随机因子（±20%的随机波动）
-            final randomFactor = randomize ? 0.8 + _random.nextDouble() * 0.4 : 1.0;
+            final randomFactor = randomize
+                ? 0.8 + _random.nextDouble() * 0.4
+                : 1.0;
             final finalScore = baseScore * randomFactor;
 
             final scoredItem = ScoredFeedItem(item: item, score: finalScore);
@@ -109,13 +116,14 @@ class RecommendationEngine {
     // 分离置顶内容和非置顶内容
     // 置顶内容：isPinned=true 且 非官方分类
     final pinnedItems = allItems
-        .where((s) => s.item.isPinned && s.item.categoryId != _getOfficialCategoryId())
+        .where(
+          (s) =>
+              s.item.isPinned && s.item.categoryId != _getOfficialCategoryId(),
+        )
         .toList();
     // 普通内容：非置顶内容（无论是否官方分类）
     // 注意：官方分类的内容已经在数据源层面被过滤，这里只需要过滤掉置顶内容
-    final normalItems = allItems
-        .where((s) => !s.item.isPinned)
-        .toList();
+    final normalItems = allItems.where((s) => !s.item.isPinned).toList();
 
     // 置顶内容按分数排序（保持置顶内容在前）
     pinnedItems.sort((a, b) => b.score.compareTo(a.score));
@@ -146,8 +154,9 @@ class RecommendationEngine {
       if (!addedIds.contains(item.item.id)) {
         final categoryId = item.item.categoryId;
         final currentCount = categoryCount[categoryId] ?? 0;
-        final maxCount = (pageSize * (_categoryMaxRatio[categoryId] ?? 0.3)).ceil();
-        
+        final maxCount = (pageSize * (_categoryMaxRatio[categoryId] ?? 0.3))
+            .ceil();
+
         // 检查是否超过该分类的最大数量限制
         if (currentCount < maxCount) {
           result.add(item.item);
@@ -171,14 +180,23 @@ class RecommendationEngine {
     return result.take(pageSize).toList();
   }
 
+  Future<dynamic> _safeFetch(Future<dynamic> Function() request) async {
+    try {
+      return await request();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 解析 API 响应
   ///
   /// [response] Dio Response 对象
   /// @return FeedItem 列表
   List<FeedItem> _parseResponse(dynamic response) {
     final raw = response.data;
-    final data =
-        raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+    final data = raw is Map<String, dynamic>
+        ? raw
+        : Map<String, dynamic>.from(raw as Map);
 
     final topicListMap = data['topic_list'] as Map<String, dynamic>?;
     final topics = (topicListMap?['topics'] as List<dynamic>? ?? const [])
@@ -199,7 +217,9 @@ class RecommendationEngine {
       }
     }
 
-    return topics.map((topic) => _adaptTopicToFeedItem(topic, userMap)).toList();
+    return topics
+        .map((topic) => _adaptTopicToFeedItem(topic, userMap))
+        .toList();
   }
 
   /// 将 Topic 转换为 FeedItem
@@ -212,12 +232,13 @@ class RecommendationEngine {
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
-    final firstPosterUserId =
-        posterList.isNotEmpty ? _parseInt(posterList.first['user_id']) : 0;
+    final firstPosterUserId = posterList.isNotEmpty
+        ? _parseInt(posterList.first['user_id'])
+        : 0;
     final author = userMap[firstPosterUserId] ?? const <String, dynamic>{};
 
-    final username =
-        (author['username'] ?? topic['last_poster_username'] ?? '').toString();
+    final username = (author['username'] ?? topic['last_poster_username'] ?? '')
+        .toString();
     final categoryId = _parseInt(topic['category_id']);
     final title = (topic['title'] ?? '').toString();
     final excerpt = _normalizeExcerpt(topic['excerpt']);
@@ -241,7 +262,9 @@ class RecommendationEngine {
       content: excerpt.isNotEmpty ? excerpt : title,
       category: _getCategoryLabel(categoryId),
       categoryId: categoryId,
-      createTime: _toUnixTimestamp(topic['last_posted_at'] ?? topic['created_at']),
+      createTime: _toUnixTimestamp(
+        topic['last_posted_at'] ?? topic['created_at'],
+      ),
       likeCount: _parseInt(topic['like_count']),
       replyCount: replyCount,
       viewCount: _parseInt(topic['views']),
@@ -271,7 +294,8 @@ class RecommendationEngine {
     double score = _weights['newContentBase']!;
 
     // 互动数据加成（在低互动社区中权重较低）
-    final engagementScore = item.viewCount * _weights['viewCount']! +
+    final engagementScore =
+        item.viewCount * _weights['viewCount']! +
         item.likeCount * _weights['likeCount']! +
         item.replyCount * _weights['replyCount']!;
     score += engagementScore;
@@ -286,11 +310,16 @@ class RecommendationEngine {
       if (ageInHours <= _weights['maxTimeBoost']!) {
         // 72小时内的新内容：时间越新分数越高
         // 使用反比例函数：score *= (1 + (72 - age) / 72)
-        final timeBoost = 1.0 + (_weights['maxTimeBoost']! - ageInHours) / _weights['maxTimeBoost']!;
+        final timeBoost =
+            1.0 +
+            (_weights['maxTimeBoost']! - ageInHours) /
+                _weights['maxTimeBoost']!;
         score *= timeBoost;
       } else {
         // 超过72小时：应用指数衰减
-        score *= math.exp(-(ageInHours - _weights['maxTimeBoost']!) / _weights['timeDecay']!);
+        score *= math.exp(
+          -(ageInHours - _weights['maxTimeBoost']!) / _weights['timeDecay']!,
+        );
       }
     }
 
@@ -393,8 +422,5 @@ class ScoredFeedItem {
   final FeedItem item;
   final double score;
 
-  ScoredFeedItem({
-    required this.item,
-    required this.score,
-  });
+  ScoredFeedItem({required this.item, required this.score});
 }

@@ -83,16 +83,14 @@ class AuthNotifier extends _$AuthNotifier {
       // 先尝试从系统 WebView CookieManager 同步完整 Cookie（含 HttpOnly）
       await NativeCookieBridge.syncCookiesToDio('https://forum.trae.cn');
 
-      final hasSession = await DioClient.hasDiscourseSession();
-      if (!hasSession) {
-        return null;
-      }
-
+      // 直接探测当前会话接口，避免仅依赖 Cookie 名称判断导致误判。
       final sessionUser = await _fetchCurrentSessionUser();
       if (sessionUser != null) {
         await _saveUserInfo(sessionUser);
         return sessionUser;
       }
+
+      final hasSession = await DioClient.hasDiscourseSession();
 
       // 兜底探活：会话可用但当前接口未返回用户详情时，不写入占位用户名，避免污染展示。
       final probe = await _discourseApiService.getNotifications(
@@ -102,6 +100,8 @@ class AuthNotifier extends _$AuthNotifier {
       );
       if (probe.statusCode == 200) {
         debugPrint('⚠️ [AuthNotifier] 会话可用但未获取到用户名，保留未登录展示避免脏数据');
+      } else if (!hasSession) {
+        debugPrint('ℹ️ [AuthNotifier] 未探测到有效论坛会话');
       }
       return null;
     } catch (e) {
@@ -356,12 +356,33 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
     return true;
   }
 
-  // 3. 检查论坛会话 Cookie 是否存在
+  // 3. 检查论坛会话 Cookie（仅作线索，不直接判定登录）
   final hasDiscourseCookie = await DioClient.hasDiscourseSession();
   debugPrint(
-    '🔍 [isAuthenticatedAsync] Discourse session: $hasDiscourseCookie',
+    '🔍 [isAuthenticatedAsync] Discourse session cookie: $hasDiscourseCookie',
   );
-  return hasDiscourseCookie;
+
+  // 4. 统一使用 current session 判定，避免仅凭 Cookie 误判已登录
+  try {
+    final response = await ref
+        .read(discourseApiServiceProvider)
+        .getCurrentSession();
+    final data = response.data;
+    final currentUser = data is Map<String, dynamic>
+        ? data['current_user']
+        : null;
+    if (response.statusCode == 200 &&
+        currentUser is Map<String, dynamic> &&
+        (currentUser['username']?.toString().trim().isNotEmpty ?? false)) {
+      debugPrint('✅ [isAuthenticatedAsync] current session 命中，判定为已登录');
+      return true;
+    }
+  } catch (_) {
+    // ignore: 探活失败时继续返回 false
+  }
+
+  debugPrint('ℹ️ [isAuthenticatedAsync] current session 未命中，判定为未登录');
+  return false;
 }
 
 /// 用户 Token Provider

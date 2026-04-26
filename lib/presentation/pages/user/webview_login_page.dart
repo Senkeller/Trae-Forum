@@ -40,7 +40,10 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   /// 是否登录成功
   bool _isLoginSuccess = false;
+  bool _isCheckingLoginStatus = false;
+  bool _isHandlingLoginSuccess = false;
   bool _hasSavedTraeCookies = false;
+  String _lastCheckedUrl = '';
 
   /// 登录页面 URL
   static const String _loginUrl = 'https://www.trae.cn/login';
@@ -95,7 +98,10 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
             await _tryExtractTraeCookies(url);
 
             // 检查是否登录成功
-            await _checkLoginStatus(url);
+            if (url != _lastCheckedUrl) {
+              _lastCheckedUrl = url;
+              await _checkLoginStatus(url);
+            }
           },
           onWebResourceError: (WebResourceError error) {
             setState(() {
@@ -151,6 +157,11 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   /// 检查登录状态
   Future<void> _checkLoginStatus(String url) async {
+    if (_isLoginSuccess || _isCheckingLoginStatus) {
+      return;
+    }
+
+    _isCheckingLoginStatus = true;
     debugPrint('🔍 [WebViewLogin] 页面加载完成: $url');
     try {
       // 检测登录成功的几种情况：
@@ -165,26 +176,32 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           !url.contains('/session/sso_login');
       final isTraeDashboard =
           url.startsWith('https://www.trae.cn') &&
-          (url.contains('/dashboard') ||
-              url.contains('/console') ||
-              url == 'https://www.trae.cn/');
+          (url.contains('/dashboard') || url.contains('/console'));
 
       if (isForumSsoCallback) {
         debugPrint('✅ [WebViewLogin] 命中 SSO 回调页，等待完成后进入论坛首页');
-        await Future.delayed(const Duration(milliseconds: 800));
+        await Future.delayed(const Duration(milliseconds: 300));
         await _controller.loadRequest(Uri.parse(_forumUrl));
       } else if (isForumPage) {
         debugPrint('✅ [WebViewLogin] 检测到论坛页面，尝试提取用户信息');
+        final sessionUser = await _fetchCurrentSessionUser();
+        if (sessionUser == null) {
+          debugPrint('ℹ️ [WebViewLogin] 论坛页面为匿名态，不触发自动登录成功');
+          return;
+        }
         // 尝试提取用户信息
         final userInfo = await _extractUserInfo();
         debugPrint('✅ [WebViewLogin] 提取到的用户信息: $userInfo');
         // 即使无法提取用户信息，也认为是登录成功
-        _handleLoginSuccess(userInfo: userInfo, currentUrl: url);
+        await _handleLoginSuccess(
+          userInfo: userInfo,
+          sessionUser: sessionUser,
+          currentUrl: url,
+        );
       } else if (isTraeDashboard) {
         debugPrint('✅ [WebViewLogin] 检测到 TRAE 登录成功页面，准备跳转到论坛验证');
         // 登录成功，但需要跳转到论坛来验证登录状态
-        // 延迟一下确保 Cookie 已经保存
-        await Future.delayed(const Duration(seconds: 1));
+        await Future.delayed(const Duration(milliseconds: 250));
         debugPrint('🚀 [WebViewLogin] 导航到论坛页面');
         await _controller.loadRequest(Uri.parse(_forumUrl));
       } else {
@@ -192,6 +209,8 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       }
     } catch (e) {
       debugPrint('❌ [WebViewLogin] 检查登录状态失败: $e');
+    } finally {
+      _isCheckingLoginStatus = false;
     }
   }
 
@@ -278,82 +297,89 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   }
 
   /// 处理登录成功
-  void _handleLoginSuccess({
+  Future<void> _handleLoginSuccess({
     Map<String, dynamic>? userInfo,
+    UserInfo? sessionUser,
     String? currentUrl,
   }) async {
     debugPrint('🎉 [WebViewLogin] _handleLoginSuccess 被调用');
-    if (_isLoginSuccess) {
+    if (_isLoginSuccess || _isHandlingLoginSuccess) {
       debugPrint('⚠️ [WebViewLogin] 已经处理过登录成功，跳过');
       return; // 防止重复处理
     }
+    _isHandlingLoginSuccess = true;
+    try {
+      // 同步论坛 WebView Cookie 到 Dio
+      await _syncForumCookiesToDio();
 
-    // 同步论坛 WebView Cookie 到 Dio
-    await _syncForumCookiesToDio();
+      // 校验论坛会话，避免 UI 显示已登录但接口仍 403
+      final isForumSessionReady = await _validateForumSession();
+      if (!isForumSessionReady) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('论坛会话同步失败，请重试登录'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
 
-    // 再次同步一次论坛 Cookie，确保 SSO 最终状态已落到 Dio CookieJar
-    await _syncForumCookiesToDio();
+      // 同步 Trae 主站 Cookie（用于 Dashboard API）
+      debugPrint('🔄 [WebViewLogin] 开始同步 Trae 主站 Cookie...');
+      final isTraeCookiesSynced = await _syncTraeMainSiteCookies();
+      if (!isTraeCookiesSynced) {
+        debugPrint('⚠️ [WebViewLogin] Trae 主站 Cookie 同步可能不完整，但继续登录流程');
+      }
 
-    // 校验论坛会话，避免 UI 显示已登录但接口仍 403
-    final isForumSessionReady = await _validateForumSession();
-    if (!isForumSessionReady) {
+      _isLoginSuccess = true;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('论坛会话同步失败，请重试登录'),
-            backgroundColor: Colors.red,
-          ),
+          const SnackBar(content: Text('登录成功'), backgroundColor: Colors.green),
         );
       }
-      return;
-    }
 
-    // 同步 Trae 主站 Cookie（用于 Dashboard API）
-    debugPrint('🔄 [WebViewLogin] 开始同步 Trae 主站 Cookie...');
-    final isTraeCookiesSynced = await _syncTraeMainSiteCookies();
-    if (!isTraeCookiesSynced) {
-      debugPrint('⚠️ [WebViewLogin] Trae 主站 Cookie 同步可能不完整，但继续登录流程');
-    }
+      // 获取用户名（优先：显式提取 -> 会话接口 -> 页面JS -> URL 路径）
+      String username = '';
+      String userId = '';
+      String avatar = '';
 
-    _isLoginSuccess = true;
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('登录成功'), backgroundColor: Colors.green),
-      );
-    }
-
-    // 获取用户名（优先：显式提取 -> 会话接口 -> 页面JS -> URL 路径）
-    String username = '';
-    String userId = '';
-    String avatar = '';
-
-    if (userInfo != null && userInfo['username'] != null) {
-      username = userInfo['username'].toString().trim();
-      final id = userInfo['id']?.toString();
-      if (id != null && id.isNotEmpty) {
-        userId = id;
-      } else {
-        userId = username;
+      if (userInfo != null && userInfo['username'] != null) {
+        username = userInfo['username'].toString().trim();
+        final id = userInfo['id']?.toString();
+        if (id != null && id.isNotEmpty) {
+          userId = id;
+        } else {
+          userId = username;
+        }
+        debugPrint('✅ [WebViewLogin] 从 userInfo 获取用户名: $username');
       }
-      debugPrint('✅ [WebViewLogin] 从 userInfo 获取用户名: $username');
-    }
 
-    if (username.isEmpty) {
-      final sessionUser = await _fetchCurrentSessionUser();
       if (sessionUser != null) {
         username = sessionUser.username;
         userId = sessionUser.uid;
         avatar = sessionUser.avatar ?? '';
-        debugPrint('✅ [WebViewLogin] 从 session/current.json 获取用户名: $username');
+        debugPrint('✅ [WebViewLogin] 使用已获取的会话用户: $username');
+      } else if (username.isEmpty) {
+        final fetchedSessionUser = await _fetchCurrentSessionUser();
+        if (fetchedSessionUser != null) {
+          username = fetchedSessionUser.username;
+          userId = fetchedSessionUser.uid;
+          avatar = fetchedSessionUser.avatar ?? '';
+          debugPrint(
+            '✅ [WebViewLogin] 从 session/current.json 获取用户名: $username',
+          );
+        }
       }
-    }
 
-    if (username.isEmpty) {
-      // 尝试从 Cookie 或页面获取用户名
-      try {
-        debugPrint('🔍 [WebViewLogin] 尝试从页面获取用户名...');
-        final cookieResult = await _controller.runJavaScriptReturningResult('''
+      if (username.isEmpty) {
+        // 尝试从 Cookie 或页面获取用户名
+        try {
+          debugPrint('🔍 [WebViewLogin] 尝试从页面获取用户名...');
+          final cookieResult = await _controller.runJavaScriptReturningResult(
+            '''
           (function() {
             // 尝试从 Discourse 获取当前用户名
             if (typeof Discourse !== 'undefined' && Discourse.User && Discourse.User.current()) {
@@ -369,88 +395,96 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
             }
             return '';
           })()
-        ''');
-        final resultStr = cookieResult.toString().replaceAll('"', '').trim();
-        debugPrint('✅ [WebViewLogin] JavaScript 返回: $resultStr');
-        if (resultStr.isNotEmpty && resultStr != 'null') {
-          username = resultStr;
-          userId = username;
-          debugPrint('✅ [WebViewLogin] 解析后的用户名: $username');
-        } else {
-          debugPrint('⚠️ [WebViewLogin] JavaScript 返回为空');
+        ''',
+          );
+          final resultStr = cookieResult.toString().replaceAll('"', '').trim();
+          debugPrint('✅ [WebViewLogin] JavaScript 返回: $resultStr');
+          if (resultStr.isNotEmpty && resultStr != 'null') {
+            username = resultStr;
+            userId = username;
+            debugPrint('✅ [WebViewLogin] 解析后的用户名: $username');
+          } else {
+            debugPrint('⚠️ [WebViewLogin] JavaScript 返回为空');
+          }
+        } catch (e) {
+          debugPrint('❌ [WebViewLogin] 获取用户名失败: $e');
         }
-      } catch (e) {
-        debugPrint('❌ [WebViewLogin] 获取用户名失败: $e');
       }
-    }
 
-    if (username.isEmpty) {
-      final fromUrl = _extractUsernameFromUrl(currentUrl);
-      if (fromUrl.isNotEmpty) {
-        username = fromUrl;
-        userId = fromUrl;
-        debugPrint('✅ [WebViewLogin] 从 URL 解析用户名: $username');
+      if (username.isEmpty) {
+        final fromUrl = _extractUsernameFromUrl(currentUrl);
+        if (fromUrl.isNotEmpty) {
+          username = fromUrl;
+          userId = fromUrl;
+          debugPrint('✅ [WebViewLogin] 从 URL 解析用户名: $username');
+        }
       }
-    }
 
-    if (username.isEmpty) {
-      final restored = await ref
-          .read(authNotifierProvider.notifier)
-          .refreshFromSession();
-      if (restored != null) {
-        username = restored.username;
-        userId = restored.uid;
-        avatar = restored.avatar ?? '';
-        debugPrint('✅ [WebViewLogin] 通过 AuthNotifier 会话刷新获取用户名: $username');
+      if (username.isEmpty) {
+        final restored = await ref
+            .read(authNotifierProvider.notifier)
+            .refreshFromSession();
+        if (restored != null) {
+          username = restored.username;
+          userId = restored.uid;
+          avatar = restored.avatar ?? '';
+          debugPrint('✅ [WebViewLogin] 通过 AuthNotifier 会话刷新获取用户名: $username');
+        }
       }
-    }
 
-    if (username.isEmpty) {
-      debugPrint('❌ [WebViewLogin] 未获取到真实用户名，终止写入占位用户');
+      if (username.isEmpty) {
+        debugPrint('❌ [WebViewLogin] 未获取到真实用户名，终止写入占位用户');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('登录会话已建立，但未获取到用户名，请重试'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (userId.isEmpty) {
+        userId = username;
+      }
+
+      // 创建用户信息对象并保存
+      debugPrint(
+        '💾 [WebViewLogin] 创建 UserInfo: uid=$userId, username=$username',
+      );
+      final userData = UserInfo(
+        uid: userId,
+        username: username,
+        avatar: avatar,
+      );
+
+      // 保存到本地存储并更新状态
+      debugPrint('💾 [WebViewLogin] 调用 setUserInfo...');
+      await ref.read(authNotifierProvider.notifier).setUserInfo(userData);
+      debugPrint('✅ [WebViewLogin] setUserInfo 完成');
+
+      // 验证保存结果
+      final prefs = await SharedPreferences.getInstance();
+      final savedUid = prefs.getString('uid');
+      final savedUsername = prefs.getString('username');
+      debugPrint(
+        '🔍 [WebViewLogin] 验证保存结果: uid=$savedUid, username=$savedUsername',
+      );
+
+      // 延迟后返回或跳转
+      await Future.delayed(const Duration(milliseconds: 150));
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('登录会话已建立，但未获取到用户名，请重试'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        debugPrint('🚀 [WebViewLogin] 导航到首页');
+        if (widget.redirectPath != null) {
+          context.go(widget.redirectPath!);
+        } else {
+          context.go(RoutePaths.main);
+        }
       }
-      return;
-    }
-
-    if (userId.isEmpty) {
-      userId = username;
-    }
-
-    // 创建用户信息对象并保存
-    debugPrint(
-      '💾 [WebViewLogin] 创建 UserInfo: uid=$userId, username=$username',
-    );
-    final userData = UserInfo(uid: userId, username: username, avatar: avatar);
-
-    // 保存到本地存储并更新状态
-    debugPrint('💾 [WebViewLogin] 调用 setUserInfo...');
-    await ref.read(authNotifierProvider.notifier).setUserInfo(userData);
-    debugPrint('✅ [WebViewLogin] setUserInfo 完成');
-
-    // 验证保存结果
-    final prefs = await SharedPreferences.getInstance();
-    final savedUid = prefs.getString('uid');
-    final savedUsername = prefs.getString('username');
-    debugPrint(
-      '🔍 [WebViewLogin] 验证保存结果: uid=$savedUid, username=$savedUsername',
-    );
-
-    // 延迟后返回或跳转
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    if (mounted) {
-      debugPrint('🚀 [WebViewLogin] 导航到首页');
-      if (widget.redirectPath != null) {
-        context.go(widget.redirectPath!);
-      } else {
-        context.go(RoutePaths.main);
-      }
+    } finally {
+      _isHandlingLoginSuccess = false;
     }
   }
 
@@ -551,28 +585,25 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   }
 
   Future<bool> _validateForumSession() async {
-    for (var attempt = 1; attempt <= 3; attempt++) {
+    for (var attempt = 1; attempt <= 2; attempt++) {
       try {
-        await _syncForumCookiesToDio();
-
         final hasSessionCookie = await DioClient.hasDiscourseSession();
         final cookieNames = await DioClient.getCookieNames(_forumUrl);
-        final probeResponse = await ref
-            .read(discourseApiServiceProvider)
-            .getNotifications(limit: 1, recent: true, bumpLastSeen: false);
-        final apiReady = probeResponse.statusCode == 200;
+        final currentSession = await _fetchCurrentSessionUser();
+        final apiReady = currentSession != null;
 
         debugPrint(
           '🔍 [WebViewLogin] 会话校验(第$attempt次): hasSessionCookie=$hasSessionCookie, apiReady=$apiReady, cookies=$cookieNames',
         );
-        if (hasSessionCookie && apiReady) {
+        // 接口探活成功即可判定论坛会话可用，避免仅依赖 Cookie 名称造成误判。
+        if (apiReady) {
           return true;
         }
       } catch (e) {
         debugPrint('❌ [WebViewLogin] 会话校验失败(第$attempt次): $e');
       }
 
-      await Future.delayed(const Duration(milliseconds: 600));
+      await Future.delayed(const Duration(milliseconds: 250));
     }
 
     return false;
@@ -580,23 +611,14 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   /// 同步 Trae 主站 Cookie（用于 Dashboard API）
   ///
-  /// 通过导航到 www.trae.cn/dashboard 并提取 Cookie
+  /// 优先通过原生桥同步 Cookie，不阻塞登录主流程
   Future<bool> _syncTraeMainSiteCookies() async {
     debugPrint('🔄 [WebViewLogin] 开始同步 Trae 主站 Cookie...');
     try {
-      // 导航到 Trae 主站 dashboard 页面
-      const traeDashboardUrl = 'https://www.trae.cn/dashboard';
-      debugPrint('🔄 [WebViewLogin] 导航到 $traeDashboardUrl');
-      await _controller.loadRequest(Uri.parse(traeDashboardUrl));
-
-      // 等待页面加载完成
-      await Future.delayed(const Duration(seconds: 3));
-
-      // 提取并保存 Cookie
       final cookieSaved = await TraeCookieManager.extractAndSaveCookies(
         _controller,
       );
-      debugPrint('✅ [WebViewLogin] Trae 主站 Cookie 提取结果: $cookieSaved');
+      debugPrint('✅ [WebViewLogin] 当前页 Trae Cookie 提取结果: $cookieSaved');
 
       // 再从系统 CookieManager 拉一次完整 Cookie（含 HttpOnly）
       final nativeSynced =

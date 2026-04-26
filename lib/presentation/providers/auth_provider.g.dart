@@ -50,7 +50,7 @@ final isAuthenticatedProvider = AutoDisposeProvider<bool>.internal(
 // ignore: unused_element
 typedef IsAuthenticatedRef = AutoDisposeProviderRef<bool>;
 String _$isAuthenticatedAsyncHash() =>
-    r'2b34f3044b63ba9c4995381d9c5433fa745dae99';
+    r'3c874b944d64182b6ef09fb091d69a675b8a8a92';
 
 /// 是否已登录 Provider（异步版本）
 ///
@@ -93,7 +93,7 @@ final authTokenProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthTokenRef = AutoDisposeProviderRef<String?>;
-String _$authNotifierHash() => r'7ce7926b0cdd92b374855af5abbc93ae0b684ebe';
+String _$authNotifierHash() => r'fc74dfe1d90f7ac773da7a35fe37eddb02ab5de9';
 
 /// 认证状态 Notifier
 ///

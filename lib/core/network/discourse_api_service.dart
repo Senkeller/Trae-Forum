@@ -169,7 +169,9 @@ class DiscourseApiService {
   /// [page] 页码，从0开始
   /// 调用 Discourse GET /tag/{tag}.json API
   Future<Response> getTopicsByTag(String tag, {int page = 0}) async {
-    final encodedTag = Uri.encodeComponent(tag);
+    // 先处理 % 字符避免双重编码，然后进行 URL 编码
+    final sanitizedTag = tag.replaceAll('%', '%25');
+    final encodedTag = Uri.encodeComponent(sanitizedTag);
     return _dio.get(
       '$_baseUrl/tag/$encodedTag.json',
       queryParameters: {'page': page},

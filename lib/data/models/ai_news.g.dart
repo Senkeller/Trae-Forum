@@ -16,10 +16,21 @@ _$AINewsImpl _$$AINewsImplFromJson(Map<String, dynamic> json) => _$AINewsImpl(
   tags:
       (json['tags'] as List<dynamic>?)?.map((e) => e as String).toList() ??
       const [],
+  category:
+      $enumDecodeNullable(_$AINewsCategoryEnumMap, json['category']) ??
+      AINewsCategory.other,
   coverImage: json['coverImage'] as String?,
   author: json['author'] as String?,
   viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
+  likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+  commentCount: (json['commentCount'] as num?)?.toInt() ?? 0,
   isHot: json['isHot'] as bool? ?? false,
+  isPinned: json['isPinned'] as bool? ?? false,
+  isRead: json['isRead'] as bool? ?? false,
+  isBookmarked: json['isBookmarked'] as bool? ?? false,
+  summary: json['summary'] as String?,
+  rawContent: json['rawContent'] as String?,
+  updatedAt: json['updatedAt'] as String?,
 );
 
 Map<String, dynamic> _$$AINewsImplToJson(_$AINewsImpl instance) =>
@@ -31,11 +42,30 @@ Map<String, dynamic> _$$AINewsImplToJson(_$AINewsImpl instance) =>
       'sourceUrl': instance.sourceUrl,
       'publishTime': instance.publishTime,
       'tags': instance.tags,
+      'category': _$AINewsCategoryEnumMap[instance.category]!,
       'coverImage': instance.coverImage,
       'author': instance.author,
       'viewCount': instance.viewCount,
+      'likeCount': instance.likeCount,
+      'commentCount': instance.commentCount,
       'isHot': instance.isHot,
+      'isPinned': instance.isPinned,
+      'isRead': instance.isRead,
+      'isBookmarked': instance.isBookmarked,
+      'summary': instance.summary,
+      'rawContent': instance.rawContent,
+      'updatedAt': instance.updatedAt,
     };
+
+const _$AINewsCategoryEnumMap = {
+  AINewsCategory.llm: 'llm',
+  AINewsCategory.imageGeneration: 'imageGeneration',
+  AINewsCategory.videoGeneration: 'videoGeneration',
+  AINewsCategory.aiHardware: 'aiHardware',
+  AINewsCategory.aiApplication: 'aiApplication',
+  AINewsCategory.industryNews: 'industryNews',
+  AINewsCategory.other: 'other',
+};
 
 _$AINewsResponseImpl _$$AINewsResponseImplFromJson(Map<String, dynamic> json) =>
     _$AINewsResponseImpl(
