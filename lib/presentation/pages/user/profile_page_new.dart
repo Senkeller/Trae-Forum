@@ -26,6 +26,8 @@ class ProfilePageNew extends ConsumerStatefulWidget {
 }
 
 class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
+  bool _notificationInitialized = false;
+
   @override
   Widget build(BuildContext context) {
     ref.listen<user_model.UserInfo?>(currentUserProvider, (previous, next) {
@@ -39,6 +41,22 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
     final currentUser = ref.watch(currentUserProvider);
     final isAuthenticated = currentUser != null;
+    final notificationState = ref.watch(notificationNotifierProvider);
+    final unreadCount = notificationState.unreadCount;
+    final unreadSummary = buildNotificationUnreadSummary(
+      notificationState.notifications,
+    );
+
+    // 首次进入登录态页面时自动拉取通知
+    if (!isAuthenticated) {
+      _notificationInitialized = false;
+    }
+    if (isAuthenticated && !_notificationInitialized) {
+      _notificationInitialized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(notificationNotifierProvider.notifier).loadNotifications();
+      });
+    }
 
     // 调试日志
     debugPrint('🔍 [ProfilePage] currentUser: $currentUser');
@@ -57,7 +75,13 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
         child: CustomScrollView(
           slivers: [
             // 顶部导航栏
-            SliverToBoxAdapter(child: _buildAppBar(context, isAuthenticated)),
+            SliverToBoxAdapter(
+              child: _buildAppBar(
+                context,
+                isAuthenticated,
+                unreadCount,
+              ),
+            ),
             // 用户状态卡片
             SliverToBoxAdapter(
               child: _buildUserCard(context, currentUser, isAuthenticated),
@@ -66,12 +90,10 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             if (isAuthenticated)
               const SliverToBoxAdapter(child: EmbeddedTraeDashboard()),
             // 快捷功能入口
-            SliverToBoxAdapter(
-              child: _buildQuickActionsSection(context, isAuthenticated),
-            ),
+            SliverToBoxAdapter(child: _buildQuickActionsSection(context)),
             // 消息通知
             SliverToBoxAdapter(
-              child: _buildNotificationSection(context, isAuthenticated),
+              child: _buildNotificationSection(context, unreadSummary),
             ),
             // 底部间距
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -82,9 +104,11 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   }
 
   /// 构建顶部导航栏
-  Widget _buildAppBar(BuildContext context, bool isAuthenticated) {
-    final colorScheme = Theme.of(context).colorScheme;
-
+  Widget _buildAppBar(
+    BuildContext context,
+    bool isAuthenticated,
+    int totalUnreadCount,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -104,28 +128,17 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: '设置',
               ),
-              // 消息中心按钮
-              Stack(
-                children: [
-                  IconButton(
-                    onPressed: () => _showMessageCenter(context),
-                    icon: const Icon(Icons.notifications_outlined),
-                    tooltip: '消息',
-                  ),
-                  // 未读消息红点
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: colorScheme.error,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ],
+              // 消息中心按钮（带未读角标）
+              Badge(
+                isLabelVisible: isAuthenticated && totalUnreadCount > 0,
+                label: Text(
+                  totalUnreadCount > 99 ? '99+' : '$totalUnreadCount',
+                ),
+                child: IconButton(
+                  onPressed: () => _showMessageCenter(context),
+                  icon: const Icon(Icons.notifications_outlined),
+                  tooltip: '消息',
+                ),
               ),
             ],
           ),
@@ -498,7 +511,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   }
 
   /// 构建快捷功能区
-  Widget _buildQuickActionsSection(BuildContext context, bool isAuthenticated) {
+  Widget _buildQuickActionsSection(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
@@ -562,18 +575,20 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               QuickActionItem(
                 title: '我的赞',
                 icon: Icons.thumb_up_outlined,
-                route: RoutePaths.myLikes,
+                route: RoutePaths.userProfile,
                 requireLogin: true,
                 iconColor: const Color(0xFF2196F3),
                 backgroundColor: const Color(0xFFE3F2FD),
+                onTap: () => _navigateToMyLikes(context),
               ),
               QuickActionItem(
                 title: '我的回复',
                 icon: Icons.chat_bubble_outline,
-                route: RoutePaths.myReplies,
+                route: RoutePaths.userProfile,
                 requireLogin: true,
                 iconColor: const Color(0xFF00BCD4),
                 backgroundColor: const Color(0xFFE0F7FA),
+                onTap: () => _navigateToMyReplies(context),
               ),
             ],
             padding: const EdgeInsets.all(12),
@@ -586,11 +601,11 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   }
 
   /// 构建消息通知区
-  Widget _buildNotificationSection(BuildContext context, bool isAuthenticated) {
+  Widget _buildNotificationSection(
+    BuildContext context,
+    NotificationUnreadSummary unreadSummary,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
-    // 获取真实未读通知总数（TODO: 后端API支持分类未读数后使用）
-    // ignore: unused_local_variable
-    final totalUnreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -611,24 +626,23 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
           NotificationList(
             items: [
               NotificationPresets.mentionMe(
-                onTap: () => _showFeatureComingSoon(context, '@我的动态'),
-                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
-                unreadCount: 0,
+                onTap: () =>
+                    context.push('${RoutePaths.message}?filter=replies'),
+                unreadCount: unreadSummary.replies,
               ),
               NotificationPresets.mentionComment(
-                onTap: () => _showFeatureComingSoon(context, '@我的评论'),
-                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
-                unreadCount: 0,
+                onTap: () =>
+                    context.push('${RoutePaths.message}?filter=replies'),
+                unreadCount: unreadSummary.replies,
               ),
               NotificationPresets.receivedLikes(
-                onTap: () => _showFeatureComingSoon(context, '我收到的赞'),
-                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
-                unreadCount: 0,
+                onTap: () => context.push('${RoutePaths.message}?filter=likes'),
+                unreadCount: unreadSummary.likes,
               ),
               NotificationPresets.friendFollow(
-                onTap: () => _showFeatureComingSoon(context, '好友关注'),
-                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
-                unreadCount: 0,
+                onTap: () =>
+                    context.push('${RoutePaths.message}?filter=others'),
+                unreadCount: unreadSummary.others,
               ),
             ],
             backgroundColor: colorScheme.surface,
@@ -674,17 +688,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     return count.toString();
   }
 
-  /// 显示功能开发中提示
-  void _showFeatureComingSoon(BuildContext context, String featureName) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$featureName 功能开发中'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   /// 显示消息中心
   void _showMessageCenter(BuildContext context) {
     context.push(RoutePaths.notifications);
@@ -699,6 +702,18 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
     context.push(
       '${RoutePaths.webview}?url=${Uri.encodeComponent(profileUri.toString())}&title=${Uri.encodeComponent('编辑资料')}',
+    );
+  }
+
+  /// 打开论坛头像设置页面（/my/preferences/profile）
+  void _openForumAvatarSettings(BuildContext context) {
+    final baseUri = Uri.parse(AppConstants.forumUrl);
+    final avatarUri = baseUri.replace(
+      pathSegments: ['my', 'preferences', 'profile'],
+    );
+
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(avatarUri.toString())}&title=${Uri.encodeComponent('更换头像')}',
     );
   }
 
@@ -718,7 +733,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               title: const Text('更换头像'),
               onTap: () {
                 Navigator.of(context).pop();
-                _showFeatureComingSoon(context, '更换头像');
+                _openForumAvatarSettings(context);
               },
             ),
             if (avatarUrl != null && avatarUrl.isNotEmpty)
@@ -763,6 +778,26 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     if (currentUser == null) return;
 
     context.push(RoutePaths.fanList.replaceFirst(':uid', currentUser.username));
+  }
+
+  /// 导航到"我的赞"页面
+  void _navigateToMyLikes(BuildContext context) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    context.push(
+      '${RoutePaths.userProfile.replaceFirst(':uid', currentUser.username)}?tab=activity&category=likes',
+    );
+  }
+
+  /// 导航到"我的回复"页面
+  void _navigateToMyReplies(BuildContext context) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    context.push(
+      '${RoutePaths.userProfile.replaceFirst(':uid', currentUser.username)}?tab=activity&category=replies',
+    );
   }
 }
 

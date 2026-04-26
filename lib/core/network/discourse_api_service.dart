@@ -207,11 +207,13 @@ class DiscourseApiService {
   /// [recent] 是否只返回最近通知
   /// [bumpLastSeen] 是否更新最后查看时间
   /// [filterByTypes] 通知类型筛选，多个类型用逗号分隔
+  /// [offset] 分页偏移量
   Future<Response> getNotifications({
     int limit = 30,
     bool recent = true,
     bool bumpLastSeen = true,
     String? filterByTypes,
+    int? offset,
   }) async {
     final queryParams = <String, dynamic>{
       'limit': limit,
@@ -221,6 +223,9 @@ class DiscourseApiService {
 
     if (filterByTypes != null && filterByTypes.isNotEmpty) {
       queryParams['filter_by_types'] = filterByTypes;
+    }
+    if (offset != null && offset > 0) {
+      queryParams['offset'] = offset;
     }
 
     return _dio.get('$_baseUrl/notifications', queryParameters: queryParams);

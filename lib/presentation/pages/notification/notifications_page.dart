@@ -179,8 +179,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       enablePullUp: notificationState.hasMore,
       onRefresh: _onRefresh,
       onLoading: notificationState.hasMore
-          ? () {
-              ref
+          ? () async {
+              await ref
                   .read(notificationNotifierProvider.notifier)
                   .loadMoreNotifications();
               _refreshController.loadComplete();

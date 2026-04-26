@@ -10,7 +10,9 @@ part 'discourse_notification.g.dart';
 @freezed
 class DiscourseNotificationResponse with _$DiscourseNotificationResponse {
   const factory DiscourseNotificationResponse({
-    @JsonKey(name: 'notifications') @Default([]) List<DiscourseNotification> notifications,
+    @JsonKey(name: 'notifications')
+    @Default([])
+    List<DiscourseNotification> notifications,
     @JsonKey(name: 'seen_notification_id') @Default(0) int seenNotificationId,
     @JsonKey(name: 'total_rows_notifications') @Default(0) int totalRows,
   }) = _DiscourseNotificationResponse;
@@ -35,7 +37,8 @@ class DiscourseNotification with _$DiscourseNotification {
     @JsonKey(name: 'topic_title') String? topicTitle,
     @JsonKey(name: 'display_username') String? displayUsername,
     @JsonKey(name: 'acting_user_id') int? actingUserId,
-    @JsonKey(name: 'acting_user_avatar_template') String? actingUserAvatarTemplate,
+    @JsonKey(name: 'acting_user_avatar_template')
+    String? actingUserAvatarTemplate,
     @JsonKey(name: 'acting_user_name') String? actingUserName,
   }) = _DiscourseNotification;
 
@@ -75,130 +78,130 @@ class NotificationData with _$NotificationData {
 class DiscourseNotificationType {
   /// 被提及 (@)
   static const int mentioned = 1;
-  
+
   /// 被群组提及
   static const int groupMentioned = 2;
-  
+
   /// 有新回复
   static const int posted = 3;
-  
+
   /// 被引用
   static const int quoted = 4;
-  
+
   /// 被回复
   static const int replied = 5;
-  
+
   /// 被点赞
   static const int liked = 6;
-  
+
   /// 被点赞（合并）
   static const int likedConsolidated = 7;
-  
+
   /// 表情回应
   static const int reaction = 8;
-  
+
   /// 帖子被编辑
   static const int edited = 9;
-  
+
   /// 被邀请加入私信
   static const int invitedToPrivateMessage = 10;
-  
+
   /// 邀请被接受
   static const int inviteeAccepted = 11;
-  
+
   /// 帖子被移动
   static const int movedPost = 12;
-  
+
   /// 被链接
   static const int linked = 13;
-  
+
   /// 获得徽章
   static const int grantedBadge = 14;
-  
+
   /// 被邀请参与话题
   static const int invitedToTopic = 15;
-  
+
   /// 自定义通知
   static const int custom = 16;
-  
+
   /// 关注的首帖
   static const int watchingFirstPost = 17;
-  
+
   /// 话题提醒
   static const int topicReminder = 18;
-  
+
   /// 帖子被批准
   static const int postApproved = 19;
-  
+
   /// 代码审查提交被批准
   static const int codeReviewCommitApproved = 20;
-  
+
   /// 成员请求被接受
   static const int membershipRequestAccepted = 21;
-  
+
   /// 成员请求合并
   static const int membershipRequestConsolidated = 22;
-  
+
   /// 投票释放
   static const int votesReleased = 23;
-  
+
   /// 事件提醒
   static const int eventReminder = 24;
-  
+
   /// 事件邀请
   static const int eventInvitation = 25;
-  
+
   /// 聊天邀请
   static const int chatInvitation = 26;
-  
+
   /// 聊天中被提及
   static const int chatMention = 27;
-  
+
   /// 聊天消息
   static const int chatMessage = 28;
-  
+
   /// 聊天中被引用
   static const int chatQuoted = 29;
-  
+
   /// 关注的聊天线程
   static const int chatWatchedThread = 30;
-  
+
   /// 聊天群组提及
   static const int chatGroupMention = 31;
-  
+
   /// 被分配
   static const int assigned = 32;
-  
+
   /// 问答用户评论
   static const int questionAnswerUserCommented = 33;
-  
+
   /// 关注分类或标签
   static const int watchingCategoryOrTag = 34;
-  
+
   /// 新功能
   static const int newFeatures = 35;
-  
+
   /// 管理员问题
   static const int adminProblems = 36;
-  
+
   /// 被链接（合并）
   static const int linkedConsolidated = 37;
-  
+
   /// 即将可用的变更
   static const int upcomingChangeAvailable = 38;
-  
+
   /// 自动升级的变更
   static const int upcomingChangeAutomaticallyPromoted = 39;
-  
+
   /// 被关注
   static const int following = 40;
-  
+
   /// 关注者创建话题
   static const int followingCreatedTopic = 41;
-  
+
   /// 关注者回复
   static const int followingReplied = 42;
-  
+
   /// 圈子活动
   static const int circlesActivity = 43;
 
@@ -375,22 +378,22 @@ class DiscourseNotificationType {
 enum NotificationFilterType {
   /// 所有通知
   all,
-  
+
   /// 回复相关（提及、引用、回复）
   replies,
-  
+
   /// 点赞相关
   likes,
-  
+
   /// 私信相关
   messages,
-  
+
   /// 书签相关
   bookmarks,
-  
+
   /// 聊天相关
   chat,
-  
+
   /// 其他通知
   others,
 }
@@ -435,5 +438,88 @@ extension NotificationFilterTypeExtension on NotificationFilterType {
       case NotificationFilterType.others:
         return 'edited,invited_to_private_message,invitee_accepted,moved_post,linked,granted_badge,invited_to_topic,custom,watching_first_post,topic_reminder,post_approved';
     }
+  }
+
+  /// 判断通知类型是否匹配当前筛选
+  bool matchesNotificationType(int notificationType) {
+    switch (this) {
+      case NotificationFilterType.all:
+        return true;
+      case NotificationFilterType.replies:
+        return [
+          DiscourseNotificationType.mentioned,
+          DiscourseNotificationType.groupMentioned,
+          DiscourseNotificationType.posted,
+          DiscourseNotificationType.quoted,
+          DiscourseNotificationType.replied,
+        ].contains(notificationType);
+      case NotificationFilterType.likes:
+        return [
+          DiscourseNotificationType.liked,
+          DiscourseNotificationType.likedConsolidated,
+          DiscourseNotificationType.reaction,
+        ].contains(notificationType);
+      case NotificationFilterType.messages:
+        return [
+          DiscourseNotificationType.invitedToPrivateMessage,
+          DiscourseNotificationType.inviteeAccepted,
+          DiscourseNotificationType.invitedToTopic,
+        ].contains(notificationType);
+      case NotificationFilterType.bookmarks:
+        return [
+          DiscourseNotificationType.watchingFirstPost,
+          DiscourseNotificationType.topicReminder,
+        ].contains(notificationType);
+      case NotificationFilterType.chat:
+        return [
+          DiscourseNotificationType.chatInvitation,
+          DiscourseNotificationType.chatMention,
+          DiscourseNotificationType.chatMessage,
+          DiscourseNotificationType.chatQuoted,
+          DiscourseNotificationType.chatWatchedThread,
+          DiscourseNotificationType.chatGroupMention,
+        ].contains(notificationType);
+      case NotificationFilterType.others:
+        return ![
+          DiscourseNotificationType.mentioned,
+          DiscourseNotificationType.groupMentioned,
+          DiscourseNotificationType.posted,
+          DiscourseNotificationType.quoted,
+          DiscourseNotificationType.replied,
+          DiscourseNotificationType.liked,
+          DiscourseNotificationType.likedConsolidated,
+          DiscourseNotificationType.reaction,
+          DiscourseNotificationType.invitedToPrivateMessage,
+          DiscourseNotificationType.inviteeAccepted,
+          DiscourseNotificationType.invitedToTopic,
+          DiscourseNotificationType.watchingFirstPost,
+          DiscourseNotificationType.topicReminder,
+          DiscourseNotificationType.chatInvitation,
+          DiscourseNotificationType.chatMention,
+          DiscourseNotificationType.chatMessage,
+          DiscourseNotificationType.chatQuoted,
+          DiscourseNotificationType.chatWatchedThread,
+          DiscourseNotificationType.chatGroupMention,
+        ].contains(notificationType);
+    }
+  }
+}
+
+NotificationFilterType notificationFilterTypeFromQuery(String? value) {
+  switch (value?.trim().toLowerCase()) {
+    case 'replies':
+      return NotificationFilterType.replies;
+    case 'likes':
+      return NotificationFilterType.likes;
+    case 'messages':
+      return NotificationFilterType.messages;
+    case 'bookmarks':
+      return NotificationFilterType.bookmarks;
+    case 'chat':
+      return NotificationFilterType.chat;
+    case 'others':
+      return NotificationFilterType.others;
+    default:
+      return NotificationFilterType.all;
   }
 }

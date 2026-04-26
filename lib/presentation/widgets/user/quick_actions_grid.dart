@@ -14,6 +14,7 @@ class QuickActionItem {
   final Color? iconColor;
   final Color? backgroundColor;
   final int? badgeCount;
+  final VoidCallback? onTap;
 
   const QuickActionItem({
     required this.title,
@@ -23,6 +24,7 @@ class QuickActionItem {
     this.iconColor,
     this.backgroundColor,
     this.badgeCount,
+    this.onTap,
   });
 }
 
@@ -64,7 +66,11 @@ class QuickActionsGrid extends ConsumerWidget {
       padding: padding,
       child: Column(
         children: [
-          for (int row = 0; row < (items.length / crossAxisCount).ceil(); row++) ...[
+          for (
+            int row = 0;
+            row < (items.length / crossAxisCount).ceil();
+            row++
+          ) ...[
             if (row > 0) SizedBox(height: runSpacing),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -100,7 +106,8 @@ class QuickActionsGrid extends ConsumerWidget {
     WidgetRef ref,
   ) {
     final effectiveIconColor = item.iconColor ?? colorScheme.primary;
-    final effectiveBgColor = item.backgroundColor ??
+    final effectiveBgColor =
+        item.backgroundColor ??
         (colorScheme.brightness == Brightness.light
             ? const Color(0xFFF0F7FF)
             : colorScheme.surfaceContainerHighest);
@@ -123,11 +130,7 @@ class QuickActionsGrid extends ConsumerWidget {
                     color: effectiveBgColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    item.icon,
-                    color: effectiveIconColor,
-                    size: 24,
-                  ),
+                  child: Icon(item.icon, color: effectiveIconColor, size: 24),
                 ),
                 if (item.badgeCount != null && item.badgeCount! > 0)
                   Positioned(
@@ -187,6 +190,12 @@ class QuickActionsGrid extends ConsumerWidget {
     // 检查是否需要登录
     if (item.requireLogin && !isLoggedIn) {
       _showLoginDialog(context);
+      return;
+    }
+
+    // 如果有自定义 onTap，优先使用
+    if (item.onTap != null) {
+      item.onTap!();
       return;
     }
 
@@ -255,7 +264,7 @@ final List<QuickActionItem> defaultQuickActions = [
   const QuickActionItem(
     title: '我的赞',
     icon: Icons.thumb_up_outlined,
-    route: RoutePaths.myLikes,
+    route: '/user/current_user?tab=activity&category=likes',
     requireLogin: true,
     iconColor: Color(0xFF2196F3),
     backgroundColor: Color(0xFFE3F2FD),
@@ -263,7 +272,7 @@ final List<QuickActionItem> defaultQuickActions = [
   const QuickActionItem(
     title: '我的回复',
     icon: Icons.chat_bubble_outline,
-    route: RoutePaths.myReplies,
+    route: '/user/current_user?tab=activity&category=replies',
     requireLogin: true,
     iconColor: Color(0xFF00BCD4),
     backgroundColor: Color(0xFFE0F7FA),
@@ -287,7 +296,7 @@ final List<QuickActionItem> defaultQuickActions = [
   const QuickActionItem(
     title: '草稿箱',
     icon: Icons.drafts_outlined,
-    route: '/drafts',
+    route: RoutePaths.message,
     requireLogin: true,
     iconColor: Color(0xFF607D8B),
     backgroundColor: Color(0xFFECEFF1),

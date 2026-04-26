@@ -232,6 +232,7 @@ class _FeedListView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final feedType = homeFeedTabs[tabIndex];
     final isOfficialTab = feedType == FeedType.official;
+    final isLatestTab = feedType == FeedType.latest;
     final tabState = ref.watch(
       homeNotifierProvider.select(
         (homeState) => homeState.tabStates[feedType] ?? const TabFeedState(),
@@ -242,6 +243,8 @@ class _FeedListView extends ConsumerWidget {
     final isLoading = tabState.isRefreshing;
     final hasMore = tabState.hasMore;
     final errorMessage = tabState.errorMessage;
+    final needLoginForLatest =
+        isLatestTab && (errorMessage?.contains('登录') ?? false);
 
     if (errorMessage != null && feedList.isEmpty) {
       return Center(
@@ -252,7 +255,14 @@ class _FeedListView extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(errorMessage, style: TextStyle(color: Colors.grey[600])),
             const SizedBox(height: 16),
-            ElevatedButton(onPressed: onRefresh, child: const Text('重试')),
+            if (needLoginForLatest) ...[
+              FilledButton(
+                onPressed: () => context.push(RoutePaths.login),
+                child: const Text('去登录'),
+              ),
+              const SizedBox(height: 8),
+            ],
+            OutlinedButton(onPressed: onRefresh, child: const Text('重试')),
           ],
         ),
       );
@@ -274,7 +284,7 @@ class _FeedListView extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              isOfficialTab ? '暂无官方公告' : '暂无内容',
+              isOfficialTab ? '暂无官方公告' : (isLatestTab ? '暂无最新内容' : '暂无内容'),
               style: TextStyle(color: Colors.grey[600]),
             ),
             if (isOfficialTab) ...[
@@ -518,6 +528,41 @@ const Map<String, String> _tagLocalizationMap = {
   'pinned': '置顶',
   'featured': '精选',
 };
+
+String _localizeTagName(String tag) {
+  final lowerTag = tag.toLowerCase().trim();
+  final cleanTag = lowerTag.startsWith('#') ? lowerTag.substring(1) : lowerTag;
+  return _tagLocalizationMap[cleanTag] ?? tag;
+}
+
+String _formatFeedTime(String timestamp) {
+  if (timestamp.isEmpty) return '';
+
+  try {
+    final intTs = int.tryParse(timestamp);
+    if (intTs == null) return timestamp;
+
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(intTs * 1000);
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return '刚刚';
+    }
+    if (difference.inHours < 1) {
+      return '${difference.inMinutes}分钟前';
+    }
+    if (difference.inDays < 1) {
+      return '${difference.inHours}小时前';
+    }
+    if (difference.inDays < 7) {
+      return '${difference.inDays}天前';
+    }
+    return '${dateTime.month}/${dateTime.day}';
+  } catch (_) {
+    return timestamp;
+  }
+}
 
 /// Feed 骨架屏卡片
 ///
@@ -923,12 +968,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   /// [tag] 原始标签文本（英文）
   /// @return 汉化后的标签文本，如果没有映射则返回原值
   String _getLocalizedTag(String tag) {
-    final lowerTag = tag.toLowerCase().trim();
-    // 移除可能的 # 前缀
-    final cleanTag = lowerTag.startsWith('#')
-        ? lowerTag.substring(1)
-        : lowerTag;
-    return _tagLocalizationMap[cleanTag] ?? tag;
+    return _localizeTagName(tag);
   }
 
   /// 处理标签点击
@@ -1166,31 +1206,6 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   }
 
   String _formatTime(String timestamp) {
-    if (timestamp.isEmpty) return '';
-
-    try {
-      final intTs = int.tryParse(timestamp);
-      if (intTs == null) return timestamp;
-
-      final dateTime = DateTime.fromMillisecondsSinceEpoch(intTs * 1000);
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-
-      if (difference.inMinutes < 1) {
-        return '刚刚';
-      }
-      if (difference.inHours < 1) {
-        return '${difference.inMinutes}分钟前';
-      }
-      if (difference.inDays < 1) {
-        return '${difference.inHours}小时前';
-      }
-      if (difference.inDays < 7) {
-        return '${difference.inDays}天前';
-      }
-      return '${dateTime.month}/${dateTime.day}';
-    } catch (_) {
-      return timestamp;
-    }
+    return _formatFeedTime(timestamp);
   }
 }

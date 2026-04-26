@@ -17,7 +17,7 @@ import '../presentation/pages/search/search_page.dart';
 import '../presentation/pages/search/search_result_page.dart';
 import '../presentation/pages/message/message_page.dart';
 import '../presentation/pages/message/message_detail_page.dart';
-import '../presentation/pages/notification/notifications_page.dart';
+
 import '../presentation/pages/notification/notification_settings_page.dart';
 import '../presentation/pages/settings/settings_page.dart';
 import '../presentation/pages/settings/account_security_page.dart';
@@ -192,7 +192,13 @@ class AppRouter {
         path: RoutePaths.userProfile,
         builder: (context, state) {
           final uid = state.pathParameters['uid'];
-          return UserProfilePage(uid: uid);
+          final tab = state.uri.queryParameters['tab'];
+          final category = state.uri.queryParameters['category'];
+          return UserProfilePage(
+            uid: uid,
+            initialTab: tab,
+            initialActivityCategory: category,
+          );
         },
       ),
 
@@ -289,7 +295,10 @@ class AppRouter {
       // 消息
       GoRoute(
         path: RoutePaths.message,
-        builder: (context, state) => const MessagePage(),
+        builder: (context, state) {
+          final filter = state.uri.queryParameters['filter'];
+          return MessagePage(initialFilter: filter);
+        },
       ),
 
       // 消息详情
@@ -304,7 +313,10 @@ class AppRouter {
       // 通知
       GoRoute(
         path: RoutePaths.notifications,
-        builder: (context, state) => const NotificationsPage(),
+        builder: (context, state) {
+          final filter = state.uri.queryParameters['filter'];
+          return MessagePage(initialFilter: filter);
+        },
       ),
 
       // 通知设置
@@ -433,7 +445,8 @@ class AppRouter {
       final location = state.matchedLocation;
 
       // 登录相关路由
-      final isLoginRoute = location == RoutePaths.login ||
+      final isLoginRoute =
+          location == RoutePaths.login ||
           location == RoutePaths.register ||
           location == RoutePaths.forgotPassword;
 

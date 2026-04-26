@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../config/constants.dart';
@@ -54,18 +55,18 @@ const Map<FeedType, String> homeFeedTabLabels = {
 };
 
 const Map<int, String> _categoryLabelById = {
-  4: 'Official',
+  4: '官方',
   17: '产品更新',
   18: '模型更新',
   19: '政策公告',
   20: '社区动态',
-  7: 'Help',
-  8: 'Suggestions',
-  9: 'Tips',
-  10: 'Showcase',
-  11: 'Discussion',
+  7: '帮助与支持',
+  8: '产品建议',
+  9: '基础技巧',
+  10: '作品展示',
+  11: '互动交流',
   29: '福利活动',
-  35: 'Events',
+  35: 'SOLO挑战赛专区',
 };
 
 /// Feed 项数据模型
@@ -364,6 +365,7 @@ class HomeNotifier extends _$HomeNotifier {
   Future<void> refreshFeeds() async {
     final feedType = _indexToFeedType(state.currentTabIndex);
     final currentTabState = _getTabState(feedType);
+    final previousFeedIds = currentTabState.feedList.map((e) => e.id).toSet();
     if (currentTabState.isRefreshing) return;
 
     _updateTabState(
@@ -377,7 +379,11 @@ class HomeNotifier extends _$HomeNotifier {
     );
 
     try {
-      final feeds = await _fetchFeedItems(feedType, 1);
+      final feeds = await _fetchFeedItems(
+        feedType,
+        1,
+        avoidIds: feedType == FeedType.recommended ? previousFeedIds : null,
+      );
       final latestState = _getTabState(feedType);
 
       _updateTabState(
@@ -394,7 +400,10 @@ class HomeNotifier extends _$HomeNotifier {
       final latestState = _getTabState(feedType);
       _updateTabState(
         feedType,
-        latestState.copyWith(isRefreshing: false, errorMessage: '网络错误: $e'),
+        latestState.copyWith(
+          isRefreshing: false,
+          errorMessage: _resolveErrorMessage(feedType, e),
+        ),
       );
     }
   }
@@ -445,22 +454,61 @@ class HomeNotifier extends _$HomeNotifier {
       final latestState = _getTabState(feedType);
       _updateTabState(
         feedType,
-        latestState.copyWith(isLoadingMore: false, errorMessage: '网络错误: $e'),
+        latestState.copyWith(
+          isLoadingMore: false,
+          errorMessage: _resolveErrorMessage(feedType, e),
+        ),
       );
     }
   }
 
-  Future<List<FeedItem>> _fetchFeedItems(FeedType type, int page) async {
+  String _resolveErrorMessage(FeedType feedType, Object error) {
+    if (_isNotLoggedInError(error)) {
+      if (feedType == FeedType.latest) {
+        return '最新内容需要登录后查看，请先登录';
+      }
+      return '请先登录后继续';
+    }
+    return '网络错误: $error';
+  }
+
+  bool _isNotLoggedInError(Object error) {
+    if (error is! DioException) return false;
+
+    final response = error.response;
+    if (response?.statusCode != 403) return false;
+
+    final data = response?.data;
+    if (data is Map<String, dynamic>) {
+      final errorType = data['error_type']?.toString();
+      if (errorType == 'not_logged_in') return true;
+
+      final errors = data['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        return errors.first.toString().contains('需要登录');
+      }
+    }
+
+    return false;
+  }
+
+  Future<List<FeedItem>> _fetchFeedItems(
+    FeedType type,
+    int page, {
+    Set<String>? avoidIds,
+  }) async {
     switch (type) {
       case FeedType.recommended:
         // 使用推荐引擎获取混合推荐内容
         return _recommendationEngine.getRecommendedFeeds(
           page: page,
           pageSize: AppConstants.pageSize,
+          avoidIds: avoidIds,
         );
       case FeedType.latest:
+        final discoursePage = page > 0 ? page - 1 : 0;
         return _fetchFromResponse(
-          await _discourseApiService.getLatestTopics(page: page),
+          await _discourseApiService.getNewTopics(page: discoursePage),
         );
       case FeedType.hot:
         try {

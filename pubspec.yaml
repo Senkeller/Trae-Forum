@@ -56,6 +56,7 @@ dependencies:
   package_info_plus: ^8.0.0
   device_info_plus: ^10.1.0
   connectivity_plus: ^6.0.3
+  flutter_local_notifications: ^17.2.4
   
   # 富文本渲染
   flutter_html: ^3.0.0-beta.2
@@ -126,4 +127,3 @@ flutter_launcher_icons:
   remove_alpha_ios: true
   background_color_ios: "#0F172A"
   
-

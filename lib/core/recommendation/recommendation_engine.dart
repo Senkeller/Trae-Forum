@@ -19,23 +19,43 @@ class RecommendationEngine {
   /// - 缩短时间衰减周期（让新内容更快被看到）
   /// - 重点推荐7天内内容
   static const Map<String, double> _weights = {
-    'viewCount': 0.0005, // 浏览数权重（降低）
-    'likeCount': 0.2, // 点赞数权重（降低）
-    'replyCount': 0.15, // 回复数权重（降低）
-    'newContentBase': 50.0, // 新内容基础分（新增）
-    'official': 2.0, // 官方内容加权（提高）
-    'pinned': 3.0, // 置顶内容加权（提高）
-    'timeDecay': 24.0, // 时间衰减因子（缩短为24小时）
-    'maxTimeBoost': 72.0, // 最大时间加成（3天内新内容有加成）
+    'viewCount': 0.0008, // 浏览数权重
+    'likeCount': 0.35, // 点赞数权重
+    'replyCount': 0.28, // 回复数权重
+    'newContentBase': 45.0, // 新内容基础分
+    'pinned': 2.4, // 置顶内容加权
+    'timeDecay': 30.0, // 时间衰减因子
+    'maxTimeBoost': 60.0, // 最大时间加成（2.5天）
     'maxAgeHours': 168.0, // 最大内容年龄（7天 = 168小时）
+    'sourceConsensusBoost': 0.08, // 多来源共同出现加权
+    'imageBoost': 1.08, // 带图内容加权
+    'tagBoost': 1.05, // 带标签内容加权
   };
 
   /// 分类多样性配置
   /// 每个分类在推荐中的最大占比，确保内容多样性
   static const Map<int, double> _categoryMaxRatio = {
-    7: 0.25, // Help: 最多25%
-    10: 0.25, // Showcase: 最多25%
-    11: 0.25, // Discussion: 最多25%
+    7: 0.28, // Help
+    8: 0.22, // Suggestions
+    9: 0.22, // Tips
+    10: 0.28, // Showcase
+    11: 0.28, // Discussion
+    29: 0.22, // 福利活动
+    35: 0.28, // SOLO 挑战赛专区
+  };
+
+  static const Map<String, double> _sourceBoost = {
+    'hot': 1.08,
+    'top': 1.06,
+    'latest': 1.03,
+    'new': 1.10,
+    'cat_help': 1.04,
+    'cat_suggestions': 1.03,
+    'cat_tips': 1.03,
+    'cat_showcase': 1.06,
+    'cat_discussion': 1.03,
+    'cat_welfare': 1.02,
+    'cat_events': 1.03,
   };
 
   /// 构造函数
@@ -59,116 +79,186 @@ class RecommendationEngine {
     int page = 1,
     int pageSize = 20,
     bool randomize = true,
+    Set<String>? avoidIds,
   }) async {
-    // 并行获取多个数据源
-    // 针对冷启动社区：获取更多分类的内容，确保多样性
-    // 注意：推荐内容不包含官方公告（有专门的"官方"Tab）
-    final responses = await Future.wait([
-      _safeFetch(() => _apiService.getHotTopics(page: page)),
-      _safeFetch(() => _apiService.getTopTopics(page: page)),
-      _safeFetch(() => _apiService.getLatestTopics(page: page)),
-      // 不包含官方公告分类 (ID: 4)
-      _safeFetch(() => _apiService.getTopicsByCategory(7, page: page)), // Help
-      _safeFetch(
-        () => _apiService.getTopicsByCategory(10, page: page),
-      ), // Showcase
-      _safeFetch(
-        () => _apiService.getTopicsByCategory(11, page: page),
-      ), // Discussion
-    ]);
+    final discoursePage = page > 0 ? page - 1 : 0;
+    final sources = <String, Future<dynamic>>{
+      'hot': _safeFetch(() => _apiService.getHotTopics(page: discoursePage)),
+      'top': _safeFetch(() => _apiService.getTopTopics(page: discoursePage)),
+      'latest': _safeFetch(
+        () => _apiService.getLatestTopics(page: discoursePage),
+      ),
+      'new': _safeFetch(() => _apiService.getNewTopics(page: discoursePage)),
+      'cat_help': _safeFetch(
+        () => _apiService.getTopicsByCategory(7, page: discoursePage),
+      ),
+      'cat_suggestions': _safeFetch(
+        () => _apiService.getTopicsByCategory(8, page: discoursePage),
+      ),
+      'cat_tips': _safeFetch(
+        () => _apiService.getTopicsByCategory(9, page: discoursePage),
+      ),
+      'cat_showcase': _safeFetch(
+        () => _apiService.getTopicsByCategory(10, page: discoursePage),
+      ),
+      'cat_discussion': _safeFetch(
+        () => _apiService.getTopicsByCategory(11, page: discoursePage),
+      ),
+      'cat_welfare': _safeFetch(
+        () => _apiService.getTopicsByCategory(29, page: discoursePage),
+      ),
+      'cat_events': _safeFetch(
+        () => _apiService.getTopicsByCategory(35, page: discoursePage),
+      ),
+    };
 
-    // 合并所有内容，并过滤7天以内的内容
-    final merged = <String, ScoredFeedItem>{};
+    final sourceNames = sources.keys.toList();
+    final responses = await Future.wait(sources.values);
+
+    final merged = <String, _CandidateInfo>{};
     final now = DateTime.now();
     final maxAge = Duration(hours: _weights['maxAgeHours']!.toInt());
 
-    for (final response in responses.where((response) => response != null)) {
-      final items = _parseResponse(response);
+    for (int sourceIndex = 0; sourceIndex < responses.length; sourceIndex++) {
+      final response = responses[sourceIndex];
+      if (response == null) continue;
+      final source = sourceNames[sourceIndex];
+      final items = _parseResponse(response as dynamic);
       for (final item in items) {
-        if (!merged.containsKey(item.id)) {
-          // 检查内容是否在7天以内（置顶内容除外）
-          final createTime = int.tryParse(item.createTime) ?? 0;
-          final itemDate = DateTime.fromMillisecondsSinceEpoch(
-            createTime * 1000,
+        // 推荐流显式排除官方分类，官方内容走独立 tab。
+        if (item.categoryId == _getOfficialCategoryId()) continue;
+
+        // 检查内容是否在7天以内（置顶内容除外）
+        final createTime = int.tryParse(item.createTime) ?? 0;
+        final itemDate = DateTime.fromMillisecondsSinceEpoch(createTime * 1000);
+        final age = now.difference(itemDate);
+        if (!item.isPinned && age > maxAge) continue;
+
+        final baseScore = _calculateScore(item) * (_sourceBoost[source] ?? 1.0);
+        final candidate = merged[item.id];
+        if (candidate == null) {
+          merged[item.id] = _CandidateInfo(
+            item: item,
+            score: baseScore,
+            sources: {source},
           );
-          final age = now.difference(itemDate);
-
-          // 只保留7天以内的内容，或者置顶内容
-          if (item.isPinned || age <= maxAge) {
-            // 计算基础分数
-            final baseScore = _calculateScore(item);
-            // 添加随机因子（±20%的随机波动）
-            final randomFactor = randomize
-                ? 0.8 + _random.nextDouble() * 0.4
-                : 1.0;
-            final finalScore = baseScore * randomFactor;
-
-            final scoredItem = ScoredFeedItem(item: item, score: finalScore);
-            merged[item.id] = scoredItem;
-          }
+          continue;
         }
+
+        if (baseScore > candidate.score) {
+          candidate.score = baseScore;
+          candidate.item = item;
+        }
+        candidate.sources.add(source);
       }
     }
 
-    // 转换为列表
-    final allItems = merged.values.toList();
+    // 转换为列表并应用最终分数（包含一致性加权与轻随机扰动）
+    final allItems = merged.values.map((candidate) {
+      final sourceBoost =
+          1 +
+          (candidate.sources.length - 1) * _weights['sourceConsensusBoost']!;
+      var score = candidate.score * sourceBoost;
 
-    // 分离置顶内容和非置顶内容
-    // 置顶内容：isPinned=true 且 非官方分类
-    final pinnedItems = allItems
-        .where(
-          (s) =>
-              s.item.isPinned && s.item.categoryId != _getOfficialCategoryId(),
-        )
-        .toList();
-    // 普通内容：非置顶内容（无论是否官方分类）
-    // 注意：官方分类的内容已经在数据源层面被过滤，这里只需要过滤掉置顶内容
+      if (candidate.item.images.isNotEmpty) {
+        score *= _weights['imageBoost']!;
+      }
+      if (candidate.item.tags.isNotEmpty) {
+        score *= _weights['tagBoost']!;
+      }
+
+      // 随机扰动只做轻微探索，不再直接打散高分内容。
+      if (randomize) {
+        final jitter = 0.94 + _random.nextDouble() * 0.12;
+        score *= jitter;
+      }
+
+      return ScoredFeedItem(item: candidate.item, score: score);
+    }).toList();
+
+    // 分离置顶内容和普通内容
+    final pinnedItems = allItems.where((s) => s.item.isPinned).toList();
     final normalItems = allItems.where((s) => !s.item.isPinned).toList();
+    final avoidSet = avoidIds ?? const <String>{};
 
-    // 置顶内容按分数排序（保持置顶内容在前）
+    // 统一按分数排序，保证高质量内容稳定靠前。
     pinnedItems.sort((a, b) => b.score.compareTo(a.score));
+    normalItems.sort((a, b) => b.score.compareTo(a.score));
 
-    // 普通内容根据randomize参数决定排序方式
-    if (randomize) {
-      // 随机打乱顺序
-      normalItems.shuffle(_random);
-    } else {
-      // 按分数排序
-      normalItems.sort((a, b) => b.score.compareTo(a.score));
-    }
-
-    // 组合结果：先置顶，再普通内容（带分类多样性控制）
+    // 组合结果：先少量置顶，再普通内容（分类+作者多样性约束）
     final result = <FeedItem>[];
     final addedIds = <String>{};
-    final categoryCount = <int, int>{}; // 记录每个分类已添加的数量
+    final categoryCount = <int, int>{};
+    final authorCount = <String, int>{};
 
-    // 添加置顶内容（最多3条）
-    for (final item in pinnedItems.take(3)) {
-      result.add(item.item);
-      addedIds.add(item.item.id);
+    for (final item in pinnedItems.take(2)) {
+      _appendIfAllowed(
+        result: result,
+        addedIds: addedIds,
+        categoryCount: categoryCount,
+        authorCount: authorCount,
+        pageSize: pageSize,
+        feed: item.item,
+        bypassCategoryLimit: true,
+      );
     }
 
-    // 添加普通内容（带分类多样性控制）
-    for (final item in normalItems) {
-      if (result.length >= pageSize) break;
-      if (!addedIds.contains(item.item.id)) {
-        final categoryId = item.item.categoryId;
-        final currentCount = categoryCount[categoryId] ?? 0;
-        final maxCount = (pageSize * (_categoryMaxRatio[categoryId] ?? 0.3))
-            .ceil();
+    // 刷新时优先注入“上次未出现过”的内容，保证每次刷新都有新鲜感。
+    final preferredItems = normalItems
+        .where((e) => !avoidSet.contains(e.item.id))
+        .toList();
+    final fallbackItems = normalItems
+        .where((e) => avoidSet.contains(e.item.id))
+        .toList();
+    final minFreshTarget = math.max(1, (pageSize * 0.35).round());
+    var freshAdded = 0;
 
-        // 检查是否超过该分类的最大数量限制
-        if (currentCount < maxCount) {
-          result.add(item.item);
-          addedIds.add(item.item.id);
-          categoryCount[categoryId] = currentCount + 1;
-        }
+    for (final item in preferredItems) {
+      if (result.length >= pageSize) break;
+      final beforeLen = result.length;
+      _appendIfAllowed(
+        result: result,
+        addedIds: addedIds,
+        categoryCount: categoryCount,
+        authorCount: authorCount,
+        pageSize: pageSize,
+        feed: item.item,
+      );
+      if (result.length > beforeLen) {
+        freshAdded++;
+      }
+      if (freshAdded >= minFreshTarget) {
+        break;
       }
     }
 
-    // 如果还不够，补充剩余内容（不限制分类）
+    for (final item in preferredItems) {
+      if (result.length >= pageSize) break;
+      _appendIfAllowed(
+        result: result,
+        addedIds: addedIds,
+        categoryCount: categoryCount,
+        authorCount: authorCount,
+        pageSize: pageSize,
+        feed: item.item,
+      );
+    }
+
+    for (final item in fallbackItems) {
+      if (result.length >= pageSize) break;
+      _appendIfAllowed(
+        result: result,
+        addedIds: addedIds,
+        categoryCount: categoryCount,
+        authorCount: authorCount,
+        pageSize: pageSize,
+        feed: item.item,
+      );
+    }
+
+    // 第二轮放宽限制，补齐页容量。
     if (result.length < pageSize) {
-      for (final item in normalItems) {
+      for (final item in [...preferredItems, ...fallbackItems]) {
         if (result.length >= pageSize) break;
         if (!addedIds.contains(item.item.id)) {
           result.add(item.item);
@@ -323,12 +413,6 @@ class RecommendationEngine {
       }
     }
 
-    // 官方内容加权（在推荐Tab中不使用，因为推荐内容已排除官方公告）
-    // 注意：官方公告有专门的Tab展示，推荐Tab专注于社区内容
-    // if (item.categoryId == _getOfficialCategoryId()) {
-    //   score *= _weights['official']!;
-    // }
-
     // 置顶内容加权
     if (item.isPinned) {
       score *= _weights['pinned']!;
@@ -343,16 +427,50 @@ class RecommendationEngine {
   /// 获取分类标签
   String _getCategoryLabel(int categoryId) {
     const labels = {
-      4: 'Official',
-      7: 'Help',
-      8: 'Suggestions',
-      9: 'Tips',
-      10: 'Showcase',
-      11: 'Discussion',
-      29: 'Events',
-      35: 'Events',
+      4: '官方',
+      7: '帮助与支持',
+      8: '产品建议',
+      9: '基础技巧',
+      10: '作品展示',
+      11: '互动交流',
+      29: '福利活动',
+      35: 'SOLO挑战赛专区',
     };
     return labels[categoryId] ?? 'Category $categoryId';
+  }
+
+  void _appendIfAllowed({
+    required List<FeedItem> result,
+    required Set<String> addedIds,
+    required Map<int, int> categoryCount,
+    required Map<String, int> authorCount,
+    required int pageSize,
+    required FeedItem feed,
+    bool bypassCategoryLimit = false,
+  }) {
+    if (addedIds.contains(feed.id)) return;
+
+    final categoryId = feed.categoryId;
+    final categoryCurrent = categoryCount[categoryId] ?? 0;
+    final categoryLimit = _categoryLimit(categoryId, pageSize);
+
+    if (!bypassCategoryLimit && categoryCurrent >= categoryLimit) return;
+
+    final authorKey = feed.username.trim().toLowerCase();
+    if (authorKey.isNotEmpty) {
+      final authorCurrent = authorCount[authorKey] ?? 0;
+      if (authorCurrent >= 2) return;
+      authorCount[authorKey] = authorCurrent + 1;
+    }
+
+    result.add(feed);
+    addedIds.add(feed.id);
+    categoryCount[categoryId] = categoryCurrent + 1;
+  }
+
+  int _categoryLimit(int categoryId, int pageSize) {
+    final ratio = _categoryMaxRatio[categoryId] ?? 0.3;
+    return (pageSize * ratio).ceil().clamp(2, math.max(2, pageSize - 2));
   }
 
   /// 格式化头像URL
@@ -423,4 +541,16 @@ class ScoredFeedItem {
   final double score;
 
   ScoredFeedItem({required this.item, required this.score});
+}
+
+class _CandidateInfo {
+  FeedItem item;
+  double score;
+  final Set<String> sources;
+
+  _CandidateInfo({
+    required this.item,
+    required this.score,
+    required this.sources,
+  });
 }

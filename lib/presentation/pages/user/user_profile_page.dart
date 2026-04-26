@@ -14,8 +14,15 @@ import '../../widgets/home/pinned_topics_banner.dart';
 class UserProfilePage extends ConsumerStatefulWidget {
   /// 用户名（Discourse username）
   final String? uid;
+  final String? initialTab;
+  final String? initialActivityCategory;
 
-  const UserProfilePage({super.key, this.uid});
+  const UserProfilePage({
+    super.key,
+    this.uid,
+    this.initialTab,
+    this.initialActivityCategory,
+  });
 
   @override
   ConsumerState<UserProfilePage> createState() => _UserProfilePageState();
@@ -25,11 +32,13 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
   final ScrollController _scrollController = ScrollController();
   String? _activeUsername;
   int _selectedTabIndex = 0;
+  bool _initialCategoryApplied = false;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _selectedTabIndex = _resolveInitialTabIndex(widget.initialTab);
   }
 
   @override
@@ -70,6 +79,44 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
     return null;
   }
 
+  int _resolveInitialTabIndex(String? tab) {
+    switch (tab?.trim().toLowerCase()) {
+      case 'activity':
+      case 'activities':
+      case '1':
+        return 1;
+      case 'feeds':
+      case 'feed':
+      case '2':
+        return 2;
+      default:
+        return 0;
+    }
+  }
+
+  UserActivityCategory? _resolveInitialCategory(String? category) {
+    switch (category?.trim().toLowerCase()) {
+      case 'all':
+        return UserActivityCategory.all;
+      case 'topics':
+      case 'topic':
+        return UserActivityCategory.topics;
+      case 'replies':
+      case 'reply':
+        return UserActivityCategory.replies;
+      case 'likes':
+      case 'like':
+        return UserActivityCategory.likes;
+      case 'solved':
+        return UserActivityCategory.solved;
+      case 'votes':
+      case 'vote':
+        return UserActivityCategory.votes;
+      default:
+        return null;
+    }
+  }
+
   void _ensureLoaded(String username) {
     if (_activeUsername == username) return;
     _activeUsername = username;
@@ -80,6 +127,23 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
       notifier.loadUserFeeds();
       notifier.loadUserSummary();
       notifier.loadUserActivities();
+    });
+  }
+
+  void _applyInitialCategoryIfNeeded(String username) {
+    if (_initialCategoryApplied || _selectedTabIndex != 1) {
+      return;
+    }
+    final category = _resolveInitialCategory(widget.initialActivityCategory);
+    if (category == null || category == UserActivityCategory.all) {
+      _initialCategoryApplied = true;
+      return;
+    }
+    _initialCategoryApplied = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(userSpaceNotifierProvider(username).notifier)
+          .switchActivityCategory(category);
     });
   }
 
@@ -100,6 +164,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
     }
 
     _ensureLoaded(username);
+    _applyInitialCategoryIfNeeded(username);
 
     final userState = ref.watch(userSpaceNotifierProvider(username));
     final notifier = ref.read(userSpaceNotifierProvider(username).notifier);

@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
+import 'presentation/providers/push_bootstrap_provider.dart';
 
 /// 应用根组件
 ///
 /// 应用初始化已在 [main.dart] 的 [AppInitializer] 中完成
 /// 此类仅负责构建应用 UI 和路由
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   /// 构造函数
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 启动系统推送轮询服务（幂等）
+    ref.watch(pushBootstrapProvider);
+
     return MaterialApp.router(
       title: 'TRAE Forum',
       debugShowCheckedModeBanner: false,
@@ -20,7 +25,6 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system, // 临时使用系统主题
-
       // 路由配置
       routerConfig: AppRouter.router,
 
@@ -55,11 +59,7 @@ class AppErrorWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              color: colorScheme.error,
-              size: 48,
-            ),
+            Icon(Icons.error_outline, color: colorScheme.error, size: 48),
             const SizedBox(height: 16),
             Text(
               '应用出现错误',
@@ -72,10 +72,7 @@ class AppErrorWidget extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               errorDetails.exception.toString(),
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onBackground,
-              ),
+              style: TextStyle(fontSize: 14, color: colorScheme.onBackground),
               textAlign: TextAlign.center,
             ),
           ],

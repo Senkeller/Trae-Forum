@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../config/constants.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../data/models/discourse/discourse_notification.dart';
@@ -22,8 +23,11 @@ import '../../widgets/user/user_avatar.dart';
 /// - 聊天
 /// - 其他通知
 class MessagePage extends ConsumerStatefulWidget {
+  /// 初始筛选类型（通过 URL query 参数传入）
+  final String? initialFilter;
+
   /// 构造函数
-  const MessagePage({super.key});
+  const MessagePage({super.key, this.initialFilter});
 
   @override
   ConsumerState<MessagePage> createState() => _MessagePageState();
@@ -34,6 +38,7 @@ class _MessagePageState extends ConsumerState<MessagePage>
     with SingleTickerProviderStateMixin {
   /// Tab 控制器
   late TabController _tabController;
+  bool _initialFilterApplied = false;
 
   /// 筛选类型列表
   final List<NotificationFilterType> _filterTypes = [
@@ -50,6 +55,7 @@ class _MessagePageState extends ConsumerState<MessagePage>
   void initState() {
     super.initState();
     _tabController = TabController(length: _filterTypes.length, vsync: this);
+    _tabController.addListener(_handleTabChange);
 
     // 初始化时加载通知
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -59,8 +65,56 @@ class _MessagePageState extends ConsumerState<MessagePage>
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialFilterApplied) return;
+
+    // 优先使用 widget 传入的 initialFilter，其次从 URL 解析
+    final filterQuery = widget.initialFilter ??
+        GoRouterState.of(context).uri.queryParameters['filter'];
+    final initialFilter = notificationFilterTypeFromQuery(filterQuery);
+    if (initialFilter == NotificationFilterType.all) {
+      _initialFilterApplied = true;
+      return;
+    }
+
+    final initialIndex = _filterTypes.indexOf(initialFilter);
+    if (initialIndex > 0) {
+      _tabController.index = initialIndex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(notificationNotifierProvider.notifier)
+            .switchFilterType(initialFilter);
+      });
+    }
+    _initialFilterApplied = true;
+  }
+
+  /// 处理 Tab 切换事件
+  ///
+  /// 监听 TabController 的 index 变化，当用户点击或滑动切换 Tab 时触发
+  /// 通过判断 indexIsChanging 避免重复触发，确保状态与 UI 一致
+  void _handleTabChange() {
+    // 当动画正在进行时跳过，避免重复触发
+    if (_tabController.indexIsChanging) return;
+
+    final type = _filterTypes[_tabController.index];
+    final current = ref.read(currentNotificationFilterTypeProvider);
+
+    // 如果当前类型与目标类型相同，无需切换
+    if (current == type) return;
+
+    // 触发触觉反馈
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+
+    // 切换筛选类型并加载对应数据
+    ref.read(notificationNotifierProvider.notifier).switchFilterType(type);
   }
 
   @override
@@ -85,7 +139,7 @@ class _MessagePageState extends ConsumerState<MessagePage>
             tooltip: '消息设置',
             onPressed: () {
               // TODO: 跳转到消息设置页面
-              context.push('/settings/notifications');
+              context.push(RoutePaths.notificationSettings);
             },
           ),
         ],
@@ -123,13 +177,6 @@ class _MessagePageState extends ConsumerState<MessagePage>
               ),
             );
           }).toList(),
-          onTap: (index) {
-            final type = _filterTypes[index];
-            HapticFeedbackUtil.trigger(ref, HapticScene.tap);
-            ref
-                .read(notificationNotifierProvider.notifier)
-                .switchFilterType(type);
-          },
         ),
       ),
       body: TabBarView(
@@ -149,46 +196,11 @@ class _MessagePageState extends ConsumerState<MessagePage>
     if (type == NotificationFilterType.all) {
       return state.unreadCount;
     }
-    // 其他类型的未读数需要从通知列表中筛选计算
     return state.notifications
         .where(
-          (n) => !n.read && _isNotificationMatchType(n.notificationType, type),
+          (n) => !n.read && type.matchesNotificationType(n.notificationType),
         )
         .length;
-  }
-
-  /// 判断通知是否匹配筛选类型
-  bool _isNotificationMatchType(
-    int notificationType,
-    NotificationFilterType filterType,
-  ) {
-    switch (filterType) {
-      case NotificationFilterType.replies:
-        return [
-          DiscourseNotificationType.mentioned,
-          DiscourseNotificationType.groupMentioned,
-          DiscourseNotificationType.posted,
-          DiscourseNotificationType.quoted,
-          DiscourseNotificationType.replied,
-        ].contains(notificationType);
-      case NotificationFilterType.likes:
-        return [
-          DiscourseNotificationType.liked,
-          DiscourseNotificationType.likedConsolidated,
-          DiscourseNotificationType.reaction,
-        ].contains(notificationType);
-      case NotificationFilterType.chat:
-        return [
-          DiscourseNotificationType.chatInvitation,
-          DiscourseNotificationType.chatMention,
-          DiscourseNotificationType.chatMessage,
-          DiscourseNotificationType.chatQuoted,
-          DiscourseNotificationType.chatWatchedThread,
-          DiscourseNotificationType.chatGroupMention,
-        ].contains(notificationType);
-      default:
-        return false;
-    }
   }
 
   /// 显示全部已读确认对话框

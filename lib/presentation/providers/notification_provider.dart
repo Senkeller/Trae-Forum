@@ -5,35 +5,56 @@ import 'auth_provider.dart';
 
 part 'notification_provider.g.dart';
 
+/// 未读通知分类统计
+class NotificationUnreadSummary {
+  final int total;
+  final int replies;
+  final int likes;
+  final int messages;
+  final int bookmarks;
+  final int chat;
+  final int others;
+
+  const NotificationUnreadSummary({
+    this.total = 0,
+    this.replies = 0,
+    this.likes = 0,
+    this.messages = 0,
+    this.bookmarks = 0,
+    this.chat = 0,
+    this.others = 0,
+  });
+}
+
 /// 通知状态类
 class NotificationState {
   /// 通知列表
   final List<DiscourseNotification> notifications;
-  
+
   /// 当前筛选类型
   final NotificationFilterType filterType;
-  
+
   /// 是否正在加载
   final bool isLoading;
-  
+
   /// 是否正在刷新
   final bool isRefreshing;
-  
+
   /// 是否正在加载更多
   final bool isLoadingMore;
-  
+
   /// 当前页码
   final int currentPage;
-  
+
   /// 是否还有更多
   final bool hasMore;
-  
+
   /// 错误信息
   final String? errorMessage;
-  
+
   /// 未读通知数量
   final int unreadCount;
-  
+
   /// 最后查看的通知ID
   final int seenNotificationId;
 
@@ -86,6 +107,7 @@ class NotificationState {
 /// 通知状态 Notifier
 @riverpod
 class NotificationNotifier extends _$NotificationNotifier {
+  static const int _pageSize = 30;
   late DiscourseApiService _apiService;
 
   /// 构建通知状态
@@ -100,7 +122,7 @@ class NotificationNotifier extends _$NotificationNotifier {
   /// [type] 要切换到的筛选类型
   void switchFilterType(NotificationFilterType type) {
     if (state.filterType == type) return;
-    
+
     state = state.copyWith(
       filterType: type,
       notifications: [],
@@ -124,33 +146,34 @@ class NotificationNotifier extends _$NotificationNotifier {
 
     if (state.isLoading) return;
 
-    state = state.copyWith(
-      isLoading: true,
-      errorMessage: null,
-      currentPage: 1,
-    );
+    state = state.copyWith(isLoading: true, errorMessage: null, currentPage: 1);
 
     try {
       final filterParam = state.filterType.filterParam;
-      
+
       final response = await _apiService.getNotifications(
-        limit: 30,
+        limit: _pageSize,
         recent: true,
         bumpLastSeen: true,
         filterByTypes: filterParam,
+        offset: 0,
       );
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final notificationResponse = DiscourseNotificationResponse.fromJson(data);
-        
+        final notificationResponse = DiscourseNotificationResponse.fromJson(
+          data,
+        );
+
         state = state.copyWith(
           notifications: notificationResponse.notifications,
           isLoading: false,
-          hasMore: notificationResponse.notifications.length >= 30,
+          hasMore: notificationResponse.notifications.length >= _pageSize,
           currentPage: 1,
           seenNotificationId: notificationResponse.seenNotificationId,
-          unreadCount: notificationResponse.notifications.where((n) => !n.read).length,
+          unreadCount: notificationResponse.notifications
+              .where((n) => !n.read)
+              .length,
         );
       } else {
         state = state.copyWith(
@@ -159,10 +182,7 @@ class NotificationNotifier extends _$NotificationNotifier {
         );
       }
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: '网络错误: $e',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: '网络错误: $e');
     }
   }
 
@@ -174,44 +194,40 @@ class NotificationNotifier extends _$NotificationNotifier {
 
     if (state.isRefreshing) return;
 
-    state = state.copyWith(
-      isRefreshing: true,
-      errorMessage: null,
-    );
+    state = state.copyWith(isRefreshing: true, errorMessage: null);
 
     try {
       final filterParam = state.filterType.filterParam;
-      
+
       final response = await _apiService.getNotifications(
-        limit: 30,
+        limit: _pageSize,
         recent: true,
         bumpLastSeen: true,
         filterByTypes: filterParam,
+        offset: 0,
       );
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final notificationResponse = DiscourseNotificationResponse.fromJson(data);
-        
+        final notificationResponse = DiscourseNotificationResponse.fromJson(
+          data,
+        );
+
         state = state.copyWith(
           notifications: notificationResponse.notifications,
           isRefreshing: false,
-          hasMore: notificationResponse.notifications.length >= 30,
+          hasMore: notificationResponse.notifications.length >= _pageSize,
           currentPage: 1,
           seenNotificationId: notificationResponse.seenNotificationId,
-          unreadCount: notificationResponse.notifications.where((n) => !n.read).length,
+          unreadCount: notificationResponse.notifications
+              .where((n) => !n.read)
+              .length,
         );
       } else {
-        state = state.copyWith(
-          isRefreshing: false,
-          errorMessage: '刷新通知失败',
-        );
+        state = state.copyWith(isRefreshing: false, errorMessage: '刷新通知失败');
       }
     } catch (e) {
-      state = state.copyWith(
-        isRefreshing: false,
-        errorMessage: '网络错误: $e',
-      );
+      state = state.copyWith(isRefreshing: false, errorMessage: '网络错误: $e');
     }
   }
 
@@ -223,58 +239,56 @@ class NotificationNotifier extends _$NotificationNotifier {
 
     if (state.isLoadingMore || !state.hasMore) return;
 
-    state = state.copyWith(
-      isLoadingMore: true,
-      errorMessage: null,
-    );
+    state = state.copyWith(isLoadingMore: true, errorMessage: null);
 
     try {
       final nextPage = state.currentPage + 1;
       final filterParam = state.filterType.filterParam;
 
       final response = await _apiService.getNotifications(
-        limit: 30,
+        limit: _pageSize,
         recent: true,
         bumpLastSeen: false,
         filterByTypes: filterParam,
+        offset: state.notifications.length,
       );
 
       if (response.statusCode == 200) {
         final data = response.data as Map<String, dynamic>;
-        final notificationResponse = DiscourseNotificationResponse.fromJson(data);
-        
+        final notificationResponse = DiscourseNotificationResponse.fromJson(
+          data,
+        );
+
         final newNotifications = notificationResponse.notifications;
 
+        // 基于服务端返回条数判定是否还有更多数据
+        final hasMore = newNotifications.length >= _pageSize;
+
         if (newNotifications.isEmpty) {
-          state = state.copyWith(
-            isLoadingMore: false,
-            hasMore: false,
-          );
+          state = state.copyWith(isLoadingMore: false, hasMore: false);
         } else {
           // 合并通知列表，避免重复
           final existingIds = state.notifications.map((n) => n.id).toSet();
           final uniqueNewNotifications = newNotifications
               .where((n) => !existingIds.contains(n.id))
               .toList();
-          
+
+          // 计算合并后的未读数量
+          final mergedNotifications = [...state.notifications, ...uniqueNewNotifications];
+
           state = state.copyWith(
-            notifications: [...state.notifications, ...uniqueNewNotifications],
+            notifications: mergedNotifications,
             isLoadingMore: false,
             currentPage: nextPage,
-            hasMore: uniqueNewNotifications.length >= 30,
+            hasMore: hasMore,
+            unreadCount: mergedNotifications.where((n) => !n.read).length,
           );
         }
       } else {
-        state = state.copyWith(
-          isLoadingMore: false,
-          errorMessage: '加载更多失败',
-        );
+        state = state.copyWith(isLoadingMore: false, errorMessage: '加载更多失败');
       }
     } catch (e) {
-      state = state.copyWith(
-        isLoadingMore: false,
-        errorMessage: '网络错误: $e',
-      );
+      state = state.copyWith(isLoadingMore: false, errorMessage: '网络错误: $e');
     }
   }
 
@@ -290,7 +304,7 @@ class NotificationNotifier extends _$NotificationNotifier {
       if (notificationId != null) {
         // 标记单条通知已读
         await _apiService.markNotificationsRead([notificationId]);
-        
+
         // 更新本地状态
         final updatedNotifications = state.notifications.map((n) {
           if (n.id == notificationId) {
@@ -298,7 +312,7 @@ class NotificationNotifier extends _$NotificationNotifier {
           }
           return n;
         }).toList();
-        
+
         state = state.copyWith(
           notifications: updatedNotifications,
           unreadCount: updatedNotifications.where((n) => !n.read).length,
@@ -306,12 +320,12 @@ class NotificationNotifier extends _$NotificationNotifier {
       } else {
         // 标记所有通知已读
         await _apiService.markAllNotificationsRead();
-        
+
         // 更新本地状态
         final updatedNotifications = state.notifications.map((n) {
           return n.copyWith(read: true);
         }).toList();
-        
+
         state = state.copyWith(
           notifications: updatedNotifications,
           unreadCount: 0,
@@ -340,7 +354,7 @@ class NotificationNotifier extends _$NotificationNotifier {
       final updatedNotifications = state.notifications
           .where((n) => n.id != notificationId)
           .toList();
-      
+
       state = state.copyWith(
         notifications: updatedNotifications,
         unreadCount: updatedNotifications.where((n) => !n.read).length,
@@ -367,7 +381,7 @@ class NotificationNotifier extends _$NotificationNotifier {
       final updatedNotifications = state.notifications
           .where((n) => !notificationIds.contains(n.id))
           .toList();
-      
+
       state = state.copyWith(
         notifications: updatedNotifications,
         unreadCount: updatedNotifications.where((n) => !n.read).length,
@@ -399,7 +413,7 @@ class NotificationNotifier extends _$NotificationNotifier {
         }
         return n;
       }).toList();
-      
+
       state = state.copyWith(
         notifications: updatedNotifications,
         unreadCount: updatedNotifications.where((n) => !n.read).length,
@@ -422,9 +436,68 @@ int unreadNotificationCount(UnreadNotificationCountRef ref) {
   return ref.watch(notificationNotifierProvider).unreadCount;
 }
 
+NotificationUnreadSummary buildNotificationUnreadSummary(
+  List<DiscourseNotification> notifications,
+) {
+  int replies = 0;
+  int likes = 0;
+  int messages = 0;
+  int bookmarks = 0;
+  int chat = 0;
+  int others = 0;
+
+  for (final notification in notifications) {
+    if (notification.read) continue;
+    if (NotificationFilterType.replies.matchesNotificationType(
+      notification.notificationType,
+    )) {
+      replies++;
+      continue;
+    }
+    if (NotificationFilterType.likes.matchesNotificationType(
+      notification.notificationType,
+    )) {
+      likes++;
+      continue;
+    }
+    if (NotificationFilterType.messages.matchesNotificationType(
+      notification.notificationType,
+    )) {
+      messages++;
+      continue;
+    }
+    if (NotificationFilterType.bookmarks.matchesNotificationType(
+      notification.notificationType,
+    )) {
+      bookmarks++;
+      continue;
+    }
+    if (NotificationFilterType.chat.matchesNotificationType(
+      notification.notificationType,
+    )) {
+      chat++;
+      continue;
+    }
+    others++;
+  }
+
+  final total = replies + likes + messages + bookmarks + chat + others;
+  return NotificationUnreadSummary(
+    total: total,
+    replies: replies,
+    likes: likes,
+    messages: messages,
+    bookmarks: bookmarks,
+    chat: chat,
+    others: others,
+  );
+}
+
 /// 当前筛选类型 Provider
 @riverpod
-NotificationFilterType currentNotificationFilterType(CurrentNotificationFilterTypeRef ref) {
+NotificationFilterType currentNotificationFilterType(
+  CurrentNotificationFilterTypeRef ref,
+) {
   return ref.watch(notificationNotifierProvider).filterType;
 }
 
