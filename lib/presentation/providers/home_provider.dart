@@ -12,6 +12,7 @@ enum FeedType {
   recommended,
   latest,
   hot,
+  aiNews,
   official,
   help,
   suggestions,
@@ -26,6 +27,7 @@ const List<FeedType> homeFeedTabs = [
   FeedType.recommended,
   FeedType.latest,
   FeedType.hot,
+  FeedType.aiNews,
   FeedType.official,
   FeedType.help,
   FeedType.suggestions,
@@ -40,6 +42,7 @@ const Map<FeedType, String> homeFeedTabLabels = {
   FeedType.recommended: '推荐',
   FeedType.latest: '最新',
   FeedType.hot: '热门',
+  FeedType.aiNews: 'AI快讯',
   FeedType.official: '官方',
   FeedType.help: '求助',
   FeedType.suggestions: '建议',
@@ -469,6 +472,9 @@ class HomeNotifier extends _$HomeNotifier {
             await _discourseApiService.getTopTopics(page: page),
           );
         }
+      case FeedType.aiNews:
+        // AI快讯使用独立的Provider和数据源，不在此处处理
+        return [];
       case FeedType.official:
         return _fetchOfficial(page);
       case FeedType.help:

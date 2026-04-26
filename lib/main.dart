@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_ce/hive.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'app.dart';
 import 'core/network/dio_client.dart';
@@ -63,7 +65,7 @@ void main() {
 
 /// 应用初始化器
 ///
-/// 负责应用启动时的各项初始化工作
+/// 负责应用启动时的各项初始化工作，作为应用初始化的单一真源
 class AppInitializer {
   static bool _initialized = false;
 
@@ -73,6 +75,14 @@ class AppInitializer {
   /// 初始化应用
   static Future<void> initialize() async {
     if (_initialized) return;
+
+    // 初始化 Hive 数据库
+    try {
+      await _initHive();
+    } catch (e, stackTrace) {
+      debugPrint('⚠️ [AppInitializer] Hive 初始化失败: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
 
     // 初始化持久化 CookieManager - 使用 try-catch 确保即使失败也不影响应用启动
     try {
@@ -93,6 +103,26 @@ class AppInitializer {
     // 初始化完成 - 无论成功与否都标记为已初始化，让应用继续启动
     _initialized = true;
     debugPrint('✅ [AppInitializer] 应用初始化完成');
+  }
+
+  /// 初始化 Hive 数据库
+  static Future<void> _initHive() async {
+    final appDocumentDir = await getApplicationDocumentsDirectory();
+    Hive.init(appDocumentDir.path);
+    _registerHiveAdapters();
+    debugPrint('✅ [AppInitializer] Hive 初始化完成');
+  }
+
+  /// 注册 Hive 类型适配器
+  static void _registerHiveAdapters() {
+    // 注意：适配器需要通过 build_runner 生成
+    // 运行命令: dart run build_runner build
+    // 生成的适配器类名为: LocalFavoriteAdapter, BrowseHistoryAdapter, FrequentlyVisitedAdapter
+
+    // TODO: 取消注释以下代码（在运行 build_runner 生成适配器后）
+    // Hive.registerAdapter(LocalFavoriteAdapter());
+    // Hive.registerAdapter(BrowseHistoryAdapter());
+    // Hive.registerAdapter(FrequentlyVisitedAdapter());
   }
 
   /// 配置图片缓存

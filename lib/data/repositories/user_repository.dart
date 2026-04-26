@@ -56,7 +56,7 @@ class UserRepository {
   Future<api.LikeReplyResponse> followUser({
     required String uid,
   }) async {
-    return await _apiService.postFollowUnFollow(url: '', uid: uid);
+    return await _apiService.postFollowUnFollow(isFollow: true, uid: uid);
   }
 
   /// 取消关注用户
@@ -65,7 +65,7 @@ class UserRepository {
   Future<api.LikeReplyResponse> unfollowUser({
     required String uid,
   }) async {
-    return await _apiService.postFollowUnFollow(url: '', uid: uid);
+    return await _apiService.postFollowUnFollow(isFollow: false, uid: uid);
   }
 
   /// 获取关注列表

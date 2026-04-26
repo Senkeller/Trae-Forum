@@ -1,8 +1,17 @@
 name: traeu
-description: "TRAE Forum Flutter App - A community forum application based on CoolApk"
+description: "Trae Forum - A Flutter client for Trae Discourse community (forum.trae.cn)"
 publish_to: 'none'
 
 version: 1.0.0+1
+
+# 应用信息
+homepage: https://github.com/trae-community/trae-forum-app
+repository: https://github.com/trae-community/trae-forum-app
+issue_tracker: https://github.com/trae-community/trae-forum-app/issues
+
+# 作者信息
+authors:
+  - Trae Community Contributors
 
 environment:
   sdk: ^3.10.8

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../providers/trae_dashboard_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/user/quick_actions_grid.dart';
@@ -528,6 +529,9 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   /// 构建消息通知区
   Widget _buildNotificationSection(BuildContext context, bool isAuthenticated) {
     final colorScheme = Theme.of(context).colorScheme;
+    // 获取真实未读通知总数（TODO: 后端API支持分类未读数后使用）
+    // ignore: unused_local_variable
+    final totalUnreadCount = ref.watch(unreadNotificationCountProvider);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -549,19 +553,23 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             items: [
               NotificationPresets.mentionMe(
                 onTap: () => _showFeatureComingSoon(context, '@我的动态'),
-                unreadCount: isAuthenticated ? 3 : 0,
+                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
+                unreadCount: 0,
               ),
               NotificationPresets.mentionComment(
                 onTap: () => _showFeatureComingSoon(context, '@我的评论'),
-                unreadCount: isAuthenticated ? 1 : 0,
+                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
+                unreadCount: 0,
               ),
               NotificationPresets.receivedLikes(
                 onTap: () => _showFeatureComingSoon(context, '我收到的赞'),
-                unreadCount: isAuthenticated ? 12 : 0,
+                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
+                unreadCount: 0,
               ),
               NotificationPresets.friendFollow(
                 onTap: () => _showFeatureComingSoon(context, '好友关注'),
-                unreadCount: isAuthenticated ? 2 : 0,
+                // TODO: 后端API支持后接入分类未读数，暂时显示占位态
+                unreadCount: 0,
               ),
             ],
             backgroundColor: colorScheme.surface,

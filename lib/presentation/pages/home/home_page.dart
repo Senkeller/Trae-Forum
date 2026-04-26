@@ -17,6 +17,7 @@ import '../../widgets/feed/featured_comment.dart';
 import '../../widgets/feed/quick_comment_bar.dart';
 import '../../widgets/comment/quick_comment_sheet.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
+import '../../widgets/ai_news/ai_news_list_view.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -121,6 +122,7 @@ class _HomePageState extends ConsumerState<HomePage>
       case FeedType.recommended:
       case FeedType.latest:
       case FeedType.hot:
+      case FeedType.aiNews:
         return null;
     }
   }
@@ -164,6 +166,12 @@ class _HomePageState extends ConsumerState<HomePage>
           controller: _tabController,
           children: List.generate(homeFeedTabs.length, (index) {
             final feedType = homeFeedTabs[index];
+
+            // AI快讯Tab使用独立的视图组件
+            if (feedType == FeedType.aiNews) {
+              return const AINewsListView();
+            }
+
             final bannerCategoryId = _resolveBannerCategoryId(feedType);
 
             return _FeedListView(
