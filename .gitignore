@@ -46,3 +46,50 @@ app.*.map.json
 
 # c001apk reference project (nested git repository)
 /c001apk/
+
+# Security and sensitive files
+*.jks
+*.keystore
+key.properties
+service_account_key.json
+google-services.json
+GoogleService-Info.plist
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+*.code-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa
+*.app
+
+# Coverage
+coverage/
+*.lcov
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# FVM (Flutter Version Management)
+.fvm/
