@@ -1,187 +1,124 @@
-# Trae Forum
+# Trae Forum - AI 辅助开发的探索之作
 
-[![Flutter Version](https://img.shields.io/badge/Flutter-3.10+-blue.svg)](https://flutter.dev)
-[![Dart Version](https://img.shields.io/badge/Dart-3.0+-blue.svg)](https://dart.dev)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<p align="center">
+  <img src="assets/icons/app_icon_hd.png" width="120" alt="Trae Forum Logo">
+</p>
 
-Trae Forum 是一款基于 Flutter 开发的 Trae 官方社区客户端，对接 Discourse 论坛系统 (forum.trae.cn)，提供完整的话题浏览、搜索、用户互动等功能。
+<p align="center">
+  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/Flutter-3.10+-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter"></a>
+  <a href="https://dart.dev"><img src="https://img.shields.io/badge/Dart-3.0+-0175C2?style=flat-square&logo=dart&logoColor=white" alt="Dart"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg?style=flat-square" alt="License"></a>
+  <a href="https://github.com/trae-community/trae-forum-app/stargazers"><img src="https://img.shields.io/github/stars/trae-community/trae-forum-app?style=flat-square" alt="Stars"></a>
+</p>
+
+<p align="center">
+  <b>用 AI 编程工具打造的 Trae 论坛第三方客户端</b><br>
+  <sub>一个探索 AI 辅助开发边界的实验项目</sub>
+</p>
+
+---
+
+## 项目故事
+
+> 作为一个经常逛 [Trae 论坛](https://forum.trae.cn) 的用户，我发现网页版在手机上体验不够理想。于是萌生了一个想法：**能不能用 AI 工具做一个原生 App？**
+
+这个项目诞生于对 AI 编程能力的好奇。我并非专业开发者，但通过 **Trae、Codex、Claude、Windsurf** 等多个 AI 工具的协作，成功将这个想法变成了现实。
+
+### 开发历程
+
+| 阶段 | 时间 | 里程碑 |
+|------|------|--------|
+| 探索期 | 2周 | 验证 AI 辅助开发的可行性，搭建项目框架 |
+| 核心功能 | 3周 | 实现话题浏览、搜索、登录等核心功能 |
+| 优化迭代 | 持续 | 完善 UI、性能优化、功能增强 |
+
+**目前状态**：核心功能已完成，但仍有优化空间。希望通过开源，与更多朋友一起探索 AI 编程的可能性。
+
+---
 
 ## 功能特性
 
-- **话题浏览**: 最新话题、热门话题、分类话题列表
-- **话题详情**: 支持富文本渲染、图片预览、目录导航
-- **搜索功能**: 全文搜索，支持分类筛选和高级搜索
-- **用户系统**: 用户主页、活动历史、关注/粉丝列表
-- **消息通知**: 通知列表、标记已读
-- **WebView 登录**: 对接 Trae 主站 SSO 登录体系
-- **本地存储**: 浏览历史、本地收藏、草稿箱
+<table>
+<tr>
+<td width="50%">
 
-## 技术架构
+### 已实现 ✅
 
-### 整体架构
+- **话题浏览** - 最新、热门、分类话题列表
+- **话题详情** - 富文本渲染、图片预览、目录导航
+- **搜索功能** - 全文搜索，支持分类筛选
+- **用户系统** - 个人主页、活动历史
+- **消息通知** - 通知列表、标记已读
+- **WebView 登录** - 对接 Trae 官方 SSO
+- **本地存储** - 浏览历史、本地收藏
+
+</td>
+<td width="50%">
+
+### 计划中 🚧
+
+- **话题发布** - 发帖、编辑、删除
+- **评论互动** - 回复、点赞、@用户
+- **性能优化** - 长列表流畅度提升
+- **深色模式** - 系统级主题适配
+- **离线阅读** - 内容缓存与同步
+
+</td>
+</tr>
+</table>
+
+---
+
+## 技术亮点
+
+### AI 辅助开发实践
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      表现层 (Presentation)                   │
-├─────────────────────────────────────────────────────────────┤
-│  Pages (页面)        │  home, feed, topic, user, search...  │
-│  Widgets (组件)      │  feed_card, comment, user_avatar...  │
-│  Providers (状态)    │  Riverpod 状态管理                   │
-├─────────────────────────────────────────────────────────────┤
-│                      业务层 (Domain)                         │
-├─────────────────────────────────────────────────────────────┤
-│  Repositories        │  数据仓库，封装业务逻辑               │
-│  Models              │  数据模型 (Freezed + JSON)           │
-├─────────────────────────────────────────────────────────────┤
-│                      数据层 (Data)                           │
-├─────────────────────────────────────────────────────────────┤
-│  Network             │  Dio + CookieManager                 │
-│  Local Storage       │ Hive CE + SharedPreferences          │
-│  API Services        │ DiscourseApiService, TraeDashboardApi│
-├─────────────────────────────────────────────────────────────┤
-│                      核心层 (Core)                           │
-├─────────────────────────────────────────────────────────────┤
-│  Network             │ DioClient, Interceptors              │
-│  Utils               │ 工具类、常量配置、主题管理            │
-└─────────────────────────────────────────────────────────────┘
+我的角色                    AI 的角色
+─────────────────────────────────────────
+提出需求和想法    →        生成代码框架
+描述问题和现象    →        提供解决方案
+验证功能效果      →        修复和优化
+决定产品方向      →        技术实现建议
 ```
 
-### 核心技术栈
+### 技术栈
 
-| 类别 | 技术选型 | 说明 |
+| 领域 | 技术选型 | 说明 |
 |------|----------|------|
-| 状态管理 | `flutter_riverpod` | 响应式状态管理，支持代码生成 |
-| 网络请求 | `dio` + `dio_cookie_manager` | 强大的 HTTP 客户端，支持 Cookie 持久化 |
-| 本地存储 | `hive_ce` + `shared_preferences` | 高性能 NoSQL 数据库 + KV 存储 |
-| 路由管理 | `go_router` | 声明式路由，支持深度链接 |
-| 数据模型 | `freezed` + `json_serializable` | 不可变数据类，自动生成序列化代码 |
-| 图片加载 | `cached_network_image` | 带缓存的网络图片加载 |
-| 富文本渲染 | `flutter_html` | HTML 内容渲染 |
-| WebView | `webview_flutter` | 原生 WebView 嵌入 |
+| 跨平台框架 | Flutter | 一套代码，iOS + Android |
+| 状态管理 | Riverpod | 响应式状态管理 |
+| 网络请求 | Dio | 强大的 HTTP 客户端 |
+| 本地存储 | Hive CE | 高性能 NoSQL 数据库 |
+| 富文本渲染 | flutter_html | HTML 内容渲染 |
+| 图片处理 | cached_network_image | 带缓存的网络图片 |
 
-### 项目结构
+---
 
-```
-lib/
-├── main.dart                    # 应用入口
-├── app.dart                     # 应用配置
-├── config/
-│   ├── constants.dart           # 应用常量、API 配置
-│   ├── routes.dart              # 路由配置
-│   └── theme.dart               # 主题配置
-├── core/
-│   ├── network/                 # 网络层
-│   │   ├── dio_client.dart      # Dio 客户端配置
-│   │   ├── discourse_api_service.dart  # Discourse API 封装
-│   │   ├── trae_dashboard_api.dart     # Trae 仪表盘 API
-│   │   └── interceptors/        # 拦截器
-│   ├── services/                # 核心服务
-│   └── utils/                   # 工具类
-├── data/
-│   ├── models/                  # 数据模型
-│   ├── repositories/            # 数据仓库
-│   └── adapters/                # 数据适配器
-└── presentation/
-    ├── pages/                   # 页面
-    ├── widgets/                 # 组件
-    └── providers/               # 状态提供者
-```
+## 快速开始
 
-## 登录链路说明
+### 环境要求
 
-Trae Forum 采用 **SSO (单点登录)** 架构，登录流程如下：
+- Flutter >= 3.10.0
+- Dart >= 3.0.0
+- Android SDK >= 21 / iOS >= 11.0
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           登录流程                                   │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐      │
-│  │  Trae Forum  │      │ www.trae.cn  │      │ forum.trae.cn│      │
-│  │   (App)      │      │  (SSO 登录)   │      │  (论坛 API)  │      │
-│  └──────┬───────┘      └──────┬───────┘      └──────┬───────┘      │
-│         │                     │                     │              │
-│         │  1. 打开 WebView     │                     │              │
-│         │────────────────────▶│                     │              │
-│         │   加载登录页          │                     │              │
-│         │                     │                     │              │
-│         │  2. 用户输入手机号   │                     │              │
-│         │     验证码登录       │                     │              │
-│         │────────────────────▶│                     │              │
-│         │                     │                     │              │
-│         │  3. 登录成功回调     │                     │              │
-│         │◀────────────────────│                     │              │
-│         │   获取 Cookie        │                     │              │
-│         │                     │                     │              │
-│         │  4. 同步 Cookie      │                     │              │
-│         │──────────────────────────────────────────▶│              │
-│         │   到论坛域名         │                     │              │
-│         │                     │                     │              │
-│         │  5. 验证登录状态     │                     │              │
-│         │──────────────────────────────────────────▶│              │
-│         │                     │                     │              │
-│         │  6. 登录成功，进入首页                      │              │
-│         │◀──────────────────────────────────────────│              │
-│         │                     │                     │              │
-└─────────┴─────────────────────┴─────────────────────┴──────────────┘
-```
-
-### 关键登录文件
-
-| 文件路径 | 说明 |
-|----------|------|
-| `lib/presentation/pages/user/webview_login_page.dart` | WebView 登录页面实现 |
-| `lib/core/network/dio_client.dart` | Cookie 持久化与同步 |
-| `lib/core/network/cookie_manager.dart` | Cookie 管理工具 |
-| `lib/data/repositories/auth_repository.dart` | 认证仓库 |
-
-### 登录实现细节
-
-1. **WebView 登录**: 使用 `webview_flutter` 加载 `https://www.trae.cn/login`
-2. **Cookie 同步**: 登录成功后，将 WebView Cookie 同步到 Dio 的 CookieJar
-3. **持久化存储**: Cookie 使用 `PersistCookieJar` 持久化到本地
-4. **登录状态检查**: 通过访问 `https://forum.trae.cn/session/current.json` 验证
-
-## 环境要求
-
-- **Flutter**: >= 3.10.0
-- **Dart**: >= 3.0.0
-- **Android**: minSdkVersion 21
-- **iOS**: iOS 11.0+
-
-## 构建命令
-
-### 开发环境
+### 安装步骤
 
 ```bash
-# 获取依赖
+# 1. 克隆仓库
+git clone https://github.com/trae-community/trae-forum-app.git
+cd trae-forum-app
+
+# 2. 安装依赖
 flutter pub get
 
-# 生成代码（Freezed、Riverpod、JSON 序列化）
+# 3. 生成代码（Freezed、Riverpod、JSON 序列化）
 flutter pub run build_runner build --delete-conflicting-outputs
 
-# 运行应用（调试模式）
+# 4. 运行应用
 flutter run
-
-# 指定设备运行
-flutter run -d <device_id>
 ```
-
-### 代码生成
-
-项目使用代码生成工具，修改以下文件后需要重新生成：
-
-```bash
-# 一次性生成
-flutter pub run build_runner build --delete-conflicting-outputs
-
-# 监听模式（开发时自动重新生成）
-flutter pub run build_runner watch --delete-conflicting-outputs
-```
-
-需要生成的文件类型：
-- `*.freezed.dart` - Freezed 数据类
-- `*.g.dart` - JSON 序列化和 Riverpod Provider
 
 ### 构建发布版本
 
@@ -196,175 +133,146 @@ flutter build appbundle --release
 flutter build ios --release
 ```
 
-### 测试
+---
 
-```bash
-# 运行所有测试
-flutter test
+## 项目架构
 
-# 运行特定测试文件
-flutter test test/pages/login_page_test.dart
-
-# 运行集成测试
-flutter test integration_test/app_test.dart
 ```
-
-### 代码分析
-
-```bash
-# 静态分析
-flutter analyze
-
-# 格式化代码
-flutter format lib/
+lib/
+├── config/              # 配置（常量、路由、主题）
+├── core/                # 核心层
+│   ├── network/         # 网络层（Dio、API 服务）
+│   ├── services/        # 核心服务
+│   └── utils/           # 工具类
+├── data/                # 数据层
+│   ├── models/          # 数据模型
+│   ├── repositories/    # 数据仓库
+│   └── adapters/        # 数据适配器
+└── presentation/        # 表现层
+    ├── pages/           # 页面
+    ├── widgets/         # 组件
+    └── providers/       # 状态管理
 ```
-
-## 常见故障排查
-
-### 1. 构建失败
-
-#### 问题: `flutter pub get` 失败
-
-**解决方案**:
-```bash
-# 清理并重新获取依赖
-flutter clean
-flutter pub get
-```
-
-#### 问题: 代码生成失败
-
-**解决方案**:
-```bash
-# 清理生成文件并重新生成
-flutter pub run build_runner clean
-flutter pub run build_runner build --delete-conflicting-outputs
-```
-
-### 2. 登录问题
-
-#### 问题: WebView 登录后无法同步 Cookie
-
-**排查步骤**:
-1. 检查 `DioClient.initPersistentCookieManager()` 是否在应用启动时调用
-2. 检查 `WebViewLoginPage` 中的 Cookie 同步逻辑
-3. 查看日志中的 Cookie 同步信息
-
-**关键日志**:
-```
-🔧 [DioClient] 初始化持久化 CookieManager...
-📁 [DioClient] Cookie 存储路径: ...
-✅ [DioClient] 持久化 CookieManager 初始化成功
-```
-
-#### 问题: 登录状态无法保持
-
-**解决方案**:
-- 检查 `PersistCookieJar` 是否正确初始化
-- 确认 `ignoreExpires: true` 已设置
-- 检查应用重启后 Cookie 是否正确加载
-
-### 3. 网络请求问题
-
-#### 问题: API 请求返回 403/401
-
-**可能原因**:
-- Cookie 过期或无效
-- CSRF Token 验证失败
-
-**解决方案**:
-```bash
-# 清除应用数据后重新登录
-# Android: 设置 -> 应用 -> Trae Forum -> 存储 -> 清除数据
-# iOS: 卸载并重新安装应用
-```
-
-#### 问题: 图片加载失败
-
-**排查步骤**:
-1. 检查网络连接
-2. 检查图片 URL 是否可访问
-3. 查看 `cached_network_image` 缓存是否损坏
-
-### 4. 平台特定问题
-
-#### Android
-
-**问题**: `minSdkVersion` 冲突
-
-**解决方案**:
-在 `android/app/build.gradle` 中确保:
-```gradle
-android {
-    defaultConfig {
-        minSdkVersion 21
-    }
-}
-```
-
-#### iOS
-
-**问题**: CocoaPods 安装失败
-
-**解决方案**:
-```bash
-cd ios
-pod deintegrate
-pod install
-cd ..
-```
-
-**问题**: 编译时找不到头文件
-
-**解决方案**:
-```bash
-# 清理 Xcode 构建缓存
-rm -rf ios/Pods ios/Podfile.lock
-flutter clean
-flutter pub get
-cd ios && pod install
-```
-
-### 5. 开发环境问题
-
-#### 问题: Flutter 命令无法识别
-
-**解决方案**:
-```bash
-# 检查 Flutter 安装
-flutter doctor
-
-# 更新 Flutter
-flutter upgrade
-```
-
-#### 问题: IDE 代码提示不工作
-
-**解决方案**:
-1. 重启 IDE
-2. 执行 `flutter pub get`
-3. 执行代码生成命令
-4. 在 IDE 中重新索引项目
-
-## 贡献指南
-
-1. Fork 本仓库
-2. 创建功能分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 创建 Pull Request
-
-## 相关资源
-
-- [Flutter 官方文档](https://docs.flutter.dev/)
-- [Riverpod 文档](https://riverpod.dev/)
-- [Discourse API 文档](https://docs.discourse.org/)
-- [Trae 官方社区](https://forum.trae.cn)
-
-## 许可证
-
-本项目基于 MIT 许可证开源 - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-**注意**: 本项目为社区开源项目，与 Trae 官方无直接关联。
+## 为什么开源？
+
+### 对我
+
+- **获得反馈** - 希望大家指出问题，帮助改进
+- **学习成长** - 探索如何更好地与 AI 协作开发
+- **建立连接** - 认识同样对 AI 编程感兴趣的朋友
+
+### 对社区
+
+- **参考借鉴** - 如果你也想用 AI 做项目，可以参考我的经验
+- **一起探索** - AI 编程还在发展，我们可以一起探索最佳实践
+- **共同进步** - 通过协作让项目变得更好
+
+---
+
+## 如何参与
+
+### 如果你也在用 AI 编程
+
+- 💬 交流如何向 AI 描述复杂需求
+- 🧪 分享 AI 辅助开发的心得体会
+- 🤝 一起探索 AI 编程的边界
+
+### 如果你是开发者
+
+- 🔍 代码 Review - 帮我看看 AI 写的代码质量如何
+- 🏗️ 架构建议 - 项目结构改进建议
+- 🐛 Bug 修复 - 发现问题并提交 PR
+
+### 如果你是设计师/产品经理
+
+- 🎨 UI/UX 建议 - 界面和交互优化
+- 📋 功能建议 - 告诉我什么功能对用户更重要
+- 📝 文档改进 - 让项目更易懂
+
+---
+
+## 开发挑战与思考
+
+### 遇到的困难
+
+| 挑战 | 现状 | 需要帮助 |
+|------|------|----------|
+| 富文本编辑器 | 需求描述困难 | 如何准确描述给 AI |
+| 性能优化 | 长列表偶发卡顿 | 优化策略建议 |
+| 复杂交互 | 逻辑描述不清 | 交互设计经验 |
+| UI 设计 | 非专业出身 | 设计规范建议 |
+
+### AI 编程的感悟
+
+**AI 擅长：**
+- ✅ 快速生成代码框架
+- ✅ 解决具体技术问题
+- ✅ 提供多种实现方案
+
+**AI 的局限：**
+- ❌ 需要清晰的需求描述
+- ❌ 复杂架构需要人工把控
+- ❌ 代码质量需要人工审核
+
+**我的角色：**
+- 产品方向的决策者
+- AI 输出的验证者
+- 用户体验的把关人
+
+---
+
+## 致谢
+
+- **[Trae AI](https://trae.ai)** - 主要开发工具，耐心回答每一个问题
+- **[Flutter](https://flutter.dev)** - 优秀的跨平台框架
+- **[Discourse](https://www.discourse.org)** - 论坛系统 API
+- **开源社区** - 让我有机会学习和分享
+
+---
+
+## 许可证
+
+本项目基于 [MIT License](LICENSE) 开源，你可以自由使用、修改、分发。
+
+```
+MIT License
+
+Copyright (c) 2026 Trae Forum Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction...
+```
+
+---
+
+## 联系我们
+
+<p align="center">
+  <a href="https://github.com/trae-community/trae-forum-app/issues">💬 GitHub Issues</a> &nbsp;|&nbsp;
+  <a href="mailto:zzsenln@163.com">📧 Email</a> &nbsp;|&nbsp;
+  <a href="https://forum.trae.cn">🏠 Trae 论坛</a>
+</p>
+
+<p align="center">
+  <sub>Made with ❤️ and AI assistance</sub>
+</p>
+
+<p align="center">
+  <a href="https://github.com/trae-community/trae-forum-app">
+    <img src="https://img.shields.io/badge/Star-支持我们-yellow?style=for-the-badge&logo=github" alt="Star">
+  </a>
+  &nbsp;
+  <a href="https://github.com/trae-community/trae-forum-app/fork">
+    <img src="https://img.shields.io/badge/Fork-一起改进-blue?style=for-the-badge&logo=github" alt="Fork">
+  </a>
+</p>
+
+---
+
+## English Documentation
+
+For English documentation, please see [README_EN.md](README_EN.md).
