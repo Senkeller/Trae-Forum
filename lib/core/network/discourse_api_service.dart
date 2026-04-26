@@ -418,7 +418,7 @@ class DiscourseApiService {
       '🔍 [DiscourseApiService] likePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}',
     );
 
-    return _dio.post(
+    final response = await _dio.post(
       '$_baseUrl/post_actions',
       data: {
         'id': postId,
@@ -433,6 +433,32 @@ class DiscourseApiService {
         },
       ),
     );
+
+    if (response.statusCode == 404) {
+      print(
+        '⚠️ [DiscourseApiService] likePost: 404, 尝试将 $postId 视为 topicId 解析首帖 postId 后重试',
+      );
+      final firstPostId = await _resolveFirstPostIdFromTopicId(postId);
+      if (firstPostId != null && firstPostId != postId) {
+        return _dio.post(
+          '$_baseUrl/post_actions',
+          data: {
+            'id': firstPostId,
+            'post_action_type_id': 2, // 2 = like
+          },
+          options: Options(
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Discourse-Logged-In': 'true',
+              'Discourse-Present': 'true',
+              if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+            },
+          ),
+        );
+      }
+    }
+
+    return response;
   }
 
   /// 取消点赞帖子
@@ -450,7 +476,7 @@ class DiscourseApiService {
       '🔍 [DiscourseApiService] unlikePost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}',
     );
 
-    return _dio.delete(
+    final response = await _dio.delete(
       '$_baseUrl/post_actions/$postId',
       queryParameters: {
         'post_action_type_id': 2, // 2 = like
@@ -464,6 +490,31 @@ class DiscourseApiService {
         },
       ),
     );
+
+    if (response.statusCode == 404) {
+      print(
+        '⚠️ [DiscourseApiService] unlikePost: 404, 尝试将 $postId 视为 topicId 解析首帖 postId 后重试',
+      );
+      final firstPostId = await _resolveFirstPostIdFromTopicId(postId);
+      if (firstPostId != null && firstPostId != postId) {
+        return _dio.delete(
+          '$_baseUrl/post_actions/$firstPostId',
+          queryParameters: {
+            'post_action_type_id': 2, // 2 = like
+          },
+          options: Options(
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Discourse-Logged-In': 'true',
+              'Discourse-Present': 'true',
+              if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+            },
+          ),
+        );
+      }
+    }
+
+    return response;
   }
 
   /// 获取帖子详情（包含点赞状态）
@@ -472,6 +523,43 @@ class DiscourseApiService {
   /// 返回帖子详细信息，包括actions_summary等
   Future<Response> getPostDetail(int postId) async {
     return _dio.get('$_baseUrl/posts/$postId.json');
+  }
+
+  Future<int?> _resolveFirstPostIdFromTopicId(int topicId) async {
+    if (topicId <= 0) {
+      return null;
+    }
+
+    try {
+      final detail = await _dio.get('$_baseUrl/t/$topicId.json');
+      final data = detail.data;
+      if (data is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final postStream = data['post_stream'];
+      if (postStream is! Map<String, dynamic>) {
+        return null;
+      }
+
+      final posts = postStream['posts'];
+      if (posts is! List || posts.isEmpty) {
+        return null;
+      }
+
+      final first = posts.first;
+      if (first is Map<String, dynamic>) {
+        final idValue = first['id'];
+        if (idValue is int) return idValue;
+        if (idValue is String) return int.tryParse(idValue);
+      }
+      return null;
+    } catch (error) {
+      print(
+        '⚠️ [DiscourseApiService] _resolveFirstPostIdFromTopicId($topicId) 失败: $error',
+      );
+      return null;
+    }
   }
 
   /// 编辑帖子/评论

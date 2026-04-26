@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:html/dom.dart' as dom;
@@ -45,53 +49,64 @@ class TopicContentBlock {
   });
 
   const TopicContentBlock.paragraph(String text)
-      : this._(type: TopicContentBlockType.paragraph, text: text);
+    : this._(type: TopicContentBlockType.paragraph, text: text);
 
   const TopicContentBlock.heading(String text, int level)
-      : this._(
-          type: TopicContentBlockType.heading,
-          text: text,
-          headingLevel: level,
-        );
+    : this._(
+        type: TopicContentBlockType.heading,
+        text: text,
+        headingLevel: level,
+      );
 
   TopicContentBlock.image(String image)
-      : this._(type: TopicContentBlockType.image, images: [image]);
+    : this._(type: TopicContentBlockType.image, images: [image]);
 
   const TopicContentBlock.imageGroup(List<String> images)
-      : this._(type: TopicContentBlockType.imageGroup, images: images);
+    : this._(type: TopicContentBlockType.imageGroup, images: images);
 
   const TopicContentBlock.quote(String text)
-      : this._(type: TopicContentBlockType.quote, text: text);
+    : this._(type: TopicContentBlockType.quote, text: text);
 
   const TopicContentBlock.code(String text)
-      : this._(type: TopicContentBlockType.code, text: text);
+    : this._(type: TopicContentBlockType.code, text: text);
 
   const TopicContentBlock.list(List<String> items, {required bool ordered})
-      : this._(
-          type: TopicContentBlockType.list,
-          listItems: items,
-          ordered: ordered,
-        );
+    : this._(
+        type: TopicContentBlockType.list,
+        listItems: items,
+        ordered: ordered,
+      );
 
   const TopicContentBlock.link({required String title, required String href})
-      : this._(
-          type: TopicContentBlockType.link,
-          text: title,
-          href: href,
-        );
+    : this._(type: TopicContentBlockType.link, text: title, href: href);
 
   const TopicContentBlock.table({
     required List<String> headers,
     required List<List<String>> rows,
   }) : this._(
-          type: TopicContentBlockType.table,
-          tableHeaders: headers,
-          tableRows: rows,
-        );
+         type: TopicContentBlockType.table,
+         tableHeaders: headers,
+         tableRows: rows,
+       );
 }
 
 class TopicCookedParser {
   static final RegExp _multiSpaceRegex = RegExp(r'\s+');
+  static final RegExp _emojiShortcodeRegex = RegExp(r'^:([a-z0-9_+\-]+):$');
+  static const Map<String, String> _emojiShortcodeMap = {
+    'x': '❌',
+    'cross_mark': '❌',
+    'heavy_multiplication_x': '❌',
+    'multiplication_x': '✖️',
+    'white_check_mark': '✅',
+    'heavy_check_mark': '✔️',
+    'check_mark': '✔️',
+    'warning': '⚠️',
+    'grey_exclamation': '❕',
+    'exclamation': '❗',
+    '+1': '👍',
+    '-1': '👎',
+  };
 
   static List<TopicContentBlock> parse(String cookedHtml) {
     final raw = cookedHtml.trim();
@@ -106,9 +121,7 @@ class TopicCookedParser {
       _parseNode(node, blocks);
     }
 
-    return _mergeAdjacentImageBlocks(
-      blocks.where(_isValidBlock).toList(),
-    );
+    return _mergeAdjacentImageBlocks(blocks.where(_isValidBlock).toList());
   }
 
   static List<String> extractImages(String cookedHtml) {
@@ -120,6 +133,9 @@ class TopicCookedParser {
     final fragment = html_parser.parseFragment(raw);
     final images = <String>[];
     for (final element in fragment.querySelectorAll('img')) {
+      if (_isInlineIconImage(element)) {
+        continue;
+      }
       final src = _extractImageUrl(element);
       if (src != null && !images.contains(src)) {
         images.add(src);
@@ -176,22 +192,23 @@ class TopicCookedParser {
         break;
       case 'ul':
       case 'ol':
-        final listItems = node
-            .children
+        final listItems = node.children
             .where((element) => element.localName == 'li')
             .map((element) => _normalizeText(element.text))
             .where((item) => item.isNotEmpty)
             .toList();
         if (listItems.isNotEmpty) {
-          blocks.add(
-            TopicContentBlock.list(
-              listItems,
-              ordered: tag == 'ol',
-            ),
-          );
+          blocks.add(TopicContentBlock.list(listItems, ordered: tag == 'ol'));
         }
         break;
       case 'img':
+        if (_isInlineIconImage(node)) {
+          final symbol = _extractInlineIconSymbol(node);
+          if (symbol != null && symbol.isNotEmpty) {
+            blocks.add(TopicContentBlock.paragraph(symbol));
+          }
+          break;
+        }
         final src = _extractImageUrl(node);
         if (src != null) {
           blocks.add(TopicContentBlock.image(src));
@@ -235,8 +252,9 @@ class TopicCookedParser {
       );
     } else {
       final allRows = table.querySelectorAll('tr');
-      final firstRowHeaders =
-          allRows.isNotEmpty ? allRows.first.querySelectorAll('th') : const <dom.Element>[];
+      final firstRowHeaders = allRows.isNotEmpty
+          ? allRows.first.querySelectorAll('th')
+          : const <dom.Element>[];
       headers.addAll(
         firstRowHeaders
             .map((cell) => _normalizeText(cell.text))
@@ -245,16 +263,16 @@ class TopicCookedParser {
     }
 
     final bodyRows = table.querySelectorAll('tbody tr');
-    final fallbackRows = bodyRows.isNotEmpty ? bodyRows : table.querySelectorAll('tr');
+    final fallbackRows = bodyRows.isNotEmpty
+        ? bodyRows
+        : table.querySelectorAll('tr');
 
     for (final row in fallbackRows) {
       final cells = row.querySelectorAll('td,th');
       if (cells.isEmpty) {
         continue;
       }
-      final rowValues = cells
-          .map((cell) => _normalizeText(cell.text))
-          .toList();
+      final rowValues = cells.map((cell) => _normalizeText(cell.text)).toList();
 
       if (rowValues.every((value) => value.isEmpty)) {
         continue;
@@ -290,7 +308,9 @@ class TopicCookedParser {
       if (pendingImages.length == 1) {
         blocks.add(TopicContentBlock.image(pendingImages.first));
       } else {
-        blocks.add(TopicContentBlock.imageGroup(List<String>.from(pendingImages)));
+        blocks.add(
+          TopicContentBlock.imageGroup(List<String>.from(pendingImages)),
+        );
       }
       pendingImages.clear();
     }
@@ -322,6 +342,16 @@ class TopicCookedParser {
       }
 
       if (_isImageElement(node)) {
+        final inlineSymbol = _extractInlineIconSymbol(node);
+        if (inlineSymbol != null && inlineSymbol.isNotEmpty) {
+          if (textBuffer.isNotEmpty &&
+              !textBuffer.toString().endsWith(' ') &&
+              !textBuffer.toString().endsWith('\n')) {
+            textBuffer.write(' ');
+          }
+          textBuffer.write(inlineSymbol);
+          continue;
+        }
         flushText();
         final urls = _extractImageUrlsFromElement(node);
         pendingImages.addAll(urls);
@@ -392,13 +422,18 @@ class TopicCookedParser {
     if (tag == 'img') {
       return true;
     }
-    if (tag == 'a' && element.children.any((child) => child.localName == 'img')) {
+    if (tag == 'a' &&
+        element.children.any((child) => child.localName == 'img')) {
       return true;
     }
     return false;
   }
 
   static List<String> _extractImageUrlsFromElement(dom.Element element) {
+    if (_isInlineIconImage(element)) {
+      return const [];
+    }
+
     final urls = <String>[];
     final tag = (element.localName ?? '').toLowerCase();
 
@@ -411,12 +446,132 @@ class TopicCookedParser {
     }
 
     for (final child in element.querySelectorAll('img')) {
+      if (_isInlineIconImage(child)) {
+        continue;
+      }
       final src = _extractImageUrl(child);
       if (src != null && !urls.contains(src)) {
         urls.add(src);
       }
     }
     return urls;
+  }
+
+  static bool _isInlineIconImage(dom.Element element) {
+    final tag = (element.localName ?? '').toLowerCase();
+    if (tag == 'a') {
+      final imgs = element.querySelectorAll('img');
+      if (imgs.length != 1) {
+        return false;
+      }
+      return _isInlineIconImage(imgs.first);
+    }
+
+    if (tag != 'img') {
+      return false;
+    }
+
+    final classValue = (element.attributes['class'] ?? '').toLowerCase();
+    final isEmojiClass =
+        classValue.contains('emoji') ||
+        classValue.contains('emoticon') ||
+        classValue.contains('twemoji');
+    final title = (element.attributes['title'] ?? '').trim();
+    final alt = (element.attributes['alt'] ?? '').trim();
+
+    if (isEmojiClass ||
+        _emojiShortcodeRegex.hasMatch(title) ||
+        _emojiShortcodeRegex.hasMatch(alt)) {
+      return true;
+    }
+
+    final width = double.tryParse(element.attributes['width'] ?? '');
+    final height = double.tryParse(element.attributes['height'] ?? '');
+    if (width != null && height != null && width <= 48 && height <= 48) {
+      return true;
+    }
+
+    final src = (element.attributes['src'] ?? '').toLowerCase();
+    return src.contains('/emoji/') ||
+        src.contains('emoji') ||
+        src.contains('emoticon');
+  }
+
+  static String? _extractInlineIconSymbol(dom.Element element) {
+    dom.Element target = element;
+    final tag = (element.localName ?? '').toLowerCase();
+    if (tag == 'a') {
+      final imgs = element.querySelectorAll('img');
+      if (imgs.length == 1) {
+        target = imgs.first;
+      }
+    }
+
+    if (!_isInlineIconImage(target)) {
+      return null;
+    }
+
+    final candidates = <String>[
+      (target.attributes['alt'] ?? '').trim(),
+      (target.attributes['title'] ?? '').trim(),
+      _shortcodeFromUrl(target.attributes['src']),
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) {
+        continue;
+      }
+
+      final normalized = _normalizeInlineIconCandidate(candidate);
+      if (normalized != null && normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+
+    return null;
+  }
+
+  static String? _normalizeInlineIconCandidate(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    if (_emojiShortcodeMap.containsKey(trimmed)) {
+      return _emojiShortcodeMap[trimmed];
+    }
+
+    final shortcodeMatch = _emojiShortcodeRegex.firstMatch(trimmed);
+    if (shortcodeMatch != null) {
+      final key = shortcodeMatch.group(1)?.toLowerCase();
+      if (key != null && _emojiShortcodeMap.containsKey(key)) {
+        return _emojiShortcodeMap[key];
+      }
+      return ':$key:';
+    }
+
+    if (trimmed.runes.length <= 3) {
+      return trimmed;
+    }
+
+    return null;
+  }
+
+  static String _shortcodeFromUrl(String? src) {
+    if (src == null || src.trim().isEmpty) {
+      return '';
+    }
+    final normalized = DiscourseImageUrlResolver.normalizeUrl(src);
+    if (normalized == null || normalized.isEmpty) {
+      return '';
+    }
+    final uri = Uri.tryParse(normalized);
+    if (uri == null || uri.pathSegments.isEmpty) {
+      return '';
+    }
+    final filename = uri.pathSegments.last.toLowerCase();
+    final pureName = filename.replaceAll(RegExp(r'\.[a-z0-9]+$'), '');
+    return pureName;
   }
 
   static String? _extractImageUrl(dom.Element element) {
@@ -432,7 +587,10 @@ class TopicCookedParser {
   }
 
   static String _normalizeText(String text) {
-    return text.replaceAll('\u00A0', ' ').replaceAll(_multiSpaceRegex, ' ').trim();
+    return text
+        .replaceAll('\u00A0', ' ')
+        .replaceAll(_multiSpaceRegex, ' ')
+        .trim();
   }
 
   static bool _isBlockTag(String tag) {
@@ -490,7 +648,9 @@ class TopicCookedParser {
       if (imageBuffer.length == 1) {
         merged.add(TopicContentBlock.image(imageBuffer.first));
       } else {
-        merged.add(TopicContentBlock.imageGroup(List<String>.from(imageBuffer)));
+        merged.add(
+          TopicContentBlock.imageGroup(List<String>.from(imageBuffer)),
+        );
       }
       imageBuffer.clear();
     }
@@ -589,13 +749,13 @@ class TopicMagazineRenderer extends StatelessWidget {
     switch (block.type) {
       case TopicContentBlockType.paragraph:
         final isLead = index == firstParagraphIndex;
-        return Text(
-          block.text,
+        return _InlineIconText(
+          text: block.text,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                height: 1.8,
-                fontSize: isLead ? 18 : null,
-                fontWeight: isLead ? FontWeight.w500 : null,
-              ),
+            height: 1.8,
+            fontSize: isLead ? 18 : null,
+            fontWeight: isLead ? FontWeight.w500 : null,
+          ),
         );
       case TopicContentBlockType.heading:
         final headingStyle = _headingStyle(context, block.headingLevel);
@@ -615,15 +775,14 @@ class TopicMagazineRenderer extends StatelessWidget {
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
             borderRadius: BorderRadius.circular(12),
             border: Border(
-              left: BorderSide(
-                color: colorScheme.primary,
-                width: 4,
-              ),
+              left: BorderSide(color: colorScheme.primary, width: 4),
             ),
           ),
-          child: Text(
-            block.text,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.7),
+          child: _InlineIconText(
+            text: block.text,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(height: 1.7),
           ),
         );
       case TopicContentBlockType.code:
@@ -634,16 +793,18 @@ class TopicMagazineRenderer extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainer,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: colorScheme.outline.withValues(alpha: 0.2)),
+            border: Border.all(
+              color: colorScheme.outline.withValues(alpha: 0.2),
+            ),
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SelectableText(
               block.text,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    height: 1.6,
-                  ),
+                fontFamily: 'monospace',
+                height: 1.6,
+              ),
             ),
           ),
         );
@@ -653,7 +814,9 @@ class TopicMagazineRenderer extends StatelessWidget {
           children: [
             for (int i = 0; i < block.listItems.length; i++)
               Padding(
-                padding: EdgeInsets.only(bottom: i == block.listItems.length - 1 ? 0 : 8),
+                padding: EdgeInsets.only(
+                  bottom: i == block.listItems.length - 1 ? 0 : 8,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -666,9 +829,11 @@ class TopicMagazineRenderer extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        block.listItems[i],
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.7),
+                      child: _InlineIconText(
+                        text: block.listItems[i],
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(height: 1.7),
                       ),
                     ),
                   ],
@@ -701,13 +866,25 @@ class TopicMagazineRenderer extends StatelessWidget {
     final base = Theme.of(context).textTheme;
     switch (level) {
       case 1:
-        return base.headlineSmall?.copyWith(fontWeight: FontWeight.w700, height: 1.35);
+        return base.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          height: 1.35,
+        );
       case 2:
-        return base.titleLarge?.copyWith(fontWeight: FontWeight.w700, height: 1.4);
+        return base.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+        );
       case 3:
-        return base.titleMedium?.copyWith(fontWeight: FontWeight.w700, height: 1.4);
+        return base.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          height: 1.4,
+        );
       default:
-        return base.titleSmall?.copyWith(fontWeight: FontWeight.w700, height: 1.45);
+        return base.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          height: 1.45,
+        );
     }
   }
 
@@ -732,9 +909,7 @@ class TopicMagazineRenderer extends StatelessWidget {
 
   Widget _buildTable(BuildContext context, TopicContentBlock block) {
     final colorScheme = Theme.of(context).colorScheme;
-    final columns = <String>[
-      ...block.tableHeaders,
-    ];
+    final columns = <String>[...block.tableHeaders];
 
     final rows = block.tableRows;
     if (columns.isEmpty && rows.isNotEmpty) {
@@ -751,14 +926,12 @@ class TopicMagazineRenderer extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final normalizedRows = rows
-        .map((row) {
-          if (row.length >= columns.length) {
-            return row.take(columns.length).toList();
-          }
-          return [...row, ...List.filled(columns.length - row.length, '')];
-        })
-        .toList();
+    final normalizedRows = rows.map((row) {
+      if (row.length >= columns.length) {
+        return row.take(columns.length).toList();
+      }
+      return [...row, ...List.filled(columns.length - row.length, '')];
+    }).toList();
 
     return Container(
       width: double.infinity,
@@ -783,8 +956,8 @@ class TopicMagazineRenderer extends StatelessWidget {
                   label: Text(
                     column,
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
             ],
@@ -796,7 +969,9 @@ class TopicMagazineRenderer extends StatelessWidget {
                       DataCell(
                         Text(
                           cell,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(height: 1.5),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(height: 1.5),
                         ),
                       ),
                   ],
@@ -806,6 +981,86 @@ class TopicMagazineRenderer extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _InlineIconText extends StatelessWidget {
+  static final RegExp _inlineIconRegex = RegExp(r'(❌|✅|⚠️|⚠)');
+
+  final String text;
+  final TextStyle? style;
+
+  const _InlineIconText({required this.text, this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_inlineIconRegex.hasMatch(text)) {
+      return Text(text, style: style);
+    }
+
+    final resolvedStyle = style ?? DefaultTextStyle.of(context).style;
+    final baseSize = resolvedStyle.fontSize ?? 16;
+    final iconSize = baseSize.clamp(12.0, 24.0);
+    final spans = <InlineSpan>[];
+
+    var start = 0;
+    for (final match in _inlineIconRegex.allMatches(text)) {
+      if (match.start > start) {
+        spans.add(TextSpan(text: text.substring(start, match.start)));
+      }
+      final symbol = match.group(0);
+      if (symbol != null) {
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: _InlineNoticeIcon(symbol: symbol, size: iconSize),
+            ),
+          ),
+        );
+      }
+      start = match.end;
+    }
+
+    if (start < text.length) {
+      spans.add(TextSpan(text: text.substring(start)));
+    }
+
+    return Text.rich(TextSpan(style: resolvedStyle, children: spans));
+  }
+}
+
+class _InlineNoticeIcon extends StatelessWidget {
+  final String symbol;
+  final double size;
+
+  const _InlineNoticeIcon({required this.symbol, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final (iconData, color) = _resolveIconAndColor(symbol);
+    final icon = Icon(iconData, size: size, color: color);
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: FittedBox(fit: BoxFit.contain, child: icon),
+    );
+  }
+
+  (IconData, Color) _resolveIconAndColor(String value) {
+    switch (value) {
+      case '❌':
+        return (Icons.close_rounded, const Color(0xFFE53935));
+      case '✅':
+        return (Icons.check_rounded, const Color(0xFF43A047));
+      case '⚠':
+      case '⚠️':
+        return (Icons.warning_amber_rounded, const Color(0xFFF9A825));
+      default:
+        return (Icons.circle, const Color(0xFF9E9E9E));
+    }
   }
 }
 
@@ -846,20 +1101,24 @@ class _LinkBlock extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     url,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.open_in_new_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+            Icon(
+              Icons.open_in_new_rounded,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),
@@ -871,10 +1130,7 @@ class _MagazineImageGroup extends StatelessWidget {
   final List<String> images;
   final bool isHero;
 
-  const _MagazineImageGroup({
-    required this.images,
-    required this.isHero,
-  });
+  const _MagazineImageGroup({required this.images, required this.isHero});
 
   @override
   Widget build(BuildContext context) {
@@ -898,10 +1154,10 @@ class _MagazineImageGroup extends StatelessWidget {
   }
 
   Widget _buildSingle(BuildContext context) {
-    final ratio = isHero ? 16 / 9 : 4 / 3;
-    return AspectRatio(
-      aspectRatio: ratio,
-      child: _imageTile(context, 0, borderRadius: 16),
+    return _AdaptiveSingleImage(
+      imageUrl: images.first,
+      allImages: images,
+      isHero: isHero,
     );
   }
 
@@ -1018,7 +1274,8 @@ class _MagazineImageGroup extends StatelessWidget {
           itemCount: maxPreview.length - 1,
           itemBuilder: (context, index) {
             final actualIndex = index + 1;
-            final showOverlay = extra > 0 && actualIndex == maxPreview.length - 1;
+            final showOverlay =
+                extra > 0 && actualIndex == maxPreview.length - 1;
 
             return Stack(
               fit: StackFit.expand,
@@ -1068,11 +1325,221 @@ class _MagazineImageGroup extends StatelessWidget {
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: CachedImage(
-          imageUrl: images[index],
-          fit: BoxFit.cover,
-        ),
+        child: CachedImage(imageUrl: images[index], fit: BoxFit.cover),
       ),
     );
   }
+}
+
+class _AdaptiveSingleImage extends StatefulWidget {
+  final String imageUrl;
+  final List<String> allImages;
+  final bool isHero;
+
+  const _AdaptiveSingleImage({
+    required this.imageUrl,
+    required this.allImages,
+    required this.isHero,
+  });
+
+  @override
+  State<_AdaptiveSingleImage> createState() => _AdaptiveSingleImageState();
+}
+
+class _AdaptiveSingleImageState extends State<_AdaptiveSingleImage> {
+  late Future<_ResolvedImageMetadata?> _metadataFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _metadataFuture = _resolveImageMetadata(widget.imageUrl);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdaptiveSingleImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _metadataFuture = _resolveImageMetadata(widget.imageUrl);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        return FutureBuilder<_ResolvedImageMetadata?>(
+          future: _metadataFuture,
+          builder: (context, snapshot) {
+            final layout = _computeLayout(
+              maxWidth: maxWidth,
+              metadata: snapshot.data,
+              isHero: widget.isHero,
+            );
+
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _onImageTap,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    width: layout.width,
+                    height: layout.height,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: layout.isStickerLike
+                            ? colorScheme.surfaceContainerHighest.withValues(
+                                alpha: 0.35,
+                              )
+                            : null,
+                      ),
+                      child: CachedImage(
+                        imageUrl: widget.imageUrl,
+                        fit: layout.fit,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _onImageTap() {
+    final originalImages = widget.allImages
+        .map(DiscourseImageUrlResolver.toOriginalUrl)
+        .whereType<String>()
+        .toList();
+    ImagePreviewPage.show(
+      context,
+      imageUrls: originalImages.isEmpty ? widget.allImages : originalImages,
+      initialIndex: 0,
+    );
+  }
+}
+
+Future<_ResolvedImageMetadata?> _resolveImageMetadata(String imageUrl) async {
+  final provider = CachedNetworkImageProvider(imageUrl);
+  final stream = provider.resolve(const ImageConfiguration());
+  final completer = Completer<_ResolvedImageMetadata?>();
+
+  late final ImageStreamListener listener;
+  listener = ImageStreamListener(
+    (image, _) {
+      if (!completer.isCompleted) {
+        completer.complete(
+          _ResolvedImageMetadata(
+            width: image.image.width,
+            height: image.image.height,
+            imageUrl: imageUrl,
+          ),
+        );
+      }
+      stream.removeListener(listener);
+    },
+    onError: (error, stackTrace) {
+      if (!completer.isCompleted) {
+        completer.complete(null);
+      }
+      stream.removeListener(listener);
+    },
+  );
+
+  stream.addListener(listener);
+  return completer.future.timeout(
+    const Duration(seconds: 5),
+    onTimeout: () {
+      stream.removeListener(listener);
+      return null;
+    },
+  );
+}
+
+_SingleImageLayout _computeLayout({
+  required double maxWidth,
+  required _ResolvedImageMetadata? metadata,
+  required bool isHero,
+}) {
+  if (metadata == null ||
+      metadata.width <= 0 ||
+      metadata.height <= 0 ||
+      maxWidth <= 0) {
+    final fallbackHeight = maxWidth / (isHero ? (16 / 9) : (4 / 3));
+    return _SingleImageLayout(
+      width: maxWidth,
+      height: fallbackHeight,
+      fit: BoxFit.cover,
+      isStickerLike: false,
+    );
+  }
+
+  final sourceWidth = metadata.width.toDouble();
+  final sourceHeight = metadata.height.toDouble();
+  final ratio = (sourceWidth / sourceHeight).clamp(0.2, 5.0);
+  final maxEdge = math.max(sourceWidth, sourceHeight);
+  final area = sourceWidth * sourceHeight;
+  final url = metadata.imageUrl.toLowerCase();
+
+  final isEmojiPath =
+      url.contains('/emoji/') ||
+      url.contains('emoji') ||
+      url.contains('sticker');
+  final isSmallImage = maxEdge <= 420 || area <= 180000;
+  final isStickerLike = isEmojiPath || isSmallImage;
+
+  double width;
+  if (isStickerLike) {
+    width = (sourceWidth / 2).clamp(88.0, maxWidth * 0.58);
+  } else {
+    width = (sourceWidth / 2).clamp(maxWidth * 0.45, maxWidth);
+  }
+
+  final minWidth = math.min(maxWidth, 120.0);
+  width = width.clamp(minWidth, maxWidth);
+
+  double height = width / ratio;
+  final minHeight = 72.0;
+  final maxHeight = isStickerLike
+      ? maxWidth * 0.72
+      : (ratio < 0.75 ? maxWidth * 1.3 : maxWidth * 0.95);
+  height = height.clamp(minHeight, maxHeight);
+
+  return _SingleImageLayout(
+    width: width,
+    height: height,
+    fit: isStickerLike ? BoxFit.contain : BoxFit.cover,
+    isStickerLike: isStickerLike,
+  );
+}
+
+class _ResolvedImageMetadata {
+  final int width;
+  final int height;
+  final String imageUrl;
+
+  const _ResolvedImageMetadata({
+    required this.width,
+    required this.height,
+    required this.imageUrl,
+  });
+}
+
+class _SingleImageLayout {
+  final double width;
+  final double height;
+  final BoxFit fit;
+  final bool isStickerLike;
+
+  const _SingleImageLayout({
+    required this.width,
+    required this.height,
+    required this.fit,
+    required this.isStickerLike,
+  });
 }

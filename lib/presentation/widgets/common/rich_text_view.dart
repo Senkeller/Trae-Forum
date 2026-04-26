@@ -9,6 +9,20 @@ import 'cached_image.dart';
 /// 支持 HTML 标签渲染、链接点击、图片点击预览、@用户和#话题高亮
 /// 基于 flutter_html 实现，提供丰富的富文本展示能力
 class RichTextView extends StatelessWidget {
+  static final RegExp _emojiShortcodeRegex = RegExp(r'^:([a-z0-9_+\-]+):$');
+  static const Map<String, String> _emojiShortcodeMap = {
+    'x': '❌',
+    'cross_mark': '❌',
+    'heavy_multiplication_x': '❌',
+    'multiplication_x': '✖️',
+    'white_check_mark': '✅',
+    'heavy_check_mark': '✔️',
+    'check_mark': '✔️',
+    'warning': '⚠️',
+    'grey_exclamation': '❕',
+    'exclamation': '❗',
+  };
+
   /// HTML 内容
   final String htmlContent;
 
@@ -100,37 +114,18 @@ class RichTextView extends StatelessWidget {
     // 合并自定义样式
     final styles = {
       'body': baseStyle,
-      'p': Style(
-        margin: Margins.only(bottom: 8.0),
-      ),
+      'p': Style(margin: Margins.only(bottom: 8.0)),
       'a': Style(
         color: linkColor ?? colorScheme.primary,
         textDecoration: TextDecoration.none,
       ),
-      'img': Style(
-        width: Width.auto(),
-        height: Height.auto(),
-      ),
-      'strong': Style(
-        fontWeight: FontWeight.bold,
-      ),
-      'em': Style(
-        fontStyle: FontStyle.italic,
-      ),
-      'u': Style(
-        textDecoration: TextDecoration.underline,
-      ),
-      's': Style(
-        textDecoration: TextDecoration.lineThrough,
-      ),
-      'mention': Style(
-        color: colorScheme.primary,
-        fontWeight: FontWeight.w500,
-      ),
-      'topic': Style(
-        color: colorScheme.primary,
-        fontWeight: FontWeight.w500,
-      ),
+      'img': Style(width: Width.auto(), height: Height.auto()),
+      'strong': Style(fontWeight: FontWeight.bold),
+      'em': Style(fontStyle: FontStyle.italic),
+      'u': Style(textDecoration: TextDecoration.underline),
+      's': Style(textDecoration: TextDecoration.lineThrough),
+      'mention': Style(color: colorScheme.primary, fontWeight: FontWeight.w500),
+      'topic': Style(color: colorScheme.primary, fontWeight: FontWeight.w500),
       ...?customStyles,
     };
 
@@ -138,20 +133,33 @@ class RichTextView extends StatelessWidget {
       data: processedHtml,
       style: styles,
       onLinkTap: enableLinkTap
-          ? (url, _, __) => _handleLinkTap(context, url)
+          ? (url, element, attributes) => _handleLinkTap(context, url)
           : null,
       extensions: [
         // 自定义图片渲染
         if (enableImageTap)
           ImageExtension(
             builder: (extensionContext) {
+              final inlineSymbol = _extractInlineIconSymbol(
+                extensionContext.attributes,
+              );
+              if (inlineSymbol != null) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: _InlineHtmlNoticeIcon(
+                    symbol: inlineSymbol,
+                    size: _inlineIconSize(context),
+                  ),
+                );
+              }
+
               final imageUrl = DiscourseImageUrlResolver.resolveFromAttributes(
                 extensionContext.attributes,
               );
               final originalImageUrl =
                   DiscourseImageUrlResolver.resolveOriginalFromAttributes(
-                extensionContext.attributes,
-              );
+                    extensionContext.attributes,
+                  );
               if (imageUrl == null) return const SizedBox.shrink();
 
               return GestureDetector(
@@ -221,13 +229,15 @@ class RichTextView extends StatelessWidget {
     // 转换 @用户名 为自定义标签
     result = result.replaceAllMapped(
       RegExp(r'@([\w\u4e00-\u9fa5]+)'),
-      (match) => '<mention data-user="${match.group(1)}">@${match.group(1)}</mention>',
+      (match) =>
+          '<mention data-user="${match.group(1)}">@${match.group(1)}</mention>',
     );
 
     // 转换 #话题# 为自定义标签
     result = result.replaceAllMapped(
       RegExp(r'#([^#\s]+)#'),
-      (match) => '<topic data-topic="${match.group(1)}">#${match.group(1)}#</topic>',
+      (match) =>
+          '<topic data-topic="${match.group(1)}">#${match.group(1)}#</topic>',
     );
 
     // 包裹在 body 标签中
@@ -264,6 +274,139 @@ class RichTextView extends StatelessWidget {
   void _handleImageTap(String imageUrl) {
     if (onImageTap != null) {
       onImageTap!(imageUrl);
+    }
+  }
+
+  double _inlineIconSize(BuildContext context) {
+    final size =
+        fontSize ?? Theme.of(context).textTheme.bodyMedium?.fontSize ?? 16;
+    return size.clamp(12.0, 24.0).toDouble();
+  }
+
+  String? _extractInlineIconSymbol(Map<dynamic, String> attributes) {
+    if (!_isInlineIconImage(attributes)) {
+      return null;
+    }
+
+    final candidates = <String>[
+      (attributes['alt'] ?? '').trim(),
+      (attributes['title'] ?? '').trim(),
+      _shortcodeFromUrl(attributes['src']),
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) {
+        continue;
+      }
+
+      final symbol = _normalizeInlineIconCandidate(candidate);
+      if (symbol != null && symbol.isNotEmpty) {
+        return symbol;
+      }
+    }
+
+    return null;
+  }
+
+  bool _isInlineIconImage(Map<dynamic, String> attributes) {
+    final classValue = (attributes['class'] ?? '').toLowerCase();
+    final isEmojiClass =
+        classValue.contains('emoji') ||
+        classValue.contains('emoticon') ||
+        classValue.contains('twemoji');
+    final title = (attributes['title'] ?? '').trim();
+    final alt = (attributes['alt'] ?? '').trim();
+
+    if (isEmojiClass ||
+        _emojiShortcodeRegex.hasMatch(title) ||
+        _emojiShortcodeRegex.hasMatch(alt)) {
+      return true;
+    }
+
+    final width = double.tryParse(attributes['width'] ?? '');
+    final height = double.tryParse(attributes['height'] ?? '');
+    if (width != null && height != null && width <= 48 && height <= 48) {
+      return true;
+    }
+
+    final src = (attributes['src'] ?? '').toLowerCase();
+    return src.contains('/emoji/') ||
+        src.contains('emoji') ||
+        src.contains('emoticon');
+  }
+
+  String? _normalizeInlineIconCandidate(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    if (_emojiShortcodeMap.containsKey(trimmed)) {
+      return _emojiShortcodeMap[trimmed];
+    }
+
+    final shortcodeMatch = _emojiShortcodeRegex.firstMatch(trimmed);
+    if (shortcodeMatch != null) {
+      final key = shortcodeMatch.group(1)?.toLowerCase();
+      if (key != null && _emojiShortcodeMap.containsKey(key)) {
+        return _emojiShortcodeMap[key];
+      }
+      return ':$key:';
+    }
+
+    if (trimmed.runes.length <= 3) {
+      return trimmed;
+    }
+    return null;
+  }
+
+  String _shortcodeFromUrl(String? src) {
+    if (src == null || src.trim().isEmpty) {
+      return '';
+    }
+    final normalized = DiscourseImageUrlResolver.normalizeUrl(src);
+    if (normalized == null || normalized.isEmpty) {
+      return '';
+    }
+    final uri = Uri.tryParse(normalized);
+    if (uri == null || uri.pathSegments.isEmpty) {
+      return '';
+    }
+    final filename = uri.pathSegments.last.toLowerCase();
+    return filename.replaceAll(RegExp(r'\.[a-z0-9]+$'), '');
+  }
+}
+
+class _InlineHtmlNoticeIcon extends StatelessWidget {
+  final String symbol;
+  final double size;
+
+  const _InlineHtmlNoticeIcon({required this.symbol, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    final (iconData, color) = _resolveIconAndColor(symbol);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: Icon(iconData, size: size, color: color),
+      ),
+    );
+  }
+
+  (IconData, Color) _resolveIconAndColor(String value) {
+    switch (value) {
+      case '❌':
+        return (Icons.close_rounded, const Color(0xFFE53935));
+      case '✅':
+        return (Icons.check_rounded, const Color(0xFF43A047));
+      case '⚠':
+      case '⚠️':
+        return (Icons.warning_amber_rounded, const Color(0xFFF9A825));
+      default:
+        return (Icons.circle, const Color(0xFF9E9E9E));
     }
   }
 }
@@ -358,10 +501,12 @@ class SimpleRichText extends StatelessWidget {
     for (final match in regex.allMatches(text)) {
       // 添加匹配前的普通文本
       if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: text.substring(lastEnd, match.start),
-          style: baseStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: text.substring(lastEnd, match.start),
+            style: baseStyle,
+          ),
+        );
       }
 
       final matchedText = match.group(0)!;
@@ -385,10 +530,7 @@ class SimpleRichText extends StatelessWidget {
 
     // 添加剩余文本
     if (lastEnd < text.length) {
-      spans.add(TextSpan(
-        text: text.substring(lastEnd),
-        style: baseStyle,
-      ));
+      spans.add(TextSpan(text: text.substring(lastEnd), style: baseStyle));
     }
 
     return spans;
@@ -400,7 +542,11 @@ class SimpleRichText extends StatelessWidget {
   /// [url] 链接地址
   /// [baseStyle] 基础样式
   /// 返回 TextSpan
-  InlineSpan _buildLinkSpan(BuildContext context, String url, TextStyle? baseStyle) {
+  InlineSpan _buildLinkSpan(
+    BuildContext context,
+    String url,
+    TextStyle? baseStyle,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return WidgetSpan(
@@ -423,7 +569,11 @@ class SimpleRichText extends StatelessWidget {
   /// [username] 用户名
   /// [baseStyle] 基础样式
   /// 返回 TextSpan
-  InlineSpan _buildMentionSpan(BuildContext context, String username, TextStyle? baseStyle) {
+  InlineSpan _buildMentionSpan(
+    BuildContext context,
+    String username,
+    TextStyle? baseStyle,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return WidgetSpan(
@@ -446,7 +596,11 @@ class SimpleRichText extends StatelessWidget {
   /// [topic] 话题名称
   /// [baseStyle] 基础样式
   /// 返回 TextSpan
-  InlineSpan _buildTopicSpan(BuildContext context, String topic, TextStyle? baseStyle) {
+  InlineSpan _buildTopicSpan(
+    BuildContext context,
+    String topic,
+    TextStyle? baseStyle,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return WidgetSpan(
@@ -533,11 +687,7 @@ class RichTextImagePreview extends StatelessWidget {
             right: 16,
             child: IconButton(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 28,
-              ),
+              icon: const Icon(Icons.close, color: Colors.white, size: 28),
             ),
           ),
           // 图片计数器
@@ -558,10 +708,7 @@ class RichTextImagePreview extends StatelessWidget {
                   ),
                   child: Text(
                     '${initialIndex + 1} / ${images.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
               ),
