@@ -362,11 +362,14 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
     '🔍 [isAuthenticatedAsync] Discourse session cookie: $hasDiscourseCookie',
   );
 
-  // 4. 必须使用 current session 判定，避免“本地已登录/主站已登录”误判论坛登录
+  // 4. 必须使用 current session 判定，避免"本地已登录/主站已登录"误判论坛登录
   try {
     final discourseApi = ref.read(discourseApiServiceProvider);
+    debugPrint('🔍 [isAuthenticatedAsync] 开始调用 getCurrentSession...');
     final response = await discourseApi.getCurrentSession();
     final data = response.data;
+    debugPrint('🔍 [isAuthenticatedAsync] getCurrentSession 响应: status=${response.statusCode}, data=$data');
+
     final currentUser = data is Map<String, dynamic>
         ? data['current_user']
         : null;
@@ -380,9 +383,12 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
       }
       debugPrint('✅ [isAuthenticatedAsync] current session 命中，判定为已登录: $username');
       return true;
+    } else {
+      debugPrint('⚠️ [isAuthenticatedAsync] current session 响应异常: status=${response.statusCode}, username=$username, current_user=$currentUser');
     }
-  } catch (_) {
-    // ignore: 探活失败时继续返回 false
+  } catch (e, stackTrace) {
+    debugPrint('❌ [isAuthenticatedAsync] getCurrentSession 调用失败: $e');
+    debugPrint('❌ [isAuthenticatedAsync] 堆栈: $stackTrace');
   }
 
   debugPrint('ℹ️ [isAuthenticatedAsync] current session 未命中，判定为未登录');
