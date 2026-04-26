@@ -6,6 +6,7 @@ import '../presentation/pages/home/home_page.dart';
 import '../presentation/pages/feed/feed_detail_page.dart';
 import '../presentation/pages/feed/feed_create_page.dart';
 import '../presentation/pages/feed/feed_reply_page.dart';
+import '../presentation/pages/feed/feed_edit_page.dart';
 import '../presentation/pages/user/user_profile_page.dart';
 import '../presentation/pages/user/user_edit_page.dart';
 import '../presentation/pages/user/follow_list_page.dart';
@@ -84,6 +85,15 @@ class AppRouter {
         builder: (context, state) {
           final id = state.pathParameters['id']!;
           return FeedReplyPage(feedId: id);
+        },
+      ),
+
+      // Feed 编辑
+      GoRoute(
+        path: RoutePaths.feedEdit,
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return FeedEditPage(feedId: id);
         },
       ),
 

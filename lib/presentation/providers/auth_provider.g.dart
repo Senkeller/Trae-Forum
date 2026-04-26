@@ -31,7 +31,7 @@ String _$isAuthenticatedHash() => r'fe6f954f2d7938a820a402d3f97973c87930d8b5';
 
 /// 是否已登录 Provider（同步版本）
 ///
-/// 返回当前用户是否已登录（仅检查 CoolApk 登录状态）
+/// 返回当前用户是否已登录（仅检查本地有效用户）
 /// 用于需要同步检查的场景
 ///
 /// Copied from [isAuthenticated].
@@ -50,11 +50,11 @@ final isAuthenticatedProvider = AutoDisposeProvider<bool>.internal(
 // ignore: unused_element
 typedef IsAuthenticatedRef = AutoDisposeProviderRef<bool>;
 String _$isAuthenticatedAsyncHash() =>
-    r'e6e5ed11c7f8bc14e8c661ca3bf615ed4d113568';
+    r'2b34f3044b63ba9c4995381d9c5433fa745dae99';
 
 /// 是否已登录 Provider（异步版本）
 ///
-/// 返回当前用户是否已登录（支持 CoolApk 和 Discourse 两种登录方式）
+/// 返回当前用户是否已登录（支持本地缓存与论坛会话）
 /// 用于需要完整检查登录状态的场景
 ///
 /// Copied from [isAuthenticatedAsync].
@@ -93,7 +93,7 @@ final authTokenProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthTokenRef = AutoDisposeProviderRef<String?>;
-String _$authNotifierHash() => r'9290a732e5c3494d03aca572fc20c50179581225';
+String _$authNotifierHash() => r'7ce7926b0cdd92b374855af5abbc93ae0b684ebe';
 
 /// 认证状态 Notifier
 ///

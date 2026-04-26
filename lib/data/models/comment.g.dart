@@ -56,6 +56,7 @@ _$ReplyDataImpl _$$ReplyDataImplFromJson(Map<String, dynamic> json) =>
       replyRowsMore: json['replyRowsMore'] as bool? ?? false,
       replyTo: json['reply_to'] as String?,
       replyUid: json['reply_uid'] as String?,
+      postNumber: (json['post_number'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$$ReplyDataImplToJson(_$ReplyDataImpl instance) =>
@@ -74,6 +75,7 @@ Map<String, dynamic> _$$ReplyDataImplToJson(_$ReplyDataImpl instance) =>
       'replyRowsMore': instance.replyRowsMore,
       'reply_to': instance.replyTo,
       'reply_uid': instance.replyUid,
+      'post_number': instance.postNumber,
     };
 
 _$CreateReplyRequestImpl _$$CreateReplyRequestImplFromJson(

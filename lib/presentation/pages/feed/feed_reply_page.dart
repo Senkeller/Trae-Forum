@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/reply_provider.dart';
 
 class FeedReplyPage extends ConsumerStatefulWidget {
   final String feedId;
@@ -21,10 +22,8 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
   final TextEditingController _replyController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
 
-  bool _isLoading = false;
   bool _isReplyingToFloor = false;
   String? _replyingToUsername;
-  String? _errorMessage;
 
   @override
   void initState() {
@@ -57,34 +56,55 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
     }
 
     final content = _replyController.text.trim();
-    if (content.isEmpty) {
-      setState(() {
-        _errorMessage = '回复内容不能为空';
-      });
+    final topicId = int.tryParse(widget.feedId);
+    if (topicId == null || topicId <= 0) {
+      // 使用 ReplyProvider 的状态管理 - 通过调用方法来设置错误状态
+      await ref.read(replyNotifierProvider.notifier).sendReply(
+        topicId: -1, // 无效ID会触发错误
+        content: content,
+      );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    final notifier = ref.read(replyNotifierProvider.notifier);
+    final result = await notifier.sendReply(
+      topicId: topicId,
+      content: content,
+      replyToPostNumber:
+          _isReplyingToFloor ? _extractPostNumberFromContent(content) : null,
+    );
 
-    try {
-      await Future.delayed(const Duration(seconds: 1));
+    if (!mounted) return;
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('回复功能开发中')),
-      );
-
-      context.pop();
-    } catch (e) {
-      setState(() {
-        _errorMessage = '发送失败: $e';
-        _isLoading = false;
-      });
+    if (result.success) {
+      ref.read(replyListRefreshProvider.notifier).refresh();
+      context.pop(true);
     }
+    // 错误处理由 Provider 自动管理，UI 通过 watch 自动更新
+  }
+
+  /// 重试发送回复
+  Future<void> _retrySendReply() async {
+    final content = _replyController.text.trim();
+    final topicId = int.tryParse(widget.feedId);
+    if (topicId == null) return;
+
+    final notifier = ref.read(replyNotifierProvider.notifier);
+    await notifier.sendReply(
+      topicId: topicId,
+      content: content,
+      replyToPostNumber:
+          _isReplyingToFloor ? _extractPostNumberFromContent(content) : null,
+    );
+  }
+
+  int? _extractPostNumberFromContent(String content) {
+    final regExp = RegExp(r'>@\w+\s*#(\d+)');
+    final match = regExp.firstMatch(content);
+    if (match != null) {
+      return int.tryParse(match.group(1) ?? '');
+    }
+    return null;
   }
 
   void _setQuoteReply(String? username) {
@@ -107,6 +127,13 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
     final isLoggedIn = currentUser != null && currentUser.uid.isNotEmpty;
     final colorScheme = Theme.of(context).colorScheme;
 
+    // 监听回复状态
+    final replyState = ref.watch(replyNotifierProvider);
+    final isLoading = replyState.isLoading;
+    final errorMessage = replyState.error;
+    final loadingState = replyState.loadingState;
+    final retryCount = replyState.retryCount;
+
     if (!isLoggedIn) {
       return Scaffold(
         appBar: AppBar(
@@ -127,8 +154,8 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
         title: const Text('回复'),
         actions: [
           TextButton(
-            onPressed: _isLoading ? null : _sendReply,
-            child: _isLoading
+            onPressed: isLoading ? null : _sendReply,
+            child: isLoading
                 ? const SizedBox(
                     width: 20,
                     height: 20,
@@ -140,6 +167,7 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
       ),
       body: Column(
         children: [
+          // 回复目标提示条
           if (_isReplyingToFloor && _replyingToUsername != null)
             Container(
               width: double.infinity,
@@ -168,7 +196,40 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
                 ],
               ),
             ),
-          if (_errorMessage != null)
+
+          // 重试状态提示
+          if (loadingState == LoadingState.retrying)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '网络异常，正在重试 (${retryCount + 1}/3)...',
+                      style: TextStyle(color: colorScheme.onPrimaryContainer),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // 错误提示
+          if (errorMessage != null && loadingState != LoadingState.retrying)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -186,13 +247,23 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _errorMessage!,
+                      errorMessage,
                       style: TextStyle(color: colorScheme.onErrorContainer),
                     ),
+                  ),
+                  TextButton(
+                    onPressed: isLoading ? null : _retrySendReply,
+                    style: TextButton.styleFrom(
+                      foregroundColor: colorScheme.onErrorContainer,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    child: const Text('重试'),
                   ),
                 ],
               ),
             ),
+
+          // 输入区域
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),

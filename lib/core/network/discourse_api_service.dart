@@ -641,12 +641,14 @@ class DiscourseApiService {
   /// [title] 话题标题
   /// [raw] 话题内容（Markdown格式）
   /// [category] 分类ID（可选）
+  /// [tags] 话题标签列表（可选）
   /// [replyToPostNumber] 回复的帖子编号（可选，用于楼中楼回复）
   /// 调用 Discourse POST /posts API
   Future<Response> createTopic({
     required String title,
     required String raw,
     int? category,
+    List<String>? tags,
     int? replyToPostNumber,
   }) async {
     await DiscourseCsrfToken.ensureValid(_dio);
@@ -655,6 +657,10 @@ class DiscourseApiService {
 
     if (category != null) {
       data['category'] = category;
+    }
+
+    if (tags != null && tags.isNotEmpty) {
+      data['tags'] = tags;
     }
 
     if (replyToPostNumber != null) {

@@ -18,12 +18,14 @@ import '../../pages/common/image_preview_page.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/bookmark_provider.dart';
 import '../../providers/like_provider.dart';
+import '../../providers/reply_provider.dart';
 import '../../providers/user_activity_provider.dart';
 import '../../widgets/common/cached_image.dart';
 import '../../widgets/common/rich_text_view.dart';
 import '../../widgets/detail/table_of_contents.dart';
 import '../../widgets/detail/toc_progress_bar.dart';
 import '../../widgets/detail/topic_magazine_renderer.dart';
+import '../../widgets/editor/composer_editor.dart';
 
 class FeedDetailPage extends ConsumerStatefulWidget {
   final String feedId;
@@ -405,6 +407,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     final username = reply.username;
     setState(() {
       _replyToUsername = username;
+      // 使用 reply id 进行楼中楼回复
       _replyToPostNumber = int.tryParse(reply.id);
     });
 
@@ -887,6 +890,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                 topicAuthorUid: detail.userInfo?.uid,
                 onLinkTap: _openExternalLink,
                 onReplyTap: () => _startReplyTo(reply),
+                onEditTap: () => _showEditReplyBottomSheet(reply),
+                onDeleteTap: () => _showDeleteReplyConfirm(reply),
               );
             },
           ),
@@ -914,12 +919,27 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   }
 
   void _showMoreOptions(BuildContext context) {
+    final currentUser = ref.read(currentUserProvider);
+    final topicAuthorId = _topicDetail?.userInfo?.uid;
+    final isTopicAuthor = currentUser?.uid == topicAuthorId;
+
     showModalBottomSheet<void>(
       context: context,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 编辑话题选项（仅楼主可见）
+            if (isTopicAuthor)
+              ListTile(
+                leading: Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+                title: const Text('编辑帖子'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+                  _navigateToEditPage();
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
               title: const Text('分享话题链接'),
@@ -949,6 +969,18 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     );
   }
 
+  /// 导航到编辑页面
+  ///
+  /// 使用 push 导航到编辑页面，等待返回结果
+  /// 如果编辑成功，刷新话题详情
+  Future<void> _navigateToEditPage() async {
+    final result = await context.push('/feed/${widget.feedId}/edit');
+    // 如果编辑成功，刷新话题详情
+    if (result == true && mounted) {
+      await _loadInitialData(showLoading: false);
+    }
+  }
+
   void _initializeLikeStatesForReplies(List<ReplyData> replies) {
     final notifier = ref.read(likeProvider.notifier);
     for (final reply in replies) {
@@ -961,6 +993,305 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         );
       }
     }
+  }
+
+  /// 显示编辑回复 Bottom Sheet
+  ///
+  /// [reply] 要编辑的回复数据
+  /// 使用 Bottom Sheet 展示 ComposerEditor，支持 Markdown 编辑与预览
+  void _showEditReplyBottomSheet(ReplyData reply) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final postId = int.tryParse(reply.id);
+    if (postId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('无效的回复ID')),
+      );
+      return;
+    }
+
+    // 保存原始内容用于回滚
+    final originalContent = reply.message;
+    // 保存回复索引用于局部更新
+    final replyIndex = _comments.indexWhere((r) => r.id == reply.id);
+    // 用于保存编辑器内容的回调
+    String currentContent = originalContent;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) {
+          return Consumer(
+            builder: (context, ref, child) {
+              final replyState = ref.watch(replyNotifierProvider);
+
+              return Column(
+                children: [
+                  // 顶部拖动指示器
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: colorScheme.outline.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 标题栏
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: colorScheme.outline.withOpacity(0.2),
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          '编辑回复',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        // 取消按钮
+                        TextButton(
+                          onPressed: replyState.isLoading
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          child: const Text('取消'),
+                        ),
+                        const SizedBox(width: 8),
+                        // 保存按钮
+                        FilledButton(
+                          onPressed: replyState.isLoading
+                              ? null
+                              : () async {
+                                  final content = currentContent.trim();
+
+                                  if (content.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('回复内容不能为空')),
+                                    );
+                                    return;
+                                  }
+
+                                  // 乐观更新：先更新本地数据
+                                  if (replyIndex >= 0 && mounted) {
+                                    setState(() {
+                                      _comments = _comments.map((r) {
+                                        if (r.id == reply.id) {
+                                          return r.copyWith(message: content);
+                                        }
+                                        return r;
+                                      }).toList();
+                                    });
+                                  }
+
+                                  // 关闭 Bottom Sheet
+                                  Navigator.of(context).pop();
+
+                                  // 调用 API 保存
+                                  final result = await ref
+                                      .read(replyNotifierProvider.notifier)
+                                      .editReply(postId: postId, content: content);
+
+                                  if (!mounted) return;
+
+                                  if (result.success) {
+                                    HapticFeedbackUtil.trigger(ref, HapticScene.commentSuccess);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('回复编辑成功')),
+                                    );
+                                  } else {
+                                    // 失败回滚：恢复原始内容
+                                    if (replyIndex >= 0) {
+                                      setState(() {
+                                        _comments = _comments.map((r) {
+                                          if (r.id == reply.id) {
+                                            return r.copyWith(message: originalContent);
+                                          }
+                                          return r;
+                                        }).toList();
+                                      });
+                                    }
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(result.errorMessage ?? '编辑失败'),
+                                        action: SnackBarAction(
+                                          label: '重试',
+                                          onPressed: () => _showEditReplyBottomSheet(reply),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                          child: replyState.isLoading
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('保存'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 编辑器区域
+                  Expanded(
+                    child: ComposerEditor(
+                      initialText: originalContent,
+                      hintText: '编辑你的回复...',
+                      autofocus: true,
+                      showPreview: true,
+                      showToolbar: true,
+                      enableSplitView: true,
+                      initialMode: ComposerEditorMode.edit,
+                      minHeight: 300,
+                      onTextChanged: (text) {
+                        currentContent = text;
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /// 显示删除回复确认对话框
+  ///
+  /// [reply] 要删除的回复数据
+  void _showDeleteReplyConfirm(ReplyData reply) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除回复'),
+        content: const Text('确定要删除这条回复吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          Consumer(
+            builder: (context, ref, child) {
+              final replyState = ref.watch(replyNotifierProvider);
+              return FilledButton(
+                onPressed: replyState.isLoading
+                    ? null
+                    : () async {
+                        final postId = int.tryParse(reply.id);
+                        if (postId == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('无效的回复ID')),
+                          );
+                          return;
+                        }
+
+                        // 保存删除前的状态，用于错误恢复
+                        final previousComments = List<ReplyData>.from(_comments);
+                        final previousReplyNum = _topicDetail?.replyNum ?? 0;
+
+                        // 乐观删除：立即从列表中移除
+                        _optimisticRemoveReply(reply);
+
+                        Navigator.of(context).pop();
+
+                        final result = await ref
+                            .read(replyNotifierProvider.notifier)
+                            .deleteReply(postId);
+
+                        if (!mounted) return;
+
+                        if (result.success) {
+                          HapticFeedbackUtil.trigger(ref, HapticScene.deleteSuccess);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('回复已删除')),
+                          );
+                        } else {
+                          // 删除失败，恢复列表
+                          _restoreComments(previousComments, previousReplyNum);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(result.errorMessage ?? '删除失败，请稍后重试'),
+                              action: SnackBarAction(
+                                label: '重试',
+                                onPressed: () => _showDeleteReplyConfirm(reply),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                ),
+                child: replyState.isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('删除'),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 乐观删除：立即从列表中移除回复并更新计数
+  ///
+  /// [reply] 要移除的回复数据
+  void _optimisticRemoveReply(ReplyData reply) {
+    if (!mounted) return;
+
+    setState(() {
+      // 从列表中移除
+      _comments = _comments.where((item) => item.id != reply.id).toList();
+
+      // 更新回复计数
+      if (_topicDetail != null) {
+        final newReplyNum = (_topicDetail!.replyNum - 1).clamp(0, _topicDetail!.replyNum);
+        _topicDetail = _topicDetail!.copyWith(replyNum: newReplyNum);
+      }
+    });
+  }
+
+  /// 恢复评论列表和计数（删除失败时调用）
+  ///
+  /// [previousComments] 删除前的评论列表
+  /// [previousReplyNum] 删除前的回复数
+  void _restoreComments(List<ReplyData> previousComments, int previousReplyNum) {
+    if (!mounted) return;
+
+    setState(() {
+      _comments = previousComments;
+      if (_topicDetail != null) {
+        _topicDetail = _topicDetail!.copyWith(replyNum: previousReplyNum);
+      }
+    });
   }
 }
 
@@ -1203,6 +1534,8 @@ class _ReplyItem extends ConsumerWidget {
   final String? topicAuthorUid;
   final ValueChanged<String> onLinkTap;
   final VoidCallback? onReplyTap;
+  final VoidCallback? onEditTap;
+  final VoidCallback? onDeleteTap;
 
   const _ReplyItem({
     required this.reply,
@@ -1210,6 +1543,8 @@ class _ReplyItem extends ConsumerWidget {
     required this.topicAuthorUid,
     required this.onLinkTap,
     this.onReplyTap,
+    this.onEditTap,
+    this.onDeleteTap,
   });
 
   @override
@@ -1223,150 +1558,234 @@ class _ReplyItem extends ConsumerWidget {
     final likeNum = likeState?.likeCount ?? reply.likeNum;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outline.withValues(alpha: 0.12),
-          ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: colorScheme.outline.withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CommentAvatar(avatar: reply.avatar, username: reply.username),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  reply.username,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (isTopicAuthor) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.primaryContainer,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '楼主',
+                                    style: Theme.of(context).textTheme.labelSmall
+                                        ?.copyWith(color: colorScheme.onPrimaryContainer),
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              Text(
+                                '#$floor',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _formatTimestamp(reply.dateline),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          if (reply.replyTo != null && reply.replyTo!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Text(
+                                '回复 @${reply.replyTo}',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: colorScheme.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          _ReplyMessage(htmlContent: reply.message, onLinkTap: onLinkTap),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              GestureDetector(
+                                onTap: () async {
+                                  final postId = int.tryParse(reply.id);
+                                  if (postId != null && postId > 0) {
+                                    await HapticFeedbackUtil.trigger(
+                                      ref,
+                                      isLiked ? HapticScene.unlike : HapticScene.like,
+                                    );
+                                    await ref
+                                        .read(likeProvider.notifier)
+                                        .toggleLike(postId);
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isLiked
+                                          ? Icons.thumb_up_alt
+                                          : Icons.thumb_up_alt_outlined,
+                                      size: 16,
+                                      color: isLiked
+                                          ? colorScheme.primary
+                                          : colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '$likeNum',
+                                      style: Theme.of(context).textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: isLiked
+                                                ? colorScheme.primary
+                                                : colorScheme.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              GestureDetector(
+                                onTap: () async {
+                                  await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+                                  onReplyTap?.call();
+                                },
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.reply_outlined,
+                                      size: 16,
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '回复',
+                                      style: Theme.of(context).textTheme.bodySmall
+                                          ?.copyWith(color: colorScheme.onSurfaceVariant),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Spacer(),
+                              // 更多操作菜单
+                              _buildMoreOptionsButton(context, ref),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+  }
+
+  /// 构建更多操作按钮
+  ///
+  /// [context] 构建上下文
+  /// [ref] WidgetRef 用于获取 Provider
+  Widget _buildMoreOptionsButton(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final currentUser = ref.watch(currentUserProvider);
+    final isCurrentUser = currentUser?.uid == reply.uid;
+
+    // 如果没有编辑/删除权限，不显示更多按钮
+    if (!isCurrentUser) {
+      return const SizedBox.shrink();
+    }
+
+    return GestureDetector(
+      onTap: () => _showMoreOptions(context),
+      child: Icon(
+        Icons.more_vert,
+        size: 18,
+        color: colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  /// 显示更多操作菜单
+  ///
+  /// [context] 构建上下文
+  void _showMoreOptions(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CommentAvatar(avatar: reply.avatar, username: reply.username),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        reply.username,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    if (isTopicAuthor) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '楼主',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: colorScheme.onPrimaryContainer),
-                        ),
-                      ),
-                    ],
-                    const Spacer(),
-                    Text(
-                      '#$floor',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatTimestamp(reply.dateline),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 拖动指示器
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outline.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 8),
-                if (reply.replyTo != null && reply.replyTo!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(
-                      '回复 @${reply.replyTo}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                _ReplyMessage(htmlContent: reply.message, onLinkTap: onLinkTap),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () async {
-                        final postId = int.tryParse(reply.id);
-                        if (postId != null && postId > 0) {
-                          await HapticFeedbackUtil.trigger(
-                            ref,
-                            isLiked ? HapticScene.unlike : HapticScene.like,
-                          );
-                          await ref
-                              .read(likeProvider.notifier)
-                              .toggleLike(postId);
-                        }
-                      },
-                      child: Row(
-                        children: [
-                          Icon(
-                            isLiked
-                                ? Icons.thumb_up_alt
-                                : Icons.thumb_up_alt_outlined,
-                            size: 16,
-                            color: isLiked
-                                ? colorScheme.primary
-                                : colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$likeNum',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: isLiked
-                                      ? colorScheme.primary
-                                      : colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    GestureDetector(
-                      onTap: () async {
-                        await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
-                        onReplyTap?.call();
-                      },
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.reply_outlined,
-                            size: 16,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '回复',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: colorScheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+            // 编辑选项
+            ListTile(
+              leading: Icon(Icons.edit, color: colorScheme.primary),
+              title: const Text('编辑'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onEditTap?.call();
+              },
+            ),
+            // 删除选项
+            ListTile(
+              leading: Icon(Icons.delete, color: colorScheme.error),
+              title: Text('删除', style: TextStyle(color: colorScheme.error)),
+              onTap: () {
+                Navigator.of(context).pop();
+                onDeleteTap?.call();
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1596,3 +2015,5 @@ class _BottomCommentBar extends StatelessWidget {
     );
   }
 }
+
+

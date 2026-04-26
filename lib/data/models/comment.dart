@@ -53,6 +53,7 @@ class ReplyData with _$ReplyData {
   /// @param replyRowsMore 是否有更多子回复
   /// @param replyTo 回复对象用户名
   /// @param replyUid 回复对象用户ID
+  /// @param postNumber 帖子楼层号（用于楼中楼回复）
   const factory ReplyData({
     @JsonKey(name: 'id') required String id,
     @JsonKey(name: 'uid') required String uid,
@@ -68,6 +69,7 @@ class ReplyData with _$ReplyData {
     @JsonKey(name: 'replyRowsMore') @Default(false) bool replyRowsMore,
     @JsonKey(name: 'reply_to') String? replyTo,
     @JsonKey(name: 'reply_uid') String? replyUid,
+    @JsonKey(name: 'post_number') int? postNumber,
   }) = _ReplyData;
 
   /// 从JSON解析评论数据对象

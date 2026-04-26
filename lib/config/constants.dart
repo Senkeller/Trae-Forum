@@ -127,6 +127,7 @@ class RoutePaths {
   static const String feedDetail = '/feed/:id';
   static const String feedCreate = '/feed/create';
   static const String feedReply = '/feed/:id/reply';
+  static const String feedEdit = '/feed/:id/edit';
 
   // 用户相关
   static const String userProfile = '/user/:uid';

@@ -348,6 +348,8 @@ mixin _$ReplyData {
   String? get replyTo => throw _privateConstructorUsedError;
   @JsonKey(name: 'reply_uid')
   String? get replyUid => throw _privateConstructorUsedError;
+  @JsonKey(name: 'post_number')
+  int? get postNumber => throw _privateConstructorUsedError;
 
   /// Serializes this ReplyData to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -379,6 +381,7 @@ abstract class $ReplyDataCopyWith<$Res> {
     @JsonKey(name: 'replyRowsMore') bool replyRowsMore,
     @JsonKey(name: 'reply_to') String? replyTo,
     @JsonKey(name: 'reply_uid') String? replyUid,
+    @JsonKey(name: 'post_number') int? postNumber,
   });
 }
 
@@ -411,6 +414,7 @@ class _$ReplyDataCopyWithImpl<$Res, $Val extends ReplyData>
     Object? replyRowsMore = null,
     Object? replyTo = freezed,
     Object? replyUid = freezed,
+    Object? postNumber = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -470,6 +474,10 @@ class _$ReplyDataCopyWithImpl<$Res, $Val extends ReplyData>
                 ? _value.replyUid
                 : replyUid // ignore: cast_nullable_to_non_nullable
                       as String?,
+            postNumber: freezed == postNumber
+                ? _value.postNumber
+                : postNumber // ignore: cast_nullable_to_non_nullable
+                      as int?,
           )
           as $Val,
     );
@@ -500,6 +508,7 @@ abstract class _$$ReplyDataImplCopyWith<$Res>
     @JsonKey(name: 'replyRowsMore') bool replyRowsMore,
     @JsonKey(name: 'reply_to') String? replyTo,
     @JsonKey(name: 'reply_uid') String? replyUid,
+    @JsonKey(name: 'post_number') int? postNumber,
   });
 }
 
@@ -531,6 +540,7 @@ class __$$ReplyDataImplCopyWithImpl<$Res>
     Object? replyRowsMore = null,
     Object? replyTo = freezed,
     Object? replyUid = freezed,
+    Object? postNumber = freezed,
   }) {
     return _then(
       _$ReplyDataImpl(
@@ -590,6 +600,10 @@ class __$$ReplyDataImplCopyWithImpl<$Res>
             ? _value.replyUid
             : replyUid // ignore: cast_nullable_to_non_nullable
                   as String?,
+        postNumber: freezed == postNumber
+            ? _value.postNumber
+            : postNumber // ignore: cast_nullable_to_non_nullable
+                  as int?,
       ),
     );
   }
@@ -613,6 +627,7 @@ class _$ReplyDataImpl implements _ReplyData {
     @JsonKey(name: 'replyRowsMore') this.replyRowsMore = false,
     @JsonKey(name: 'reply_to') this.replyTo,
     @JsonKey(name: 'reply_uid') this.replyUid,
+    @JsonKey(name: 'post_number') this.postNumber,
   }) : _picArr = picArr,
        _replyRows = replyRows;
 
@@ -673,10 +688,13 @@ class _$ReplyDataImpl implements _ReplyData {
   @override
   @JsonKey(name: 'reply_uid')
   final String? replyUid;
+  @override
+  @JsonKey(name: 'post_number')
+  final int? postNumber;
 
   @override
   String toString() {
-    return 'ReplyData(id: $id, uid: $uid, username: $username, avatar: $avatar, message: $message, picArr: $picArr, dateline: $dateline, likeNum: $likeNum, isLike: $isLike, replyNum: $replyNum, replyRows: $replyRows, replyRowsMore: $replyRowsMore, replyTo: $replyTo, replyUid: $replyUid)';
+    return 'ReplyData(id: $id, uid: $uid, username: $username, avatar: $avatar, message: $message, picArr: $picArr, dateline: $dateline, likeNum: $likeNum, isLike: $isLike, replyNum: $replyNum, replyRows: $replyRows, replyRowsMore: $replyRowsMore, replyTo: $replyTo, replyUid: $replyUid, postNumber: $postNumber)';
   }
 
   @override
@@ -705,7 +723,9 @@ class _$ReplyDataImpl implements _ReplyData {
                 other.replyRowsMore == replyRowsMore) &&
             (identical(other.replyTo, replyTo) || other.replyTo == replyTo) &&
             (identical(other.replyUid, replyUid) ||
-                other.replyUid == replyUid));
+                other.replyUid == replyUid) &&
+            (identical(other.postNumber, postNumber) ||
+                other.postNumber == postNumber));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -726,6 +746,7 @@ class _$ReplyDataImpl implements _ReplyData {
     replyRowsMore,
     replyTo,
     replyUid,
+    postNumber,
   );
 
   /// Create a copy of ReplyData
@@ -758,6 +779,7 @@ abstract class _ReplyData implements ReplyData {
     @JsonKey(name: 'replyRowsMore') final bool replyRowsMore,
     @JsonKey(name: 'reply_to') final String? replyTo,
     @JsonKey(name: 'reply_uid') final String? replyUid,
+    @JsonKey(name: 'post_number') final int? postNumber,
   }) = _$ReplyDataImpl;
 
   factory _ReplyData.fromJson(Map<String, dynamic> json) =
@@ -805,6 +827,9 @@ abstract class _ReplyData implements ReplyData {
   @override
   @JsonKey(name: 'reply_uid')
   String? get replyUid;
+  @override
+  @JsonKey(name: 'post_number')
+  int? get postNumber;
 
   /// Create a copy of ReplyData
   /// with the given fields replaced by the non-null parameter values.

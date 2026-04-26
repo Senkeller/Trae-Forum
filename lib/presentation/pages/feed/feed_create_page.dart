@@ -4,15 +4,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as path_util;
 
 import '../../../config/constants.dart';
 import '../../../data/repositories/comment_repository.dart';
 import '../../../data/repositories/feed_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/editor/composer_editor.dart';
+import '../../widgets/editor/composer_preview.dart';
 
 enum _PostLayoutMode { cover, grid }
 
+/// Feed 创建页面
+///
+/// 使用 ComposerEditor 编辑器，支持：
+/// - Markdown 语法编辑
+/// - 实时预览模式
+/// - 图片上传与 Markdown 插入
+/// - 分类选择
+/// - 标签选择
+/// - 草稿保存/恢复
 class FeedCreatePage extends ConsumerStatefulWidget {
   const FeedCreatePage({super.key});
 
@@ -22,8 +32,6 @@ class FeedCreatePage extends ConsumerStatefulWidget {
 
 class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _contentController = TextEditingController();
-  final FocusNode _contentFocusNode = FocusNode();
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isLoading = false;
@@ -33,6 +41,18 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   String _selectedCategory = 'discussion';
   final List<String> _selectedTags = [];
   final List<XFile> _selectedImages = [];
+
+  /// 编辑器内容
+  String _editorContent = '';
+
+  /// 是否显示预览模式
+  bool _isPreviewMode = false;
+
+  /// 草稿是否已保存
+  bool _draftSaved = false;
+
+  /// 草稿保存时间
+  DateTime? _draftSavedAt;
 
   final List<Map<String, String>> _categories = const [
     {'id': 'discussion', 'label': '互动交流', 'hint': '选择合适的板块会有更多的赞'},
@@ -53,10 +73,11 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     '编程经验',
   ];
 
+  /// 是否可以发布
   bool get _canPublish =>
       !_isLoading &&
       _titleController.text.trim().isNotEmpty &&
-      _contentController.text.trim().isNotEmpty;
+      _editorContent.trim().isNotEmpty;
 
   int get _maxImageCount => _layoutMode == _PostLayoutMode.cover ? 1 : 9;
 
@@ -80,19 +101,17 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   void initState() {
     super.initState();
     _titleController.addListener(_onInputChanged);
-    _contentController.addListener(_onInputChanged);
+    _loadDraft();
   }
 
   @override
   void dispose() {
     _titleController.removeListener(_onInputChanged);
-    _contentController.removeListener(_onInputChanged);
     _titleController.dispose();
-    _contentController.dispose();
-    _contentFocusNode.dispose();
     super.dispose();
   }
 
+  /// 输入变化回调
   void _onInputChanged() {
     if (mounted) {
       setState(() {
@@ -101,6 +120,69 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     }
   }
 
+  /// 编辑器内容变化回调
+  void _onEditorTextChanged(String text) {
+    setState(() {
+      _editorContent = text;
+      _errorMessage = null;
+      _draftSaved = false;
+    });
+  }
+
+  /// 加载草稿
+  Future<void> _loadDraft() async {
+    try {
+      final repository = ref.read(commentRepositoryProvider);
+      final draft = await repository.getDraft(
+        topicId: 0,
+        replyToPostNumber: null,
+      );
+
+      if (draft != null && draft.content.isNotEmpty && mounted) {
+        setState(() {
+          _editorContent = draft.content;
+        });
+      }
+    } catch (e) {
+      // 忽略草稿加载错误
+    }
+  }
+
+  /// 保存草稿
+  Future<void> _saveDraft() async {
+    if (_editorContent.trim().isEmpty) return;
+
+    try {
+      final repository = ref.read(commentRepositoryProvider);
+      final success = await repository.saveDraft(
+        topicId: 0,
+        content: _editorContent.trim(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _draftSaved = success;
+          if (success) {
+            _draftSavedAt = DateTime.now();
+          }
+        });
+      }
+    } catch (e) {
+      // 忽略草稿保存错误
+    }
+  }
+
+  /// 删除草稿
+  Future<void> _deleteDraft() async {
+    try {
+      final repository = ref.read(commentRepositoryProvider);
+      await repository.deleteDraft(topicId: 0);
+    } catch (e) {
+      // 忽略删除错误
+    }
+  }
+
+  /// 发布话题
   Future<void> _publish() async {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null || currentUser.uid.isEmpty) {
@@ -117,8 +199,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     }
 
     final title = _titleController.text.trim();
-    final contentRaw = _contentController.text;
-    final contentTrimmed = contentRaw.trim();
+    final contentTrimmed = _editorContent.trim();
     if (title.isEmpty || contentTrimmed.isEmpty) {
       setState(() {
         _errorMessage = title.isEmpty ? '请输入标题' : '请输入正文内容';
@@ -134,27 +215,26 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
 
     try {
       final categoryId = AppConstants.forumCategoryIds[_selectedCategory];
-      final selection = _contentController.selection;
-      final rawContent = await _composeRawContentWithUploadedImages(
-        contentRaw,
-        selectionStart: selection.isValid ? selection.start : contentRaw.length,
-        selectionEnd: selection.isValid ? selection.end : contentRaw.length,
-      );
       final data = <String, String>{
         'title': title,
-        'content': rawContent.trim(),
+        'content': contentTrimmed,
         if (categoryId != null) 'category': categoryId.toString(),
       };
 
       final response = await ref
           .read(feedRepositoryProvider)
-          .createFeed(data: data);
+          .createFeed(data: data, tags: _selectedTags);
       if (!mounted) return;
 
       if (response.status == 200) {
+        // 发布成功后删除草稿
+        await _deleteDraft();
+
+        if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('发布成功')));
+        if (!mounted) return;
         context.pop(true);
         return;
       }
@@ -168,9 +248,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e is _TopicImageUploadException
-            ? e.message
-            : '发布失败，请稍后重试';
+        _errorMessage = '发布失败，请稍后重试';
       });
     } finally {
       if (mounted) {
@@ -179,83 +257,6 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
         });
       }
     }
-  }
-
-  Future<String> _composeRawContentWithUploadedImages(
-    String content, {
-    required int selectionStart,
-    required int selectionEnd,
-  }) async {
-    if (_selectedImages.isEmpty) {
-      return content;
-    }
-
-    final repository = ref.read(commentRepositoryProvider);
-    final markdownSnippets = <String>[];
-
-    for (int i = 0; i < _selectedImages.length; i++) {
-      if (!mounted) break;
-
-      setState(() {
-        _loadingMessage = '上传图片 ${i + 1}/${_selectedImages.length}...';
-      });
-
-      final image = _selectedImages[i];
-      final fileName = path_util.basename(image.path);
-      final result = await repository.uploadCommentImage(
-        filePath: image.path,
-        fileName: fileName,
-      );
-
-      if (!result.success ||
-          result.markdown == null ||
-          result.markdown!.trim().isEmpty) {
-        throw _TopicImageUploadException(result.errorMessage ?? '图片上传失败，请稍后重试');
-      }
-
-      markdownSnippets.add(result.markdown!.trim());
-    }
-
-    if (markdownSnippets.isEmpty) {
-      return content;
-    }
-
-    final imageMarkdownBlock = markdownSnippets.join('\n\n');
-    return _insertAtSelection(
-      text: content,
-      inserted: imageMarkdownBlock,
-      selectionStart: selectionStart,
-      selectionEnd: selectionEnd,
-    );
-  }
-
-  String _insertAtSelection({
-    required String text,
-    required String inserted,
-    required int selectionStart,
-    required int selectionEnd,
-  }) {
-    final safeStart = selectionStart.clamp(0, text.length);
-    final safeEnd = selectionEnd.clamp(0, text.length);
-    final start = safeStart <= safeEnd ? safeStart : safeEnd;
-    final end = safeStart <= safeEnd ? safeEnd : safeStart;
-
-    final prefix = text.substring(0, start);
-    final suffix = text.substring(end);
-
-    final needsPrefixBreak = prefix.isNotEmpty && !prefix.endsWith('\n');
-    final needsSuffixBreak = suffix.isNotEmpty && !suffix.startsWith('\n');
-
-    final buffer = StringBuffer(prefix);
-    if (needsPrefixBreak) {
-      buffer.write('\n\n');
-    }
-    buffer.write(inserted);
-    if (needsSuffixBreak) {
-      buffer.write('\n\n');
-    }
-    buffer.write(suffix);
-    return buffer.toString();
   }
 
   String _resolvePublishError({int? status, String? message}) {
@@ -273,6 +274,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     }
   }
 
+  /// 打开分类选择面板
   Future<void> _openCategorySheet() async {
     final selected = await showModalBottomSheet<String>(
       context: context,
@@ -312,6 +314,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     });
   }
 
+  /// 选择图片
   Future<void> _pickImages() async {
     final remaining = _maxImageCount - _selectedImages.length;
     if (remaining <= 0) {
@@ -355,6 +358,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     }
   }
 
+  /// 切换布局模式
   void _changeLayoutMode(_PostLayoutMode mode) {
     if (_layoutMode == mode) return;
     setState(() {
@@ -365,12 +369,14 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     });
   }
 
+  /// 删除图片
   void _removeImageAt(int index) {
     setState(() {
       _selectedImages.removeAt(index);
     });
   }
 
+  /// 切换标签选择
   void _toggleTag(String tag) {
     setState(() {
       if (_selectedTags.contains(tag)) {
@@ -381,25 +387,14 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     });
   }
 
-  void _insertAtCursor(String text) {
-    final oldValue = _contentController.value;
-    final selection = oldValue.selection;
-    final start = selection.isValid ? selection.start : oldValue.text.length;
-    final end = selection.isValid ? selection.end : oldValue.text.length;
-    final safeStart = start < 0 ? oldValue.text.length : start;
-    final safeEnd = end < 0 ? oldValue.text.length : end;
-
-    final newText = oldValue.text.replaceRange(safeStart, safeEnd, text);
-    final offset = safeStart + text.length;
-
-    _contentController.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: offset),
-    );
-
-    _contentFocusNode.requestFocus();
+  /// 切换预览模式
+  void _togglePreviewMode() {
+    setState(() {
+      _isPreviewMode = !_isPreviewMode;
+    });
   }
 
+  /// 显示未就绪功能提示
   void _showNotReadyMessage(String feature) {
     ScaffoldMessenger.of(
       context,
@@ -442,6 +437,30 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
           },
         ),
         actions: [
+          // 预览模式切换按钮
+          IconButton(
+            onPressed: _togglePreviewMode,
+            icon: Icon(
+              _isPreviewMode ? Icons.edit : Icons.remove_red_eye,
+              color: _isPreviewMode
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            tooltip: _isPreviewMode ? '编辑模式' : '预览模式',
+          ),
+          // 草稿保存按钮
+          if (!_isLoading)
+            IconButton(
+              onPressed: _saveDraft,
+              icon: Icon(
+                _draftSaved ? Icons.check_circle : Icons.save_outlined,
+                color: _draftSaved
+                    ? const Color(0xFF10A37F)
+                    : null,
+              ),
+              tooltip: '保存草稿',
+            ),
+          // 发布按钮
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: OutlinedButton(
@@ -466,102 +485,57 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
       ),
       body: Column(
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildCategoryCard(),
-                  const SizedBox(height: 12),
-                  const Divider(height: 1),
-                  const SizedBox(height: 14),
-                  _buildImageSection(),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      hintText: '请输入标题（必填）',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    style: Theme.of(context).textTheme.titleMedium,
-                    maxLength: 100,
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _contentController,
-                    focusNode: _contentFocusNode,
-                    decoration: const InputDecoration(
-                      hintText: '分享你此刻的想法...',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    minLines: 8,
-                    maxLines: null,
-                    keyboardType: TextInputType.multiline,
-                  ),
-                  if (_errorMessage != null) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onErrorContainer,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  _buildSettingItem(
-                    icon: Icons.shopping_bag_outlined,
-                    title: '添加商品',
-                    trailing: '分享你的好物',
-                    onTap: () => _showNotReadyMessage('添加商品'),
-                  ),
-                  _buildSettingItem(
-                    icon: Icons.remove_red_eye_outlined,
-                    title: '谁可以看',
-                    trailing: '公开',
-                    onTap: () => _showNotReadyMessage('可见范围设置'),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    height: 36,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _availableTags.length,
-                      separatorBuilder: (_, index) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final tag = _availableTags[index];
-                        final selected = _selectedTags.contains(tag);
-                        return FilterChip(
-                          label: Text('#$tag'),
-                          selected: selected,
-                          onSelected: (_) => _toggleTag(tag),
-                          side: BorderSide.none,
-                          showCheckmark: false,
-                          selectedColor: const Color(0xFFDFF4E8),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+          // 分类选择卡片
+          _buildCategoryCard(),
+          const Divider(height: 1),
+          // 图片选择区域
+          _buildImageSection(),
+          const Divider(height: 1),
+          // 标题输入
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                hintText: '请输入标题（必填）',
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
               ),
+              style: Theme.of(context).textTheme.titleMedium,
+              maxLength: 100,
             ),
           ),
-          _buildBottomToolbar(),
+          // 编辑器区域
+          Expanded(
+            child: _isPreviewMode
+                ? _buildPreviewSection()
+                : _buildEditorSection(),
+          ),
+          // 错误信息
+          if (_errorMessage != null)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+          // 标签选择区域
+          _buildTagsSection(),
         ],
       ),
     );
   }
 
+  /// 构建分类选择卡片
   Widget _buildCategoryCard() {
     return Material(
       color: Colors.transparent,
@@ -569,7 +543,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
         borderRadius: BorderRadius.circular(12),
         onTap: _openCategorySheet,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
               Container(
@@ -607,74 +581,85 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     );
   }
 
+  /// 构建图片选择区域
   Widget _buildImageSection() {
     final helperText = _layoutMode == _PostLayoutMode.cover
         ? '大封面模式最多 1 张图'
         : '九宫格模式最多 9 张图，可继续添加';
 
-    if (_layoutMode == _PostLayoutMode.cover) {
-      return Row(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildImageTile(
-            size: 120,
-            image: _selectedImages.isEmpty ? null : _selectedImages.first,
-            onTap: _pickImages,
-            onRemove: _selectedImages.isEmpty ? null : () => _removeImageAt(0),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              '$helperText\n发无关图、色情图将会被禁言',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 15,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            const gap = 8.0;
-            final size = (constraints.maxWidth - gap * 2) / 3;
-            final List<Widget> items = [];
-            for (int i = 0; i < _selectedImages.length; i++) {
-              items.add(
+          if (_layoutMode == _PostLayoutMode.cover)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 _buildImageTile(
-                  size: size,
-                  image: _selectedImages[i],
-                  onTap: () => _showNotReadyMessage('图片预览'),
-                  onRemove: () => _removeImageAt(i),
+                  size: 120,
+                  image: _selectedImages.isEmpty ? null : _selectedImages.first,
+                  onTap: _pickImages,
+                  onRemove:
+                      _selectedImages.isEmpty ? null : () => _removeImageAt(0),
                 ),
-              );
-            }
-            if (_selectedImages.length < _maxImageCount) {
-              items.add(
-                _buildImageTile(size: size, image: null, onTap: _pickImages),
-              );
-            }
-            return Wrap(spacing: gap, runSpacing: gap, children: items);
-          },
-        ),
-        const SizedBox(height: 10),
-        Text(
-          '$helperText，发无关图、色情图将会被禁言',
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 14,
-          ),
-        ),
-      ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    '$helperText\n发无关图、色情图将会被禁言',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const gap = 8.0;
+                    final size = (constraints.maxWidth - gap * 2) / 3;
+                    final List<Widget> items = [];
+                    for (int i = 0; i < _selectedImages.length; i++) {
+                      items.add(
+                        _buildImageTile(
+                          size: size,
+                          image: _selectedImages[i],
+                          onTap: () => _showNotReadyMessage('图片预览'),
+                          onRemove: () => _removeImageAt(i),
+                        ),
+                      );
+                    }
+                    if (_selectedImages.length < _maxImageCount) {
+                      items.add(
+                        _buildImageTile(
+                            size: size, image: null, onTap: _pickImages),
+                      );
+                    }
+                    return Wrap(spacing: gap, runSpacing: gap, children: items);
+                  },
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '$helperText，发无关图、色情图将会被禁言',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 
+  /// 构建图片格子
   Widget _buildImageTile({
     required double size,
     required VoidCallback onTap,
@@ -725,49 +710,55 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     );
   }
 
-  Widget _buildSettingItem({
-    required IconData icon,
-    required String title,
-    required String trailing,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: Theme.of(
-                context,
-              ).colorScheme.outline.withValues(alpha: 0.2),
-            ),
-          ),
-        ),
-        child: Row(
+  /// 构建编辑器区域
+  Widget _buildEditorSection() {
+    return ComposerEditor(
+      initialText: _editorContent,
+      hintText: '分享你此刻的想法...（支持 Markdown 语法）',
+      onTextChanged: _onEditorTextChanged,
+      showPreview: false,
+      showToolbar: true,
+      showAttachmentPanel: false,
+      enableSplitView: false,
+      minHeight: 200,
+      maxLength: 10000,
+      submitButtonText: '发布',
+      enableEmojiPicker: true,
+    );
+  }
+
+  /// 构建预览区域
+  Widget _buildPreviewSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
-            const SizedBox(width: 12),
-            Text(title, style: const TextStyle(fontSize: 16)),
-            const Spacer(),
-            Text(
-              trailing,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 16,
+            if (_titleController.text.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  _titleController.text,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
               ),
+            ComposerPreview(
+              markdownText: _editorContent,
+              emptyHint: '暂无内容',
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBottomToolbar() {
+  /// 构建标签选择区域
+  Widget _buildTagsSection() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(
@@ -778,26 +769,39 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _ToolbarAction(
-              icon: Icons.emoji_emotions_outlined,
-              onTap: () => _insertAtCursor('😀 '),
-            ),
-            _ToolbarAction(icon: Icons.image_outlined, onTap: _pickImages),
-            _ToolbarAction(
-              icon: Icons.alternate_email,
-              onTap: () => _insertAtCursor('@'),
-            ),
-            _ToolbarAction(icon: Icons.tag, onTap: () => _insertAtCursor('#')),
-            _ToolbarAction(
-              icon: Icons.add_circle_outline,
-              onTap: () => _showNotReadyMessage('更多功能'),
-            ),
-            _ToolbarAction(
-              icon: Icons.apps,
-              onTap: () => _showNotReadyMessage('快捷面板'),
+            if (_draftSaved && _draftSavedAt != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '草稿已保存 ${_draftSavedAt!.hour.toString().padLeft(2, '0')}:${_draftSavedAt!.minute.toString().padLeft(2, '0')}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _availableTags.length,
+                separatorBuilder: (_, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final tag = _availableTags[index];
+                  final selected = _selectedTags.contains(tag);
+                  return FilterChip(
+                    label: Text('#$tag'),
+                    selected: selected,
+                    onSelected: (_) => _toggleTag(tag),
+                    side: BorderSide.none,
+                    showCheckmark: false,
+                    selectedColor: const Color(0xFFDFF4E8),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -806,31 +810,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   }
 }
 
-class _ToolbarAction extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _ToolbarAction({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onTap,
-      icon: Icon(
-        icon,
-        size: 28,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-      ),
-    );
-  }
-}
-
-class _TopicImageUploadException implements Exception {
-  final String message;
-
-  const _TopicImageUploadException(this.message);
-}
-
+/// 状态视图组件
 class _StateView extends StatelessWidget {
   final IconData icon;
   final String title;

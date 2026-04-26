@@ -16,6 +16,7 @@ enum HapticScene {
   message,
   commentSuccess,
   copySuccess,
+  deleteSuccess,
 }
 
 class HapticFeedbackUtil {
@@ -59,6 +60,9 @@ class HapticFeedbackUtil {
           break;
         case HapticScene.copySuccess:
           await HapticFeedback.selectionClick();
+          break;
+        case HapticScene.deleteSuccess:
+          await HapticFeedback.lightImpact();
           break;
       }
     } catch (_) {

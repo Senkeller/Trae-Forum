@@ -18,10 +18,15 @@ final _privateConstructorUsedError = UnsupportedError(
 /// @nodoc
 mixin _$ReplyState {
   bool get isLoading => throw _privateConstructorUsedError;
+  LoadingState get loadingState => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
+  String? get errorCode => throw _privateConstructorUsedError;
   bool get success => throw _privateConstructorUsedError;
   int? get postId => throw _privateConstructorUsedError;
   bool get draftSaved => throw _privateConstructorUsedError;
+  int get retryCount => throw _privateConstructorUsedError;
+  int get maxRetries => throw _privateConstructorUsedError;
+  ReplyOperationType? get operationType => throw _privateConstructorUsedError;
 
   /// Create a copy of ReplyState
   /// with the given fields replaced by the non-null parameter values.
@@ -39,10 +44,15 @@ abstract class $ReplyStateCopyWith<$Res> {
   @useResult
   $Res call({
     bool isLoading,
+    LoadingState loadingState,
     String? error,
+    String? errorCode,
     bool success,
     int? postId,
     bool draftSaved,
+    int retryCount,
+    int maxRetries,
+    ReplyOperationType? operationType,
   });
 }
 
@@ -62,10 +72,15 @@ class _$ReplyStateCopyWithImpl<$Res, $Val extends ReplyState>
   @override
   $Res call({
     Object? isLoading = null,
+    Object? loadingState = null,
     Object? error = freezed,
+    Object? errorCode = freezed,
     Object? success = null,
     Object? postId = freezed,
     Object? draftSaved = null,
+    Object? retryCount = null,
+    Object? maxRetries = null,
+    Object? operationType = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -73,9 +88,17 @@ class _$ReplyStateCopyWithImpl<$Res, $Val extends ReplyState>
                 ? _value.isLoading
                 : isLoading // ignore: cast_nullable_to_non_nullable
                       as bool,
+            loadingState: null == loadingState
+                ? _value.loadingState
+                : loadingState // ignore: cast_nullable_to_non_nullable
+                      as LoadingState,
             error: freezed == error
                 ? _value.error
                 : error // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            errorCode: freezed == errorCode
+                ? _value.errorCode
+                : errorCode // ignore: cast_nullable_to_non_nullable
                       as String?,
             success: null == success
                 ? _value.success
@@ -89,6 +112,18 @@ class _$ReplyStateCopyWithImpl<$Res, $Val extends ReplyState>
                 ? _value.draftSaved
                 : draftSaved // ignore: cast_nullable_to_non_nullable
                       as bool,
+            retryCount: null == retryCount
+                ? _value.retryCount
+                : retryCount // ignore: cast_nullable_to_non_nullable
+                      as int,
+            maxRetries: null == maxRetries
+                ? _value.maxRetries
+                : maxRetries // ignore: cast_nullable_to_non_nullable
+                      as int,
+            operationType: freezed == operationType
+                ? _value.operationType
+                : operationType // ignore: cast_nullable_to_non_nullable
+                      as ReplyOperationType?,
           )
           as $Val,
     );
@@ -106,10 +141,15 @@ abstract class _$$ReplyStateImplCopyWith<$Res>
   @useResult
   $Res call({
     bool isLoading,
+    LoadingState loadingState,
     String? error,
+    String? errorCode,
     bool success,
     int? postId,
     bool draftSaved,
+    int retryCount,
+    int maxRetries,
+    ReplyOperationType? operationType,
   });
 }
 
@@ -128,10 +168,15 @@ class __$$ReplyStateImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? isLoading = null,
+    Object? loadingState = null,
     Object? error = freezed,
+    Object? errorCode = freezed,
     Object? success = null,
     Object? postId = freezed,
     Object? draftSaved = null,
+    Object? retryCount = null,
+    Object? maxRetries = null,
+    Object? operationType = freezed,
   }) {
     return _then(
       _$ReplyStateImpl(
@@ -139,9 +184,17 @@ class __$$ReplyStateImplCopyWithImpl<$Res>
             ? _value.isLoading
             : isLoading // ignore: cast_nullable_to_non_nullable
                   as bool,
+        loadingState: null == loadingState
+            ? _value.loadingState
+            : loadingState // ignore: cast_nullable_to_non_nullable
+                  as LoadingState,
         error: freezed == error
             ? _value.error
             : error // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        errorCode: freezed == errorCode
+            ? _value.errorCode
+            : errorCode // ignore: cast_nullable_to_non_nullable
                   as String?,
         success: null == success
             ? _value.success
@@ -155,6 +208,18 @@ class __$$ReplyStateImplCopyWithImpl<$Res>
             ? _value.draftSaved
             : draftSaved // ignore: cast_nullable_to_non_nullable
                   as bool,
+        retryCount: null == retryCount
+            ? _value.retryCount
+            : retryCount // ignore: cast_nullable_to_non_nullable
+                  as int,
+        maxRetries: null == maxRetries
+            ? _value.maxRetries
+            : maxRetries // ignore: cast_nullable_to_non_nullable
+                  as int,
+        operationType: freezed == operationType
+            ? _value.operationType
+            : operationType // ignore: cast_nullable_to_non_nullable
+                  as ReplyOperationType?,
       ),
     );
   }
@@ -165,17 +230,27 @@ class __$$ReplyStateImplCopyWithImpl<$Res>
 class _$ReplyStateImpl implements _ReplyState {
   const _$ReplyStateImpl({
     this.isLoading = false,
+    this.loadingState = LoadingState.idle,
     this.error,
+    this.errorCode,
     this.success = false,
     this.postId,
     this.draftSaved = false,
+    this.retryCount = 0,
+    this.maxRetries = 3,
+    this.operationType,
   });
 
   @override
   @JsonKey()
   final bool isLoading;
   @override
+  @JsonKey()
+  final LoadingState loadingState;
+  @override
   final String? error;
+  @override
+  final String? errorCode;
   @override
   @JsonKey()
   final bool success;
@@ -184,10 +259,18 @@ class _$ReplyStateImpl implements _ReplyState {
   @override
   @JsonKey()
   final bool draftSaved;
+  @override
+  @JsonKey()
+  final int retryCount;
+  @override
+  @JsonKey()
+  final int maxRetries;
+  @override
+  final ReplyOperationType? operationType;
 
   @override
   String toString() {
-    return 'ReplyState(isLoading: $isLoading, error: $error, success: $success, postId: $postId, draftSaved: $draftSaved)';
+    return 'ReplyState(isLoading: $isLoading, loadingState: $loadingState, error: $error, errorCode: $errorCode, success: $success, postId: $postId, draftSaved: $draftSaved, retryCount: $retryCount, maxRetries: $maxRetries, operationType: $operationType)';
   }
 
   @override
@@ -197,16 +280,37 @@ class _$ReplyStateImpl implements _ReplyState {
             other is _$ReplyStateImpl &&
             (identical(other.isLoading, isLoading) ||
                 other.isLoading == isLoading) &&
+            (identical(other.loadingState, loadingState) ||
+                other.loadingState == loadingState) &&
             (identical(other.error, error) || other.error == error) &&
+            (identical(other.errorCode, errorCode) ||
+                other.errorCode == errorCode) &&
             (identical(other.success, success) || other.success == success) &&
             (identical(other.postId, postId) || other.postId == postId) &&
             (identical(other.draftSaved, draftSaved) ||
-                other.draftSaved == draftSaved));
+                other.draftSaved == draftSaved) &&
+            (identical(other.retryCount, retryCount) ||
+                other.retryCount == retryCount) &&
+            (identical(other.maxRetries, maxRetries) ||
+                other.maxRetries == maxRetries) &&
+            (identical(other.operationType, operationType) ||
+                other.operationType == operationType));
   }
 
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, isLoading, error, success, postId, draftSaved);
+  int get hashCode => Object.hash(
+    runtimeType,
+    isLoading,
+    loadingState,
+    error,
+    errorCode,
+    success,
+    postId,
+    draftSaved,
+    retryCount,
+    maxRetries,
+    operationType,
+  );
 
   /// Create a copy of ReplyState
   /// with the given fields replaced by the non-null parameter values.
@@ -220,22 +324,37 @@ class _$ReplyStateImpl implements _ReplyState {
 abstract class _ReplyState implements ReplyState {
   const factory _ReplyState({
     final bool isLoading,
+    final LoadingState loadingState,
     final String? error,
+    final String? errorCode,
     final bool success,
     final int? postId,
     final bool draftSaved,
+    final int retryCount,
+    final int maxRetries,
+    final ReplyOperationType? operationType,
   }) = _$ReplyStateImpl;
 
   @override
   bool get isLoading;
   @override
+  LoadingState get loadingState;
+  @override
   String? get error;
+  @override
+  String? get errorCode;
   @override
   bool get success;
   @override
   int? get postId;
   @override
   bool get draftSaved;
+  @override
+  int get retryCount;
+  @override
+  int get maxRetries;
+  @override
+  ReplyOperationType? get operationType;
 
   /// Create a copy of ReplyState
   /// with the given fields replaced by the non-null parameter values.

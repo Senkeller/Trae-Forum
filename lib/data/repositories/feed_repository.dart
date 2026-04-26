@@ -81,13 +81,18 @@ class FeedRepository {
   /// 发布动态
   ///
   /// [data] 动态内容数据，包含消息、图片等信息
+  /// [tags] 话题标签列表（可选）
   /// 返回发布动态响应数据
   /// 抛出 [ApiException] 或 [NetworkException] 当请求失败时
   Future<api.CreateFeedResponse> createFeed({
     required Map<String, String> data,
+    List<String>? tags,
   }) async {
     try {
-      final response = await _apiService.postCreateFeed(data: data);
+      final response = await _apiService.postCreateFeed(
+        data: data,
+        tags: tags,
+      );
       return response;
     } on DioException catch (e) {
       throw _handleDioError(e);

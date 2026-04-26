@@ -326,6 +326,7 @@ class ApiService extends _$ApiService {
         replyNum: map['reply_count'] ?? 0,
         replyTo: map['reply_to_user']?['username'],
         replyUid: map['reply_to_user']?['user_id']?.toString(),
+        postNumber: map['post_number'] as int?,
       );
     }).toList();
   }
@@ -905,6 +906,7 @@ class ApiService extends _$ApiService {
   /// 发布动态
   Future<CreateFeedResponse> postCreateFeed({
     required Map<String, String> data,
+    List<String>? tags,
   }) async {
     try {
       final title = data['title'] ?? '';
@@ -916,6 +918,7 @@ class ApiService extends _$ApiService {
         title: title,
         raw: content,
         category: category,
+        tags: tags,
       );
 
       return CreateFeedResponse(
