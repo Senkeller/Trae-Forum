@@ -195,11 +195,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     return actions;
   }
 
-  void _updateText(
-    String value, {
-    int? cursor,
-    TextSelection? selection,
-  }) {
+  void _updateText(String value, {int? cursor, TextSelection? selection}) {
     final safeCursor = (cursor ?? value.length).clamp(0, value.length);
     _controller.value = TextEditingValue(
       text: value,
@@ -251,7 +247,11 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
       if (left != marker || right != marker) return false;
 
       final removedRight = original.replaceRange(end, end + marker.length, '');
-      final updated = removedRight.replaceRange(start - marker.length, start, '');
+      final updated = removedRight.replaceRange(
+        start - marker.length,
+        start,
+        '',
+      );
       final newStart = start - marker.length;
       final selectedLen = end - start;
       _updateText(
@@ -676,7 +676,9 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
                     _buildMdToolButton(
                       icon: Icons.title,
                       tooltip: '标题',
-                      active: activeActions.contains(_QuickToolbarAction.heading),
+                      active: activeActions.contains(
+                        _QuickToolbarAction.heading,
+                      ),
                       onTap: () => _toggleLinePrefix('# '),
                     ),
                     _buildMdToolButton(
@@ -688,7 +690,9 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
                     _buildMdToolButton(
                       icon: Icons.format_italic,
                       tooltip: '斜体',
-                      active: activeActions.contains(_QuickToolbarAction.italic),
+                      active: activeActions.contains(
+                        _QuickToolbarAction.italic,
+                      ),
                       onTap: () => _toggleInlineMarker('*'),
                     ),
                     _buildMdToolButton(
@@ -700,16 +704,16 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
                     _buildMdToolButton(
                       icon: Icons.code,
                       tooltip: '代码块',
-                      active: activeActions.contains(_QuickToolbarAction.codeBlock),
+                      active: activeActions.contains(
+                        _QuickToolbarAction.codeBlock,
+                      ),
                       onTap: _toggleCodeBlock,
                     ),
                     _buildMdToolButton(
                       icon: Icons.link,
                       tooltip: '链接',
-                      onTap: () => _insertTemplate(
-                        '[链接文本](https://)',
-                        cursorOffset: 1,
-                      ),
+                      onTap: () =>
+                          _insertTemplate('[链接文本](https://)', cursorOffset: 1),
                     ),
                     _buildMdToolButton(
                       icon: Icons.format_list_bulleted,
@@ -785,9 +789,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return GestureDetector(
-      onTap: hasText && !_isLoading && !_isUploadingImage
-          ? _handleSend
-          : null,
+      onTap: hasText && !_isLoading && !_isUploadingImage ? _handleSend : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
