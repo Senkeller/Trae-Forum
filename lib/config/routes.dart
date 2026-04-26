@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'constants.dart';
 import '../presentation/pages/main/main_page.dart';
@@ -39,6 +40,7 @@ import '../presentation/pages/error/error_page.dart';
 import '../presentation/pages/common/webview_page.dart' as webview;
 import '../presentation/pages/common/image_preview_page.dart';
 import '../presentation/pages/dashboard/trae_dashboard_page.dart';
+import '../presentation/providers/auth_provider.dart';
 
 /// 应用路由配置
 class AppRouter {
@@ -46,6 +48,94 @@ class AppRouter {
       GlobalKey<NavigatorState>();
 
   static GoRouter get router => _router;
+
+  /// 白名单路由列表（无需登录即可访问）
+  @visibleForTesting
+  static const List<String> publicRoutes = [
+    RoutePaths.main,
+    RoutePaths.home,
+    RoutePaths.feedDetail,
+    RoutePaths.topicList,
+    RoutePaths.topics,
+    RoutePaths.topicDetail,
+    RoutePaths.tagDetail,
+    RoutePaths.productDetail,
+    RoutePaths.search,
+    RoutePaths.searchResult,
+    RoutePaths.userProfile,
+    RoutePaths.followList,
+    RoutePaths.fanList,
+    RoutePaths.login,
+    RoutePaths.register,
+    RoutePaths.forgotPassword,
+    RoutePaths.webview,
+    RoutePaths.imagePreview,
+    RoutePaths.traeDashboard,
+    RoutePaths.settings,
+    RoutePaths.about,
+    RoutePaths.themeSettings,
+    RoutePaths.fontSettings,
+  ];
+
+  /// 受保护路由列表（需要登录）
+  @visibleForTesting
+  static const List<String> protectedRoutes = [
+    RoutePaths.feedCreate,
+    RoutePaths.feedReply,
+    RoutePaths.feedEdit,
+    RoutePaths.userEdit,
+    RoutePaths.message,
+    RoutePaths.messageDetail,
+    RoutePaths.notifications,
+    RoutePaths.notificationSettings,
+    RoutePaths.accountSecurity,
+    RoutePaths.blacklist,
+    RoutePaths.history,
+    RoutePaths.favorites,
+    RoutePaths.localFavorites,
+    RoutePaths.browseHistory,
+    RoutePaths.frequentlyVisited,
+  ];
+
+  /// 检查路由是否为受保护路由
+  static bool isProtectedRoute(String path) {
+    for (final route in protectedRoutes) {
+      if (path == route) {
+        return true;
+      }
+      // 处理动态路由参数匹配
+      if (route.contains(':')) {
+        final routePattern = route.replaceAll(RegExp(r':\w+'), r'[^/]+');
+        if (RegExp('^$routePattern\$').hasMatch(path)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// 检查路由是否为公开路由
+  static bool isPublicRoute(String path) {
+    // 首先检查是否为受保护路由
+    if (isProtectedRoute(path)) {
+      return false;
+    }
+
+    // 处理带参数的路由（如 /feed/:id）
+    for (final route in publicRoutes) {
+      if (path == route) {
+        return true;
+      }
+      // 处理动态路由参数匹配
+      if (route.contains(':')) {
+        final routePattern = route.replaceAll(RegExp(r':\w+'), r'[^/]+');
+        if (RegExp('^$routePattern\$').hasMatch(path)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 
   static final GoRouter _router = GoRouter(
     navigatorKey: navigatorKey,
@@ -329,18 +419,35 @@ class AppRouter {
     errorBuilder: (context, state) => ErrorPage(error: state.error),
 
     // 路由守卫
-    redirect: (context, state) {
-      // TODO: 实现登录检查
-      // final isLoggedIn = context.read(authProvider).isLoggedIn;
-      // final isLoginRoute = state.matchedLocation.startsWith('/login');
-      //
-      // if (!isLoggedIn && !isLoginRoute) {
-      //   return RoutePaths.login;
-      // }
-      //
-      // if (isLoggedIn && isLoginRoute) {
-      //   return RoutePaths.main;
-      // }
+    redirect: (context, state) async {
+      final location = state.matchedLocation;
+
+      // 登录相关路由
+      final isLoginRoute = location == RoutePaths.login ||
+          location == RoutePaths.register ||
+          location == RoutePaths.forgotPassword;
+
+      // 获取登录状态（使用异步版本，支持 Discourse 登录恢复）
+      final container = ProviderScope.containerOf(context);
+      final isAuthenticated = await container.read(
+        isAuthenticatedAsyncProvider.future,
+      );
+
+      debugPrint(
+        '[RouteGuard] location=$location, isAuthenticated=$isAuthenticated, isLoginRoute=$isLoginRoute',
+      );
+
+      // 未登录访问受保护路由，重定向到登录页
+      if (!isAuthenticated && isProtectedRoute(location) && !isLoginRoute) {
+        debugPrint('[RouteGuard] 未登录访问受保护路由，重定向到登录页');
+        return RoutePaths.login;
+      }
+
+      // 已登录访问登录页，重定向到首页
+      if (isAuthenticated && isLoginRoute) {
+        debugPrint('[RouteGuard] 已登录访问登录页，重定向到首页');
+        return RoutePaths.main;
+      }
 
       return null;
     },

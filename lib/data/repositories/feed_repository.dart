@@ -110,9 +110,9 @@ class FeedRepository {
     required String id,
   }) async {
     try {
-      final response = await _apiService.postLikeFeed(
-        url: '',
+      final response = await _apiService.likeFeed(
         id: id,
+        isLike: true,
       );
       return response;
     } on DioException catch (e) {
@@ -131,9 +131,9 @@ class FeedRepository {
     required String id,
   }) async {
     try {
-      final response = await _apiService.postLikeFeed(
-        url: '',
+      final response = await _apiService.likeFeed(
         id: id,
+        isLike: false,
       );
       return response;
     } on DioException catch (e) {

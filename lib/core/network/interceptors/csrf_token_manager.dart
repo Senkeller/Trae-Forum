@@ -11,6 +11,13 @@ class DiscourseCsrfToken {
   /// 获取当前存储的 CSRF Token
   static String? get token => _token;
 
+  /// 设置 CSRF Token（主要用于测试）
+  /// [token] CSRF Token 值
+  static void setToken(String token) {
+    _token = token;
+    _tokenTime = DateTime.now();
+  }
+
   /// 检查 Token 是否已过期
   static bool get isExpired {
     if (_token == null || _tokenTime == null) return true;

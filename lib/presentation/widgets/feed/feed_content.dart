@@ -158,6 +158,11 @@ class _ExpandableTextState extends State<_ExpandableText> {
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _calculateTextLines();
   }
 

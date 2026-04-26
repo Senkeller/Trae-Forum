@@ -343,7 +343,8 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
   /// 需要用户已登录
   /// 返回操作是否成功
   Future<bool> toggleFeedLike() async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) {
       state = state.copyWith(errorMessage: '请先登录');
       return false;
@@ -353,10 +354,9 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
     if (feed == null) return false;
 
     try {
-      final url = feed.isLiked ? '/v6/feed/unlike' : '/v6/feed/like';
-      final response = await _apiService.postLikeFeed(
-        url: url,
+      final response = await _apiService.likeFeed(
         id: feed.id,
+        isLike: !feed.isLiked,
       );
 
       if (response.status == 1) {
@@ -390,7 +390,8 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
   /// 需要用户已登录
   /// 返回操作是否成功
   Future<bool> toggleCommentLike(String commentId) async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) {
       state = state.copyWith(errorMessage: '请先登录');
       return false;
@@ -433,7 +434,8 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
   /// 需要用户已登录
   /// 返回操作是否成功
   Future<bool> postComment(String content, {String? replyId}) async {
-    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    // 使用异步版本检查登录状态，支持 Discourse 登录
+    final isAuthenticated = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!isAuthenticated) {
       state = state.copyWith(errorMessage: '请先登录');
       return false;

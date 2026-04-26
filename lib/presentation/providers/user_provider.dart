@@ -532,12 +532,10 @@ class UserSpaceNotifier extends _$UserSpaceNotifier {
     if (profile == null) return false;
 
     try {
-      final url = profile.isFollowing
-          ? '/v6/user/unfollow'
-          : '/v6/user/follow';
+      final isFollow = !profile.isFollowing;
 
       final response = await _apiService.postFollowUnFollow(
-        url: url,
+        isFollow: isFollow,
         uid: state.uid,
       );
 

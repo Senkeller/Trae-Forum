@@ -8,10 +8,10 @@ import 'package:traeu/presentation/pages/user/login_page.dart';
 ///
 /// 测试目标：验证登录页面的渲染和交互行为，包括：
 /// - 页面基础渲染
-/// - 表单输入验证
-/// - 登录按钮交互
-/// - 第三方登录入口
-/// - 注册/忘记密码链接
+/// - WebView 登录按钮
+/// - 浏览器打开选项
+/// - 页面关闭按钮
+/// - 用户协议显示
 void main() {
   // 创建一个测试用的 GoRouter
   GoRouter createTestRouter() {
@@ -25,14 +25,6 @@ void main() {
         GoRoute(
           path: '/',
           builder: (context, state) => const Scaffold(body: Text('Home')),
-        ),
-        GoRoute(
-          path: '/forgot-password',
-          builder: (context, state) => const Scaffold(body: Text('Forgot Password')),
-        ),
-        GoRoute(
-          path: '/register',
-          builder: (context, state) => const Scaffold(body: Text('Register')),
         ),
       ],
     );
@@ -55,217 +47,6 @@ void main() {
       expect(find.byIcon(Icons.forum), findsOneWidget);
     });
 
-    /// 测试目的：验证账号输入框存在
-    testWidgets('应显示账号输入框', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      expect(find.widgetWithText(TextFormField, '邮箱/手机号'), findsOneWidget);
-      expect(find.byIcon(Icons.person_outline), findsOneWidget);
-    });
-
-    /// 测试目的：验证密码输入框存在
-    testWidgets('应显示密码输入框', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      expect(find.widgetWithText(TextFormField, '密码'), findsOneWidget);
-      expect(find.byIcon(Icons.lock_outline), findsOneWidget);
-    });
-
-    /// 测试目的：验证登录按钮存在
-    testWidgets('应显示登录按钮', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      expect(find.widgetWithText(FilledButton, '登录'), findsOneWidget);
-    });
-  });
-
-  group('LoginPage 表单验证测试', () {
-    /// 测试目的：验证空账号验证
-    testWidgets('空账号应显示验证错误', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      // 点击登录按钮
-      await tester.tap(find.widgetWithText(FilledButton, '登录'));
-      await tester.pump();
-
-      // 验证错误提示
-      expect(find.text('请输入账号'), findsOneWidget);
-    });
-
-    /// 测试目的：验证空密码验证
-    testWidgets('空密码应显示验证错误', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      // 输入账号
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '邮箱/手机号'),
-        'test@example.com',
-      );
-
-      // 点击登录按钮
-      await tester.tap(find.widgetWithText(FilledButton, '登录'));
-      await tester.pump();
-
-      // 验证错误提示
-      expect(find.text('请输入密码'), findsOneWidget);
-    });
-
-    /// 测试目的：验证密码长度验证
-    testWidgets('短密码应显示验证错误', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      // 输入账号
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '邮箱/手机号'),
-        'test@example.com',
-      );
-
-      // 输入短密码
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '密码'),
-        '123',
-      );
-
-      // 点击登录按钮
-      await tester.tap(find.widgetWithText(FilledButton, '登录'));
-      await tester.pump();
-
-      // 验证错误提示
-      expect(find.text('密码长度不能少于6位'), findsOneWidget);
-    });
-
-    /// 测试目的：验证有效表单通过验证
-    testWidgets('有效表单应通过验证', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      // 输入有效账号
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '邮箱/手机号'),
-        'test@example.com',
-      );
-
-      // 输入有效密码
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '密码'),
-        'password123',
-      );
-
-      await tester.pump();
-
-      // 验证输入成功
-      expect(find.text('test@example.com'), findsOneWidget);
-      expect(find.text('password123'), findsOneWidget);
-    });
-  });
-
-  group('LoginPage 交互测试', () {
-    /// 测试目的：验证密码可见性切换
-    testWidgets('应支持切换密码可见性', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      // 查找密码可见性切换按钮
-      final visibilityButton = find.byIcon(Icons.visibility_outlined);
-      expect(visibilityButton, findsOneWidget);
-
-      // 点击切换
-      await tester.tap(visibilityButton);
-      await tester.pump();
-
-      // 验证图标切换
-      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
-    });
-
-    /// 测试目的：验证忘记密码链接
-    testWidgets('应显示忘记密码链接', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      expect(find.text('忘记密码?'), findsOneWidget);
-    });
-
-    /// 测试目的：验证注册入口
-    testWidgets('应显示注册入口', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      expect(find.text('还没有账号?'), findsOneWidget);
-      expect(find.text('立即注册'), findsOneWidget);
-    });
-
-    /// 测试目的：验证第三方登录按钮
-    testWidgets('应显示第三方登录按钮', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          child: MaterialApp.router(
-            routerConfig: createTestRouter(),
-          ),
-        ),
-      );
-
-      expect(find.text('或使用以下方式登录'), findsOneWidget);
-      expect(find.text('微信'), findsOneWidget);
-      expect(find.text('QQ'), findsOneWidget);
-      expect(find.text('GitHub'), findsOneWidget);
-    });
-
     /// 测试目的：验证关闭按钮存在
     testWidgets('应显示关闭按钮', (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -278,11 +59,9 @@ void main() {
 
       expect(find.byIcon(Icons.close), findsOneWidget);
     });
-  });
 
-  group('LoginPage 输入交互测试', () {
-    /// 测试目的：验证账号输入
-    testWidgets('应支持输入账号', (WidgetTester tester) async {
+    /// 测试目的：验证 WebView 登录按钮存在
+    testWidgets('应显示 WebView 登录按钮', (WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp.router(
@@ -291,18 +70,15 @@ void main() {
         ),
       );
 
-      // 输入账号
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '邮箱/手机号'),
-        'user@example.com',
-      );
-      await tester.pump();
-
-      expect(find.text('user@example.com'), findsOneWidget);
+      // 使用 find.text 查找按钮文字，因为 FilledButton.icon 的结构不同
+      expect(find.text('使用 TRAE 账号登录'), findsOneWidget);
+      expect(find.byIcon(Icons.login), findsOneWidget);
+      // 验证是 FilledButton 类型
+      expect(find.byType(FilledButton), findsOneWidget);
     });
 
-    /// 测试目的：验证密码输入
-    testWidgets('应支持输入密码', (WidgetTester tester) async {
+    /// 测试目的：验证登录说明区域
+    testWidgets('应显示登录说明', (WidgetTester tester) async {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp.router(
@@ -311,15 +87,188 @@ void main() {
         ),
       );
 
-      // 输入密码
-      await tester.enterText(
-        find.widgetWithText(TextFormField, '密码'),
-        'mypassword123',
+      expect(find.text('登录说明'), findsOneWidget);
+      expect(
+        find.text('TRAE 论坛使用统一的账号体系，点击上方按钮将跳转到官方登录页面完成认证。登录成功后即可在应用内访问论坛的所有功能。'),
+        findsOneWidget,
       );
+      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    });
+  });
+
+  group('LoginPage 其他登录方式测试', () {
+    /// 测试目的：验证分隔线文字
+    testWidgets('应显示其他方式分隔线', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      expect(find.text('其他方式'), findsOneWidget);
+    });
+
+    /// 测试目的：验证浏览器打开按钮
+    testWidgets('应显示浏览器打开按钮', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      expect(find.text('在浏览器中打开论坛'), findsOneWidget);
+      expect(find.byIcon(Icons.open_in_browser), findsOneWidget);
+      // 验证是 OutlinedButton 类型
+      expect(find.byType(OutlinedButton), findsOneWidget);
+    });
+  });
+
+  group('LoginPage 用户协议测试', () {
+    /// 测试目的：验证用户协议文字
+    testWidgets('应显示用户协议文字', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      expect(
+        find.text('登录即表示您同意我们的服务条款和隐私政策'),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('LoginPage 交互测试', () {
+    /// 测试目的：验证 WebView 登录按钮可点击
+    testWidgets('应能点击 WebView 登录按钮', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      // 查找登录按钮文字
+      final loginButton = find.text('使用 TRAE 账号登录');
+      expect(loginButton, findsOneWidget);
+
+      // 点击按钮（由于会导航到 WebViewLoginPage，这里只验证按钮可点击）
+      await tester.tap(loginButton);
       await tester.pump();
 
-      // 密码字段通常显示为点，但输入应该成功
-      expect(find.text('mypassword123'), findsOneWidget);
+      // 验证按钮进入加载状态（显示 CircularProgressIndicator）
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    /// 测试目的：验证浏览器打开按钮可点击
+    testWidgets('应能点击浏览器打开按钮', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      // 先滚动确保按钮可见
+      await tester.pumpAndSettle();
+
+      // 查找浏览器打开按钮文字
+      final browserButton = find.text('在浏览器中打开论坛');
+      expect(browserButton, findsOneWidget);
+
+      // 滚动到按钮位置
+      await tester.ensureVisible(browserButton);
+      await tester.pumpAndSettle();
+
+      // 点击按钮
+      await tester.tap(browserButton);
+      await tester.pump();
+
+      // 验证显示 SnackBar 提示
+      expect(find.text('将在浏览器中打开论坛登录页面'), findsOneWidget);
+    });
+
+    /// 测试目的：验证关闭按钮存在且可交互
+    testWidgets('应显示关闭按钮并可交互', (WidgetTester tester) async {
+      // 使用 Navigator 包装以支持 pop 操作
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Navigator(
+              onGenerateRoute: (settings) {
+                return MaterialPageRoute(
+                  builder: (context) => const LoginPage(),
+                  settings: settings,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      // 查找关闭按钮
+      final closeButton = find.byIcon(Icons.close);
+      expect(closeButton, findsOneWidget);
+
+      // 验证按钮是 IconButton 类型
+      expect(find.byType(IconButton), findsOneWidget);
+    });
+  });
+
+  group('LoginPage 样式测试', () {
+    /// 测试目的：验证页面布局结构
+    testWidgets('应包含 SingleChildScrollView 布局', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      // 页面内部应该包含 SingleChildScrollView
+      expect(find.byType(SingleChildScrollView), findsWidgets);
+    });
+
+    /// 测试目的：验证页面使用 Scaffold
+    testWidgets('应使用 Scaffold 作为页面根布局', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      // 验证 LoginPage 内部包含 Scaffold
+      final loginPageScaffolds = find.descendant(
+        of: find.byType(LoginPage),
+        matching: find.byType(Scaffold),
+      );
+      expect(loginPageScaffolds, findsOneWidget);
+    });
+
+    /// 测试目的：验证页面包含 SafeArea
+    testWidgets('应包含 SafeArea 布局', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp.router(
+            routerConfig: createTestRouter(),
+          ),
+        ),
+      );
+
+      // 页面内部应该包含 SafeArea
+      expect(find.byType(SafeArea), findsWidgets);
     });
   });
 }

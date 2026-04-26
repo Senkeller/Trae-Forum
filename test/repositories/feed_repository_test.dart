@@ -187,17 +187,17 @@ void main() {
         data: {'liked': true},
       );
 
-      when(() => mockApiService.postLikeFeed(
-        url: any(named: 'url'),
+      when(() => mockApiService.likeFeed(
         id: 'feed_001',
+        isLike: true,
       )).thenAnswer((_) async => mockResponse);
 
       final result = await feedRepository.likeFeed(id: 'feed_001');
 
       expect(result.status, equals(200));
-      verify(() => mockApiService.postLikeFeed(
-        url: any(named: 'url'),
+      verify(() => mockApiService.likeFeed(
         id: 'feed_001',
+        isLike: true,
       )).called(1);
     });
 
@@ -207,17 +207,55 @@ void main() {
         data: {'liked': false},
       );
 
-      when(() => mockApiService.postLikeFeed(
-        url: any(named: 'url'),
+      when(() => mockApiService.likeFeed(
         id: 'feed_001',
+        isLike: false,
       )).thenAnswer((_) async => mockResponse);
 
       final result = await feedRepository.unlikeFeed(id: 'feed_001');
 
       expect(result.status, equals(200));
-      verify(() => mockApiService.postLikeFeed(
-        url: any(named: 'url'),
+      verify(() => mockApiService.likeFeed(
         id: 'feed_001',
+        isLike: false,
+      )).called(1);
+    });
+
+    test('点赞操作使用正确的语义参数', () async {
+      final mockResponse = api.LikeFeedResponse(
+        status: 200,
+        data: {'liked': true},
+      );
+
+      when(() => mockApiService.likeFeed(
+        id: any(named: 'id'),
+        isLike: any(named: 'isLike'),
+      )).thenAnswer((_) async => mockResponse);
+
+      await feedRepository.likeFeed(id: 'feed_001');
+
+      verify(() => mockApiService.likeFeed(
+        id: 'feed_001',
+        isLike: true,
+      )).called(1);
+    });
+
+    test('取消点赞操作使用正确的语义参数', () async {
+      final mockResponse = api.LikeFeedResponse(
+        status: 200,
+        data: {'liked': false},
+      );
+
+      when(() => mockApiService.likeFeed(
+        id: any(named: 'id'),
+        isLike: any(named: 'isLike'),
+      )).thenAnswer((_) async => mockResponse);
+
+      await feedRepository.unlikeFeed(id: 'feed_001');
+
+      verify(() => mockApiService.likeFeed(
+        id: 'feed_001',
+        isLike: false,
       )).called(1);
     });
   });
@@ -275,6 +313,32 @@ void main() {
       final result = await feedRepository.unfavoriteFeed(id: 'feed_001');
 
       expect(result.status, equals(200));
+    });
+  });
+
+  group('API 语义测试', () {
+    test('likeFeed 应使用 isLike 参数而不是 url 参数', () async {
+      final mockResponse = api.LikeFeedResponse(
+        status: 200,
+        data: {'liked': true},
+      );
+
+      when(() => mockApiService.likeFeed(
+        id: any(named: 'id'),
+        isLike: any(named: 'isLike'),
+      )).thenAnswer((_) async => mockResponse);
+
+      await feedRepository.likeFeed(id: 'feed_001');
+
+      verify(() => mockApiService.likeFeed(
+        id: 'feed_001',
+        isLike: true,
+      )).called(1);
+
+      verifyNever(() => mockApiService.postLikeFeed(
+        url: any(named: 'url'),
+        id: any(named: 'id'),
+      ));
     });
   });
 }

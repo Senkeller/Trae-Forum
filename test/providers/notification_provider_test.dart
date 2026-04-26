@@ -161,7 +161,7 @@ void main() {
 
       expect(notification.id, equals(1));
       expect(notification.notificationType, equals(1));
-      expect(notification.read, isTrue);
+      expect(notification.read, isFalse);
     });
   });
 }

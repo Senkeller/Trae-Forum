@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import '../../../config/constants.dart';
+import '../../utils/device_util.dart';
 import 'csrf_token_manager.dart';
 
 /// 认证拦截器
 /// 负责处理 Discourse API 认证、CSRF Token 注入和会话管理
 class AuthInterceptor extends Interceptor {
   String? _token;
+  String? _deviceId;
 
   void setToken(String? token) {
     _token = token;
@@ -13,6 +15,28 @@ class AuthInterceptor extends Interceptor {
 
   void clearToken() {
     _token = null;
+  }
+
+  /// 设置设备 ID
+  /// [deviceId] 设备标识符
+  void setDeviceId(String deviceId) {
+    _deviceId = deviceId;
+  }
+
+  /// 获取设备 ID
+  /// 优先使用已设置的设备 ID，否则从 DeviceUtil 获取
+  String _getDeviceId() {
+    // 优先使用已设置的设备 ID
+    if (_deviceId != null && _deviceId!.isNotEmpty) {
+      return _deviceId!;
+    }
+    // 从 DeviceUtil 获取设备 ID
+    final deviceId = DeviceUtil.deviceId;
+    if (deviceId.isNotEmpty) {
+      return deviceId;
+    }
+    // 如果都获取不到，返回空字符串而不是常量名
+    return '';
   }
 
   @override
@@ -32,7 +56,11 @@ class AuthInterceptor extends Interceptor {
       }
     }
 
-    options.headers['X-Device-Id'] = StorageKeys.deviceId;
+    // 从 DeviceUtil 获取真实的设备 ID，而不是使用常量名
+    final deviceId = _getDeviceId();
+    if (deviceId.isNotEmpty) {
+      options.headers['X-Device-Id'] = deviceId;
+    }
     options.headers['X-App-Version'] = AppConstants.appVersion;
 
     handler.next(options);

@@ -759,17 +759,24 @@ class ApiService extends _$ApiService {
   // ==================== 动态操作 ====================
 
   /// 点赞/取消点赞动态
-  Future<LikeFeedResponse> postLikeFeed({
-    required String url,
+  ///
+  /// [id] 动态/帖子 ID
+  /// [isLike] true 表示点赞，false 表示取消点赞
+  Future<LikeFeedResponse> likeFeed({
     required String id,
+    required bool isLike,
   }) async {
     try {
       final postId = int.parse(id);
-      await _discourseApi.likePost(postId);
+      if (isLike) {
+        await _discourseApi.likePost(postId);
+      } else {
+        await _discourseApi.unlikePost(postId);
+      }
       return LikeFeedResponse(
         status: 200,
         message: 'success',
-        data: {'liked': true},
+        data: {'liked': isLike},
       );
     } catch (e) {
       if (e is DioException) {
@@ -786,6 +793,16 @@ class ApiService extends _$ApiService {
       }
       return LikeFeedResponse(status: 500, message: 'Failed to like feed: $e');
     }
+  }
+
+  /// 点赞/取消点赞动态（旧接口，已废弃，请使用 likeFeed）
+  @Deprecated('Use likeFeed instead')
+  Future<LikeFeedResponse> postLikeFeed({
+    required String url,
+    required String id,
+  }) async {
+    final isLike = !url.contains('unlike');
+    return likeFeed(id: id, isLike: isLike);
   }
 
   /// 点赞/取消点赞评论
@@ -822,12 +839,14 @@ class ApiService extends _$ApiService {
   }
 
   /// 关注/取消关注用户
+  ///
+  /// [isFollow] 为 true 表示关注操作，false 表示取关操作
+  /// [uid] 目标用户ID
   Future<LikeReplyResponse> postFollowUnFollow({
-    required String url,
+    required bool isFollow,
     required String uid,
   }) async {
     try {
-      final isFollow = url.contains('follow');
       if (isFollow) {
         await _discourseApi.followUser(uid);
       } else {

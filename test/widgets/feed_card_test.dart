@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:traeu/presentation/widgets/feed/feed_card.dart';
+import 'package:traeu/presentation/widgets/common/loading_widget.dart';
 
 /// FeedCard Widget 测试
 ///
@@ -10,6 +12,19 @@ import 'package:traeu/presentation/widgets/feed/feed_card.dart';
 /// - 各种回调触发
 /// - 不同配置选项
 void main() {
+  /// 构建带 ProviderScope 的测试组件
+  Widget buildTestWidget(Widget child) {
+    return ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+
   group('FeedCard 渲染测试', () {
     /// 测试目的：验证 FeedCard 正常渲染
     testWidgets('应正确渲染 FeedCard 组件', (WidgetTester tester) async {
@@ -25,12 +40,11 @@ void main() {
 
       // 构建组件
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(data: feedData),
-          ),
-        ),
+        buildTestWidget(FeedCard(data: feedData)),
       );
+
+      // 等待组件渲染完成
+      await tester.pump();
 
       // 验证渲染
       expect(find.text('测试用户'), findsOneWidget);
@@ -49,12 +63,11 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(data: feedData),
-          ),
-        ),
+        buildTestWidget(FeedCard(data: feedData)),
       );
+
+      // 等待组件渲染完成
+      await tester.pump();
 
       expect(find.text('图片用户'), findsOneWidget);
       expect(find.text('带图片的动态'), findsOneWidget);
@@ -71,12 +84,11 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCardSimple(data: feedData),
-          ),
-        ),
+        buildTestWidget(FeedCardSimple(data: feedData)),
       );
+
+      // 等待组件渲染完成
+      await tester.pump();
 
       expect(find.text('简洁用户'), findsOneWidget);
     });
@@ -91,8 +103,11 @@ void main() {
         ),
       );
 
-      // 骨架屏应渲染 Card 组件
-      expect(find.byType(Card), findsOneWidget);
+      // 等待组件渲染完成
+      await tester.pump();
+
+      // 骨架屏应渲染 CardSkeletonWidget 组件
+      expect(find.byType(CardSkeletonWidget), findsOneWidget);
     });
   });
 
@@ -107,15 +122,16 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(
-              data: feedData,
-              onTap: () => tapped = true,
-            ),
+        buildTestWidget(
+          FeedCard(
+            data: feedData,
+            onTap: () => tapped = true,
           ),
         ),
       );
+
+      // 等待组件渲染完成
+      await tester.pump();
 
       // 点击卡片
       await tester.tap(find.byType(FeedCard));
@@ -135,23 +151,23 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(
-              data: feedData,
-              onLike: () => liked = true,
-            ),
+        buildTestWidget(
+          FeedCard(
+            data: feedData,
+            onLike: () => liked = true,
           ),
         ),
       );
 
-      // 查找并点击点赞按钮
-      final likeButton = find.byIcon(Icons.thumb_up_outlined);
-      if (likeButton.evaluate().isNotEmpty) {
-        await tester.tap(likeButton.first);
-        await tester.pump();
-        expect(liked, isTrue);
-      }
+      // 等待组件渲染完成
+      await tester.pump();
+
+      // 查找并点击点赞按钮（使用 favorite_border 图标）
+      final likeButton = find.byIcon(Icons.favorite_border);
+      expect(likeButton, findsOneWidget, reason: '应找到点赞按钮');
+      await tester.tap(likeButton);
+      await tester.pump();
+      expect(liked, isTrue);
     });
 
     /// 测试目的：验证评论按钮触发回调
@@ -164,23 +180,23 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(
-              data: feedData,
-              onComment: () => commented = true,
-            ),
+        buildTestWidget(
+          FeedCard(
+            data: feedData,
+            onComment: () => commented = true,
           ),
         ),
       );
 
-      // 查找并点击评论按钮
-      final commentButton = find.byIcon(Icons.comment_outlined);
-      if (commentButton.evaluate().isNotEmpty) {
-        await tester.tap(commentButton.first);
-        await tester.pump();
-        expect(commented, isTrue);
-      }
+      // 等待组件渲染完成
+      await tester.pump();
+
+      // 查找并点击评论按钮（使用 chat_bubble_outline 图标）
+      final commentButton = find.byIcon(Icons.chat_bubble_outline);
+      expect(commentButton, findsOneWidget, reason: '应找到评论按钮');
+      await tester.tap(commentButton);
+      await tester.pump();
+      expect(commented, isTrue);
     });
 
     /// 测试目的：验证分享按钮触发回调
@@ -193,23 +209,23 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(
-              data: feedData,
-              onShare: () => shared = true,
-            ),
+        buildTestWidget(
+          FeedCard(
+            data: feedData,
+            onShare: () => shared = true,
           ),
         ),
       );
 
-      // 查找并点击分享按钮
-      final shareButton = find.byIcon(Icons.share_outlined);
-      if (shareButton.evaluate().isNotEmpty) {
-        await tester.tap(shareButton.first);
-        await tester.pump();
-        expect(shared, isTrue);
-      }
+      // 等待组件渲染完成
+      await tester.pump();
+
+      // 查找并点击分享按钮（使用 share 图标）
+      final shareButton = find.byIcon(Icons.share);
+      expect(shareButton, findsOneWidget, reason: '应找到分享按钮');
+      await tester.tap(shareButton);
+      await tester.pump();
+      expect(shared, isTrue);
     });
   });
 
@@ -223,15 +239,16 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(
-              data: feedData,
-              showFollowButton: false,
-            ),
+        buildTestWidget(
+          FeedCard(
+            data: feedData,
+            showFollowButton: false,
           ),
         ),
       );
+
+      // 等待组件渲染完成
+      await tester.pump();
 
       expect(find.text('配置测试用户'), findsOneWidget);
     });
@@ -245,15 +262,16 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(
-              data: feedData,
-              showFavoriteButton: false,
-            ),
+        buildTestWidget(
+          FeedCard(
+            data: feedData,
+            showFavoriteButton: false,
           ),
         ),
       );
+
+      // 等待组件渲染完成
+      await tester.pump();
 
       expect(find.text('收藏测试用户'), findsOneWidget);
     });
@@ -267,15 +285,16 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: FeedCard(
-              data: feedData,
-              margin: const EdgeInsets.all(20),
-            ),
+        buildTestWidget(
+          FeedCard(
+            data: feedData,
+            margin: const EdgeInsets.all(20),
           ),
         ),
       );
+
+      // 等待组件渲染完成
+      await tester.pump();
 
       expect(find.byType(FeedCard), findsOneWidget);
     });

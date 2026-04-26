@@ -4,8 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
+import '../../providers/search_provider.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
 
+/// 搜索结果页面
+///
+/// 显示指定关键词的搜索结果列表，支持下拉刷新和上拉加载更多
 class SearchResultPage extends ConsumerStatefulWidget {
   final String query;
 
@@ -19,16 +23,13 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage> {
   final RefreshController _refreshController = RefreshController();
   final ScrollController _scrollController = ScrollController();
 
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  String? _errorMessage;
-  List<Map<String, dynamic>> _results = [];
-
   @override
   void initState() {
     super.initState();
-    _search();
+    // 页面初始化时执行搜索
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _performSearch();
+    });
   }
 
   @override
@@ -38,79 +39,53 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage> {
     super.dispose();
   }
 
-  Future<void> _search() async {
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      setState(() {
-        _isLoading = false;
-        _results = [];
-        _hasMore = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '搜索失败: $e';
-      });
-    }
+  /// 执行搜索
+  void _performSearch() {
+    ref.read(searchNotifierProvider.notifier).search(widget.query);
   }
 
+  /// 下拉刷新
   Future<void> _onRefresh() async {
-    await _search();
+    await ref.read(searchNotifierProvider.notifier).search(widget.query);
     _refreshController.refreshCompleted();
   }
 
+  /// 上拉加载更多
   Future<void> _onLoading() async {
-    if (_isLoadingMore || !_hasMore) {
-      _refreshController.loadComplete();
-      return;
-    }
-
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    setState(() {
-      _isLoadingMore = false;
-      _hasMore = false;
-    });
-
+    await ref.read(searchNotifierProvider.notifier).loadMore();
     _refreshController.loadComplete();
   }
 
   @override
   Widget build(BuildContext context) {
+    final searchState = ref.watch(searchNotifierProvider);
+
     return Scaffold(
       appBar: AppBar(title: Text('搜索: ${widget.query}')),
-      body: _buildBody(),
+      body: _buildBody(searchState),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading && _results.isEmpty) {
+  /// 构建页面主体内容
+  Widget _buildBody(SearchState state) {
+    // 首次加载中
+    if (state.isSearching && state.results.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_errorMessage != null && _results.isEmpty) {
+    // 搜索出错且没有结果
+    if (state.errorMessage != null && state.results.isEmpty) {
       return _StateView(
         icon: Icons.error_outline,
         title: '搜索失败',
-        message: _errorMessage!,
+        message: state.errorMessage!,
         actionLabel: '重试',
-        onAction: _search,
+        onAction: _performSearch,
       );
     }
 
-    if (_results.isEmpty) {
+    // 没有搜索结果
+    if (state.results.isEmpty) {
       return _StateView(
         icon: Icons.search_off,
         title: '没有搜索结果',
@@ -118,26 +93,27 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage> {
       );
     }
 
+    // 显示搜索结果列表
     return SmartRefresher(
       controller: _refreshController,
       enablePullDown: true,
-      enablePullUp: _hasMore,
+      enablePullUp: state.hasMore,
       onRefresh: _onRefresh,
-      onLoading: _hasMore ? _onLoading : null,
+      onLoading: _onLoading,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _results.length + 1,
+        itemCount: state.results.length + 1,
         itemBuilder: (context, index) {
           if (index == 0) {
             return const PinnedTopicsBanner();
           }
 
-          final result = _results[index - 1];
+          final result = state.results[index - 1];
           return _ResultCard(
             result: result,
             onTap: () {
-              final topicId = result['topicId']?.toString() ?? '';
+              final topicId = result.extra?['topicId']?.toString() ?? '';
               if (topicId.isNotEmpty) {
                 context.push(
                   RoutePaths.feedDetail.replaceFirst(':id', topicId),
@@ -151,8 +127,9 @@ class _SearchResultPageState extends ConsumerState<SearchResultPage> {
   }
 }
 
+/// 搜索结果卡片
 class _ResultCard extends StatelessWidget {
-  final Map<String, dynamic> result;
+  final SearchResult result;
   final VoidCallback onTap;
 
   const _ResultCard({required this.result, required this.onTap});
@@ -160,10 +137,10 @@ class _ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final title = result['title']?.toString() ?? '';
-    final excerpt = result['excerpt']?.toString() ?? '';
-    final username = result['username']?.toString() ?? '';
-    final avatarUrl = result['avatarUrl']?.toString() ?? '';
+    final title = result.title;
+    final description = result.description ?? '';
+    final username = result.extra?['username']?.toString() ?? '';
+    final avatarUrl = result.extra?['avatarUrl']?.toString() ?? '';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -197,10 +174,10 @@ class _ResultCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (excerpt.isNotEmpty) ...[
+                    if (description.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
-                        excerpt,
+                        description,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
@@ -210,7 +187,7 @@ class _ResultCard extends StatelessWidget {
                     ],
                     const SizedBox(height: 8),
                     Text(
-                      '@$username',
+                      username.isNotEmpty ? '@$username' : '',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.primary,
                       ),
@@ -227,6 +204,9 @@ class _ResultCard extends StatelessWidget {
   }
 }
 
+/// 状态视图组件
+///
+/// 用于显示空状态、错误状态等
 class _StateView extends StatelessWidget {
   final IconData icon;
   final String title;
