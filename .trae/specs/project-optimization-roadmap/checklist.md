@@ -1,0 +1,159 @@
+# Checklist - TraeU 项目深度优化改进
+
+## P0 修复验收检查点
+
+### P0-1: 关注/取关分支逻辑修复
+- [ ] `api_service.dart` 中不再使用 `url.contains('follow')` 模糊匹配
+- [ ] 使用明确枚举/布尔参数表达动作类型（follow/unfollow）
+- [ ] 关注操作正确调用关注 API 分支
+- [ ] 取关操作正确调用取关 API 分支
+- [ ] 单元测试覆盖关注/取关两分支
+- [ ] 单元测试覆盖边界情况（如重复关注、取关未关注用户）
+
+### P0-2: 编辑器模块编译修复
+- [ ] `composer_editor.dart` 无缺失依赖文件引用
+- [ ] `composer_editor.dart` 第 222 行 `$before1` 未定义错误已修复
+- [ ] `composer_toolbar.dart` 第 148 行 `Icons.code_blocks` 错误已修复
+- [ ] 运行 `flutter analyze` 编辑器相关文件无 error
+- [ ] 编辑器模块达到"可编译+最小可用"状态
+
+### P0-3: 登录门禁统一
+- [ ] `routes.dart` 路由守卫 TODO 已实现
+- [ ] 路由层实现统一门禁（白名单路由+受保护路由）
+- [ ] 白名单路由列表定义清晰
+- [ ] 受保护路由列表定义清晰
+- [ ] `feed_provider.dart` 使用统一登录状态源
+- [ ] `message_provider.dart` 使用统一登录状态源
+- [ ] `notification_provider.dart` 使用统一登录状态源
+- [ ] 不存在同步/异步登录判定混用
+- [ ] 未登录访问受保护页面正确重定向到登录页
+- [ ] 登录门禁行为一致性测试通过
+
+## P1 清理验收检查点
+
+### P1-1: Dashboard 状态管理清理
+- [ ] 识别 `trae_dashboard_provider.dart` 中两套状态体系
+- [ ] 确定保留的状态模型（`TraeDashboardNotifier` 或 `DashboardStateNotifier`）
+- [ ] 废弃状态模型已删除或迁移
+- [ ] 所有引用处已更新
+- [ ] Dashboard 只保留单一真源状态链
+- [ ] 回归测试通过
+
+### P1-2: 搜索链路收敛
+- [ ] 确认主搜索实现
+- [ ] `search_provider_new.dart` 已删除或接回使用
+- [ ] `SearchResultPage` 占位逻辑已替换为真实数据
+- [ ] `/search/result` 不再是空占位逻辑
+- [ ] 搜索链路测试通过
+
+### P1-3: 网络层语义修复
+- [ ] 业务层不再传递 `/v6/...` 语义参数
+- [ ] API 参数命名与实际请求行为一致
+- [ ] `AuthInterceptor` 设备 ID 从真实存储读取
+- [ ] `AuthInterceptor` 不再将常量名直接当 Header 值发送
+- [ ] API 语义清晰，Header 值正确
+- [ ] 网络层测试通过
+
+## 测试修复验收检查点
+
+### 登录页测试修复 (13 个失败)
+- [ ] 分析登录页测试失败原因
+- [ ] 测试期望与实际页面结构对齐
+- [ ] 所有登录页测试在 `ProviderScope` 场景运行
+- [ ] 13 个失败测试全部修复
+- [ ] 验证 `test/pages/login_page_test.dart` 全绿
+
+### FeedCard 测试修复 (10 个失败)
+- [ ] 分析 FeedCard 测试失败原因
+- [ ] 测试期望与实际组件结构对齐
+- [ ] 所有 FeedCard 测试在 `ProviderScope` 场景运行
+- [ ] 10 个失败测试全部修复
+- [ ] 验证 `test/widgets/feed_card_test.dart` 全绿
+
+### 其他测试修复 (2 个失败)
+- [ ] `test/providers/notification_provider_test.dart` 失败修复
+- [ ] `test/widget_test.dart` 失败修复
+- [ ] 验证所有测试通过
+
+### 新增关键链路测试
+- [ ] 关注/取关分支测试已添加
+- [ ] 登录态恢复测试已添加
+- [ ] 路由守卫测试已添加
+- [ ] 新增测试全部通过
+
+## P2/P3 清理验收检查点
+
+### P2-1: 启动初始化职责合并
+- [ ] 分析 `main.dart` 和 `app.dart` 的 `AppInitializer`
+- [ ] 初始化入口已合并
+- [ ] 保留单一真源
+- [ ] 过时 TODO 初始化器已删除
+- [ ] 应用正常启动
+
+### P2-2: Profile 页通知数硬编码修复
+- [ ] `profile_page_new.dart` 硬编码通知数已移除
+- [ ] 接入通知 Provider 真实未读数
+- [ ] 未接入前显示占位态而非具体数字
+- [ ] 通知数显示正确
+
+### P2-3: 文档与产品语义统一
+- [ ] `pubspec.yaml` 包描述更新
+- [ ] 移除 "based on CoolApk"
+- [ ] 统一产品术语为 Trae Forum/Discourse
+- [ ] `README.md` 重写
+- [ ] README 包含架构说明
+- [ ] README 包含登录链路说明
+- [ ] README 包含构建命令
+- [ ] README 包含常见故障排查
+- [ ] 文档可支持新成员独立完成本地运行与调试
+
+### P3-1: 静态告警治理
+- [ ] `flutter analyze` 完整问题列表已获取
+- [ ] errors 已清零
+- [ ] `invalid_annotation_target` warnings 已修复
+- [ ] `deprecated_member_use` warnings 已修复
+- [ ] `avoid_print` warnings 已修复
+- [ ] infos 已治理
+- [ ] CI 增量门禁已配置（禁止新增 error/warning）
+- [ ] `flutter analyze` 问题数 < 500
+
+## 综合验收检查点
+
+### 第 1 周综合验收
+- [ ] `flutter analyze` errors = 0
+- [ ] 关注/取关动作方向正确
+- [ ] 登录门禁行为一致
+- [ ] 无"页面显示已登录但操作提示未登录"问题
+
+### 第 2 周综合验收
+- [ ] Dashboard/搜索只保留单一真源状态链
+- [ ] `/search/result` 不再是空占位逻辑
+- [ ] API 参数语义清晰
+- [ ] Header 值正确
+
+### 第 3 周综合验收
+- [ ] 现有失败用例清零（25 个失败全部修复）
+- [ ] 新增关键链路测试通过
+- [ ] 运行 `flutter test -r compact` 结果：+174 -0
+
+### 第 4 周综合验收
+- [ ] `flutter analyze` 问题数 < 500
+- [ ] 文档可支持新成员独立完成本地运行与调试
+- [ ] README 包含完整架构、登录链路、构建命令、常见故障
+- [ ] CI 增量门禁已生效
+
+## 风险检查点
+
+### 状态清理风险
+- [ ] 重复状态清理前已补回归测试
+- [ ] 旧实现删除后行为一致
+
+### 登录链路风险
+- [ ] 日志分层保留
+- [ ] 错误码透传正确
+- [ ] 不会用"网络异常"掩盖真实原因
+
+### 测试修复风险
+- [ ] 关键链路用例优先修复
+- [ ] 非关键 UI 断言分批恢复
+- [ ] 测试修复不破坏现有功能
