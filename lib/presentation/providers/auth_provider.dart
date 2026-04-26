@@ -331,7 +331,7 @@ bool isAuthenticated(IsAuthenticatedRef ref) {
 /// 用于需要完整检查登录状态的场景
 @riverpod
 Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
-  // 1. 先检查本地用户状态
+  // 1. 检查本地用户状态（仅作为线索，不直接判定已登录）
   final user = ref.read(currentUserProvider);
   final isPlaceholder =
       user == null ||
@@ -341,19 +341,19 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
       user.uid.trim() == 'webview_user';
 
   if (!isPlaceholder) {
-    debugPrint('✅ [isAuthenticatedAsync] 本地用户已登录: ${user.username}');
-    return true;
+    debugPrint('ℹ️ [isAuthenticatedAsync] 本地用户存在，继续校验论坛会话: ${user.username}');
   }
 
-  // 2. 尝试从论坛会话回填真实用户
-  final restored = await ref
-      .read(authNotifierProvider.notifier)
-      .refreshFromSession();
-  if (restored != null &&
-      restored.uid.isNotEmpty &&
-      restored.username.isNotEmpty) {
-    debugPrint('✅ [isAuthenticatedAsync] 论坛会话已恢复: ${restored.username}');
-    return true;
+  // 2. 无本地有效用户时，先尝试从论坛会话回填
+  if (isPlaceholder) {
+    final restored = await ref
+        .read(authNotifierProvider.notifier)
+        .refreshFromSession();
+    if (restored != null &&
+        restored.uid.isNotEmpty &&
+        restored.username.isNotEmpty) {
+      debugPrint('✅ [isAuthenticatedAsync] 论坛会话已恢复: ${restored.username}');
+    }
   }
 
   // 3. 检查论坛会话 Cookie（仅作线索，不直接判定登录）
@@ -362,19 +362,23 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
     '🔍 [isAuthenticatedAsync] Discourse session cookie: $hasDiscourseCookie',
   );
 
-  // 4. 统一使用 current session 判定，避免仅凭 Cookie 误判已登录
+  // 4. 必须使用 current session 判定，避免“本地已登录/主站已登录”误判论坛登录
   try {
-    final response = await ref
-        .read(discourseApiServiceProvider)
-        .getCurrentSession();
+    final discourseApi = ref.read(discourseApiServiceProvider);
+    final response = await discourseApi.getCurrentSession();
     final data = response.data;
     final currentUser = data is Map<String, dynamic>
         ? data['current_user']
         : null;
-    if (response.statusCode == 200 &&
-        currentUser is Map<String, dynamic> &&
-        (currentUser['username']?.toString().trim().isNotEmpty ?? false)) {
-      debugPrint('✅ [isAuthenticatedAsync] current session 命中，判定为已登录');
+    final username = currentUser is Map<String, dynamic>
+        ? (currentUser['username']?.toString().trim() ?? '')
+        : '';
+    if (response.statusCode == 200 && username.isNotEmpty) {
+      // 如果本地用户缺失或为占位，顺手回填，避免 UI 状态漂移
+      if (isPlaceholder) {
+        await ref.read(authNotifierProvider.notifier).refreshFromSession();
+      }
+      debugPrint('✅ [isAuthenticatedAsync] current session 命中，判定为已登录: $username');
       return true;
     }
   } catch (_) {

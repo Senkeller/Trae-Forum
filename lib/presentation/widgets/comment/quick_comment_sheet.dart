@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/repositories/comment_repository.dart';
 
+enum _QuickToolbarAction { heading, bold, italic, quote, codeBlock, list }
+
 /// 快速评论输入面板
 ///
 /// 一个底部弹出的快速评论输入面板，支持：
@@ -69,9 +71,6 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
   /// 是否正在发送
   bool _isLoading = false;
 
-  /// 是否有输入内容
-  bool _hasContent = false;
-
   /// 是否正在上传图片
   bool _isUploadingImage = false;
 
@@ -82,7 +81,6 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     super.initState();
     _controller = TextEditingController();
     _focusNode = FocusNode();
-    _controller.addListener(_handleTextChange);
 
     // 延迟获取焦点，确保面板动画完成
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -92,20 +90,280 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
 
   @override
   void dispose() {
-    _controller.removeListener(_handleTextChange);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  /// 处理文本变化
-  void _handleTextChange() {
-    final hasContent = _controller.text.trim().isNotEmpty;
-    if (hasContent != _hasContent) {
-      setState(() {
-        _hasContent = hasContent;
-      });
+  TextSelection _safeSelection() {
+    final selection = _controller.selection;
+    final textLength = _controller.text.length;
+    final start = selection.start.clamp(0, textLength);
+    final end = selection.end.clamp(0, textLength);
+    return TextSelection(baseOffset: start, extentOffset: end);
+  }
+
+  bool _canEdit() => !_isLoading && !_isUploadingImage;
+
+  bool _isCurrentLinePrefixed(String prefix) {
+    final text = _controller.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection();
+    final cursor = selection.start;
+    final lineStart = text.lastIndexOf('\n', cursor - 1);
+    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
+    final lineEndRaw = text.indexOf('\n', cursor);
+    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
+    final line = text.substring(startIndex, lineEnd).trimLeft();
+    return line.startsWith(prefix);
+  }
+
+  bool _isCurrentLineList() {
+    final text = _controller.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection();
+    final cursor = selection.start;
+    final lineStart = text.lastIndexOf('\n', cursor - 1);
+    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
+    final lineEndRaw = text.indexOf('\n', cursor);
+    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
+    final line = text.substring(startIndex, lineEnd).trimLeft();
+    return line.startsWith('- ') ||
+        line.startsWith('* ') ||
+        RegExp(r'^\d+\.\s').hasMatch(line);
+  }
+
+  bool _hasInlineMarker(String marker) {
+    final text = _controller.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection();
+    final start = selection.start;
+    final end = selection.end;
+
+    if (start != end) {
+      if (start < marker.length || end + marker.length > text.length) {
+        return false;
+      }
+      final left = text.substring(start - marker.length, start);
+      final right = text.substring(end, end + marker.length);
+      return left == marker && right == marker;
     }
+
+    final cursor = start;
+    final left = text.lastIndexOf(marker, cursor - 1);
+    if (left == -1) return false;
+    final right = text.indexOf(marker, left + marker.length);
+    if (right == -1 || right <= left + marker.length) return false;
+    final contentStart = left + marker.length;
+    return cursor >= contentStart && cursor <= right;
+  }
+
+  bool _hasItalicMarker() {
+    if (_hasInlineMarker('**')) return false;
+    return _hasInlineMarker('*');
+  }
+
+  bool _isInCodeBlock() {
+    final text = _controller.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection();
+    final beforeCursor = text.substring(0, selection.start);
+    final fenceCount = RegExp(r'```').allMatches(beforeCursor).length;
+    return fenceCount.isOdd;
+  }
+
+  Set<_QuickToolbarAction> _activeToolbarActions() {
+    final actions = <_QuickToolbarAction>{};
+    if (_isCurrentLinePrefixed('# ')) {
+      actions.add(_QuickToolbarAction.heading);
+    }
+    if (_isCurrentLinePrefixed('> ')) {
+      actions.add(_QuickToolbarAction.quote);
+    }
+    if (_isCurrentLineList()) {
+      actions.add(_QuickToolbarAction.list);
+    }
+    if (_hasInlineMarker('**')) {
+      actions.add(_QuickToolbarAction.bold);
+    }
+    if (_hasItalicMarker()) {
+      actions.add(_QuickToolbarAction.italic);
+    }
+    if (_isInCodeBlock()) {
+      actions.add(_QuickToolbarAction.codeBlock);
+    }
+    return actions;
+  }
+
+  void _updateText(
+    String value, {
+    int? cursor,
+    TextSelection? selection,
+  }) {
+    final safeCursor = (cursor ?? value.length).clamp(0, value.length);
+    _controller.value = TextEditingValue(
+      text: value,
+      selection: selection ?? TextSelection.collapsed(offset: safeCursor),
+    );
+    _focusNode.requestFocus();
+  }
+
+  void _wrapSelection(String prefix, String suffix) {
+    if (!_canEdit()) return;
+    final original = _controller.text;
+    final selection = _safeSelection();
+    final start = selection.start;
+    final end = selection.end;
+    final selected = original.substring(start, end);
+    final replacement = '$prefix$selected$suffix';
+    final updated = original.replaceRange(start, end, replacement);
+
+    if (start == end) {
+      _updateText(updated, cursor: start + prefix.length);
+      return;
+    }
+    final newStart = start + prefix.length;
+    final newEnd = newStart + selected.length;
+    _updateText(
+      updated,
+      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
+    );
+  }
+
+  void _toggleInlineMarker(String marker) {
+    if (!_canEdit()) return;
+    if (_tryUnwrapInlineMarker(marker)) return;
+    _wrapSelection(marker, marker);
+  }
+
+  bool _tryUnwrapInlineMarker(String marker) {
+    final original = _controller.text;
+    final selection = _safeSelection();
+    final start = selection.start;
+    final end = selection.end;
+
+    if (start != end) {
+      if (start < marker.length || end + marker.length > original.length) {
+        return false;
+      }
+      final left = original.substring(start - marker.length, start);
+      final right = original.substring(end, end + marker.length);
+      if (left != marker || right != marker) return false;
+
+      final removedRight = original.replaceRange(end, end + marker.length, '');
+      final updated = removedRight.replaceRange(start - marker.length, start, '');
+      final newStart = start - marker.length;
+      final selectedLen = end - start;
+      _updateText(
+        updated,
+        selection: TextSelection(
+          baseOffset: newStart,
+          extentOffset: newStart + selectedLen,
+        ),
+      );
+      return true;
+    }
+
+    final cursor = start;
+    final leftMarker = original.lastIndexOf(marker, cursor - 1);
+    if (leftMarker == -1) return false;
+    final rightMarker = original.indexOf(marker, leftMarker + marker.length);
+    if (rightMarker == -1 || rightMarker <= leftMarker + marker.length) {
+      return false;
+    }
+    final contentStart = leftMarker + marker.length;
+    if (cursor < contentStart || cursor > rightMarker) return false;
+
+    final removedRight = original.replaceRange(
+      rightMarker,
+      rightMarker + marker.length,
+      '',
+    );
+    final updated = removedRight.replaceRange(
+      leftMarker,
+      leftMarker + marker.length,
+      '',
+    );
+    final newCursor = (cursor - marker.length).clamp(0, updated.length);
+    _updateText(updated, cursor: newCursor);
+    return true;
+  }
+
+  void _toggleLinePrefix(String prefix) {
+    if (!_canEdit()) return;
+    final original = _controller.text;
+    final selection = _safeSelection();
+    final start = selection.start;
+    final end = selection.end;
+    final lineStartRaw = original.lastIndexOf('\n', start - 1);
+    final lineStart = lineStartRaw == -1 ? 0 : lineStartRaw + 1;
+    final lineEndRaw = original.indexOf('\n', end);
+    final lineEnd = lineEndRaw == -1 ? original.length : lineEndRaw;
+    final line = original.substring(lineStart, lineEnd);
+    final indentLength = line.length - line.trimLeft().length;
+    final prefixStart = lineStart + indentLength;
+    final trimmed = line.trimLeft();
+
+    if (trimmed.startsWith(prefix)) {
+      final updated = original.replaceRange(
+        prefixStart,
+        prefixStart + prefix.length,
+        '',
+      );
+      final newStart = (start - prefix.length).clamp(0, updated.length);
+      final newEnd = (end - prefix.length).clamp(0, updated.length);
+      _updateText(
+        updated,
+        selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
+      );
+      return;
+    }
+
+    final updated = original.replaceRange(prefixStart, prefixStart, prefix);
+    final newStart = (start + prefix.length).clamp(0, updated.length);
+    final newEnd = (end + prefix.length).clamp(0, updated.length);
+    _updateText(
+      updated,
+      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
+    );
+  }
+
+  void _toggleCodeBlock() {
+    if (!_canEdit()) return;
+    if (_isInCodeBlock()) {
+      _removeCurrentCodeBlockFence();
+      return;
+    }
+    _wrapSelection('\n```\n', '\n```\n');
+  }
+
+  void _removeCurrentCodeBlockFence() {
+    final original = _controller.text;
+    if (original.isEmpty) return;
+    final selection = _safeSelection();
+    final cursor = selection.start;
+    final leftFence = original.lastIndexOf('```', cursor);
+    if (leftFence == -1) return;
+    final rightFence = original.indexOf('```', cursor);
+    if (rightFence == -1 || rightFence <= leftFence) return;
+
+    final removedRight = original.replaceRange(rightFence, rightFence + 3, '');
+    final updated = removedRight.replaceRange(leftFence, leftFence + 3, '');
+    final newCursor = (cursor - 3).clamp(0, updated.length);
+    _updateText(updated, cursor: newCursor);
+  }
+
+  void _insertTemplate(String template, {int? cursorOffset}) {
+    if (!_canEdit()) return;
+    final original = _controller.text;
+    final selection = _safeSelection();
+    final start = selection.start;
+    final end = selection.end;
+    final updated = original.replaceRange(start, end, template);
+    final cursor = cursorOffset != null
+        ? (start + cursorOffset).clamp(0, updated.length)
+        : start + template.length;
+    _updateText(updated, cursor: cursor);
   }
 
   /// 处理发送
@@ -350,7 +608,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
           textInputAction: TextInputAction.newline,
           keyboardType: TextInputType.multiline,
           decoration: InputDecoration(
-            hintText: '说点什么...',
+            hintText: '说点什么（支持 Markdown）...',
             hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
             contentPadding: const EdgeInsets.all(12),
             border: InputBorder.none,
@@ -381,26 +639,90 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          // 设备图片按钮（照片/表情包）
-          _buildIconButton(
-            context,
-            icon: _isUploadingImage
-                ? Icons.hourglass_top
-                : Icons.image_outlined,
-            onTap: _isUploadingImage ? null : _pickImagesFromDevice,
-          ),
-          const Spacer(),
-          // 字数统计
-          Text(
-            '${_controller.text.length}/500',
-            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(width: 12),
-          // 发送按钮
-          _buildSendButton(context),
-        ],
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _controller,
+        builder: (context, value, _) {
+          final hasText = value.text.trim().isNotEmpty;
+          final activeActions = _activeToolbarActions();
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  _buildIconButton(
+                    context,
+                    icon: _isUploadingImage
+                        ? Icons.hourglass_top
+                        : Icons.image_outlined,
+                    onTap: _isUploadingImage ? null : _pickImagesFromDevice,
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${value.text.length}/500',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _buildSendButton(context, hasText: hasText),
+                ],
+              ),
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildMdToolButton(
+                      icon: Icons.title,
+                      tooltip: '标题',
+                      active: activeActions.contains(_QuickToolbarAction.heading),
+                      onTap: () => _toggleLinePrefix('# '),
+                    ),
+                    _buildMdToolButton(
+                      icon: Icons.format_bold,
+                      tooltip: '加粗',
+                      active: activeActions.contains(_QuickToolbarAction.bold),
+                      onTap: () => _toggleInlineMarker('**'),
+                    ),
+                    _buildMdToolButton(
+                      icon: Icons.format_italic,
+                      tooltip: '斜体',
+                      active: activeActions.contains(_QuickToolbarAction.italic),
+                      onTap: () => _toggleInlineMarker('*'),
+                    ),
+                    _buildMdToolButton(
+                      icon: Icons.format_quote,
+                      tooltip: '引用',
+                      active: activeActions.contains(_QuickToolbarAction.quote),
+                      onTap: () => _toggleLinePrefix('> '),
+                    ),
+                    _buildMdToolButton(
+                      icon: Icons.code,
+                      tooltip: '代码块',
+                      active: activeActions.contains(_QuickToolbarAction.codeBlock),
+                      onTap: _toggleCodeBlock,
+                    ),
+                    _buildMdToolButton(
+                      icon: Icons.link,
+                      tooltip: '链接',
+                      onTap: () => _insertTemplate(
+                        '[链接文本](https://)',
+                        cursorOffset: 1,
+                      ),
+                    ),
+                    _buildMdToolButton(
+                      icon: Icons.format_list_bulleted,
+                      tooltip: '列表',
+                      active: activeActions.contains(_QuickToolbarAction.list),
+                      onTap: () => _toggleLinePrefix('- '),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -431,18 +753,45 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     );
   }
 
+  Widget _buildMdToolButton({
+    required IconData icon,
+    required String tooltip,
+    bool active = false,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: IconButton(
+        onPressed: onTap,
+        tooltip: tooltip,
+        visualDensity: VisualDensity.compact,
+        style: IconButton.styleFrom(
+          backgroundColor: active
+              ? const Color(0xFFDFF4E8)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          foregroundColor: active
+              ? const Color(0xFF0B8A6A)
+              : colorScheme.onSurfaceVariant,
+          minimumSize: const Size(32, 32),
+        ),
+        icon: Icon(icon, size: 17),
+      ),
+    );
+  }
+
   /// 构建发送按钮
-  Widget _buildSendButton(BuildContext context) {
+  Widget _buildSendButton(BuildContext context, {required bool hasText}) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return GestureDetector(
-      onTap: _hasContent && !_isLoading && !_isUploadingImage
+      onTap: hasText && !_isLoading && !_isUploadingImage
           ? _handleSend
           : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: _hasContent && !_isLoading && !_isUploadingImage
+          color: hasText && !_isLoading && !_isUploadingImage
               ? colorScheme.primary
               : colorScheme.surfaceContainerHighest,
           borderRadius: const BorderRadius.all(Radius.circular(20)),
@@ -461,7 +810,7 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
             : Text(
                 '发送',
                 style: TextStyle(
-                  color: _hasContent
+                  color: hasText
                       ? colorScheme.onPrimary
                       : colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,

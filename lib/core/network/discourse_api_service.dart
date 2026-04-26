@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/models/search.dart';
 import 'dio_client.dart';
 import 'interceptors/csrf_token_manager.dart';
+import 'native_cookie_bridge.dart';
 
 part 'discourse_api_service.g.dart';
 
@@ -25,6 +26,26 @@ class DiscourseApiService {
   final Dio _dio;
 
   DiscourseApiService() : _dio = DioClient.dio;
+
+  Future<void> _ensureForumSessionReady() async {
+    // 优先从系统 CookieManager 同步，避免 Dio CookieJar 与 WebView 会话漂移
+    await NativeCookieBridge.syncCookiesToDio(_baseUrl);
+    await DiscourseCsrfToken.ensureValid(_dio);
+  }
+
+  bool _isNotLoggedInResponse(Response<dynamic>? response) {
+    if (response == null || response.statusCode != 403) return false;
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      final type = data['error_type']?.toString();
+      if (type == 'not_logged_in') return true;
+      final errors = data['errors'];
+      if (errors is List && errors.isNotEmpty) {
+        return errors.first.toString().contains('需要登录');
+      }
+    }
+    return false;
+  }
 
   Future<Response> getLatestTopics({int page = 0}) async {
     return _dio.get('$_baseUrl/latest.json', queryParameters: {'page': page});
@@ -288,33 +309,44 @@ class DiscourseApiService {
     required String raw,
     int? replyToPostNumber,
   }) async {
-    // 确保 CSRF Token 有效
-    print('🔍 [DiscourseApiService] createPost: 调用 ensureValid');
-    await DiscourseCsrfToken.ensureValid(_dio);
-
+    await _ensureForumSessionReady();
     final csrfToken = DiscourseCsrfToken.token;
-    print(
-      '🔍 [DiscourseApiService] createPost: CSRF Token = ${csrfToken != null ? "存在 (${csrfToken.length} 字符)" : "不存在"}',
-    );
-
     final data = <String, dynamic>{'raw': raw, 'topic_id': topicId};
 
     if (replyToPostNumber != null) {
       data['reply_to_post_number'] = replyToPostNumber;
     }
 
-    return _dio.post(
-      '$_baseUrl/posts',
-      data: data,
-      options: Options(
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Discourse-Logged-In': 'true',
-          'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
-        },
-      ),
+    final options = Options(
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Discourse-Logged-In': 'true',
+        'Discourse-Present': 'true',
+        if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+      },
     );
+
+    try {
+      return await _dio.post('$_baseUrl/posts', data: data, options: options);
+    } on DioException catch (error) {
+      if (_isNotLoggedInResponse(error.response)) {
+        await _ensureForumSessionReady();
+        final retryToken = DiscourseCsrfToken.token;
+        return _dio.post(
+          '$_baseUrl/posts',
+          data: data,
+          options: Options(
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Discourse-Logged-In': 'true',
+              'Discourse-Present': 'true',
+              if (retryToken != null) 'X-CSRF-Token': retryToken,
+            },
+          ),
+        );
+      }
+      rethrow;
+    }
   }
 
   /// 上传图片（评论/回复使用）
@@ -653,7 +685,7 @@ class DiscourseApiService {
     List<String>? tags,
     int? replyToPostNumber,
   }) async {
-    await DiscourseCsrfToken.ensureValid(_dio);
+    await _ensureForumSessionReady();
     final csrfToken = DiscourseCsrfToken.token;
     final data = <String, dynamic>{'title': title, 'raw': raw};
 
@@ -669,18 +701,36 @@ class DiscourseApiService {
       data['reply_to_post_number'] = replyToPostNumber;
     }
 
-    return _dio.post(
-      '$_baseUrl/posts',
-      data: data,
-      options: Options(
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Discourse-Logged-In': 'true',
-          'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
-        },
-      ),
+    final options = Options(
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'Discourse-Logged-In': 'true',
+        'Discourse-Present': 'true',
+        if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+      },
     );
+
+    try {
+      return await _dio.post('$_baseUrl/posts', data: data, options: options);
+    } on DioException catch (error) {
+      if (_isNotLoggedInResponse(error.response)) {
+        await _ensureForumSessionReady();
+        final retryToken = DiscourseCsrfToken.token;
+        return _dio.post(
+          '$_baseUrl/posts',
+          data: data,
+          options: Options(
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Discourse-Logged-In': 'true',
+              'Discourse-Present': 'true',
+              if (retryToken != null) 'X-CSRF-Token': retryToken,
+            },
+          ),
+        );
+      }
+      rethrow;
+    }
   }
 
   // ==================== 收藏/书签相关 API ====================

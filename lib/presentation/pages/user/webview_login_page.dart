@@ -50,6 +50,8 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   /// 论坛首页 URL (用于判断是否登录成功)
   static const String _forumUrl = 'https://forum.trae.cn';
+  static const String _forumLoginUrl = 'https://forum.trae.cn/login';
+  bool _didTryForumLoginBootstrap = false;
 
   @override
   void initState() {
@@ -199,13 +201,23 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
           currentUrl: url,
         );
       } else if (isTraeDashboard) {
-        debugPrint('✅ [WebViewLogin] 检测到 TRAE 登录成功页面，准备跳转到论坛验证');
-        // 登录成功，但需要跳转到论坛来验证登录状态
+        debugPrint('✅ [WebViewLogin] 检测到 TRAE 登录成功页面，跳转论坛登录触发 SSO');
+        // 必须走 /login 触发 Discourse SSO，直接打开论坛首页可能仍是匿名会话。
         await Future.delayed(const Duration(milliseconds: 250));
-        debugPrint('🚀 [WebViewLogin] 导航到论坛页面');
-        await _controller.loadRequest(Uri.parse(_forumUrl));
+        debugPrint('🚀 [WebViewLogin] 导航到论坛登录页: $_forumLoginUrl');
+        await _controller.loadRequest(Uri.parse(_forumLoginUrl));
       } else {
         debugPrint('ℹ️ [WebViewLogin] 当前不是登录成功页面，跳过登录检测');
+        // 兜底：如果已进入论坛但仍匿名，则仅尝试一次 /login 引导建立会话。
+        if (!_isLoginSuccess &&
+            !_didTryForumLoginBootstrap &&
+            url.startsWith(_forumUrl) &&
+            !url.contains('/login') &&
+            !url.contains('/session/sso_login')) {
+          _didTryForumLoginBootstrap = true;
+          debugPrint('⚠️ [WebViewLogin] 论坛仍为匿名，尝试一次 /login 触发 SSO');
+          await _controller.loadRequest(Uri.parse(_forumLoginUrl));
+        }
       }
     } catch (e) {
       debugPrint('❌ [WebViewLogin] 检查登录状态失败: $e');

@@ -158,6 +158,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     BuildContext context,
     user_model.UserInfo user,
   ) {
+    final textTheme = Theme.of(context).textTheme;
     final userState = ref.watch(userSpaceNotifierProvider(user.username));
     final profile = userState.profile;
     final summary = ref.watch(userStatsSummaryProvider).valueOrNull;
@@ -167,16 +168,16 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1D1E22),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -186,8 +187,8 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               GestureDetector(
                 onTap: () => _showAvatarOptions(context),
                 child: Container(
-                  width: 88,
-                  height: 88,
+                  width: 72,
+                  height: 72,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: const Color(0xFF43D1AA),
@@ -213,18 +214,16 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                       'Hello! $displayName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
-                        fontSize: 26,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       '这是你使用 TRAE IDE 的第 $registerDays 天',
-                      style: TextStyle(
+                      style: textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 16,
                       ),
                     ),
                     if (user.bio.isNotEmpty) ...[
@@ -233,9 +232,8 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                         user.bio,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: textTheme.bodySmall?.copyWith(
                           color: Colors.white.withValues(alpha: 0.52),
-                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -244,27 +242,30 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _buildStatItem(
+                  context: context,
                   label: '动态',
                   count: profile?.feedCount ?? 0,
                   onTap: () => _navigateToUserFeeds(context),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatItem(
+                  context: context,
                   label: '关注',
                   count: profile?.followCount ?? 0,
                   onTap: () => _navigateToFollowing(context),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatItem(
+                  context: context,
                   label: '粉丝',
                   count: profile?.fansCount ?? 0,
                   onTap: () => _navigateToFollowers(context),
@@ -272,10 +273,10 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: [
               _buildProfileTag('# 满勤码神'),
               _buildProfileTag('# 智能体饲养员'),
@@ -283,7 +284,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               _buildProfileTag('# 编程夜行侠'),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.tonalIcon(
@@ -293,7 +294,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF2B2E34),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -324,19 +325,21 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
   /// 未登录用户卡片
   Widget _buildUnauthenticatedCard(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1D1E22),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -344,8 +347,8 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 88,
-                height: 88,
+                width: 72,
+                height: 72,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   color: Color(0xFF43D1AA),
@@ -357,22 +360,20 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Hello! 游客',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
-                        fontSize: 26,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       '登录后可同步你的数据与消息',
-                      style: TextStyle(
+                      style: textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 16,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -380,9 +381,8 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                       '登录后体验完整个人主页能力',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: textTheme.bodySmall?.copyWith(
                         color: Colors.white.withValues(alpha: 0.52),
-                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -390,27 +390,30 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _buildStatItem(
+                  context: context,
                   label: '动态',
                   count: 0,
                   onTap: () => context.push(RoutePaths.login),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatItem(
+                  context: context,
                   label: '关注',
                   count: 0,
                   onTap: () => context.push(RoutePaths.login),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: _buildStatItem(
+                  context: context,
                   label: '粉丝',
                   count: 0,
                   onTap: () => context.push(RoutePaths.login),
@@ -418,17 +421,17 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: const [
               _ProfileGhostTag('# 登录后解锁'),
               _ProfileGhostTag('# 个性标签'),
               _ProfileGhostTag('# 成长轨迹'),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.tonalIcon(
@@ -438,7 +441,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF2B2E34),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -452,17 +455,20 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
   /// 构建统计项
   Widget _buildStatItem({
+    required BuildContext context,
     required String label,
     required int count,
     required VoidCallback onTap,
   }) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: const Color(0xFF262A30),
             borderRadius: BorderRadius.circular(12),
@@ -472,18 +478,16 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             children: [
               Text(
                 _formatCount(count),
-                style: const TextStyle(
+                style: textTheme.titleLarge?.copyWith(
                   color: Colors.white,
-                  fontSize: 20,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(
+                style: textTheme.labelMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.62),
-                  fontSize: 13,
                 ),
               ),
             ],
@@ -637,22 +641,23 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   Widget _buildDashboardStyleAvatar() {
     return Container(
       color: const Color(0xFF43D1AA),
-      child: const Icon(Icons.person, size: 42, color: Color(0xFF05614A)),
+      child: const Icon(Icons.person, size: 34, color: Color(0xFF05614A)),
     );
   }
 
   Widget _buildProfileTag(String text) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFF1F4D3F),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: textTheme.labelLarge?.copyWith(
           color: Color(0xFF3BE89A),
-          fontSize: 17,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -768,17 +773,18 @@ class _ProfileGhostTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFF2B2E34),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: textTheme.labelMedium?.copyWith(
           color: Color(0xFF9AA0AA),
-          fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
       ),

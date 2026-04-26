@@ -367,22 +367,24 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       final userInfo = topicDetail.userInfo;
       if (userInfo == null) return;
 
-      await ref.read(browseHistoriesProvider.notifier).addHistory(
-        feedId: widget.feedId,
-        uid: userInfo.uid,
-        username: userInfo.username,
-        avatarUrl: userInfo.avatar ?? '',
-        deviceTitle: topicDetail.title ?? '',
-        message: topicDetail.message.isNotEmpty
-            ? topicDetail.message.substring(
-                0,
-                topicDetail.message.length > 100
-                    ? 100
-                    : topicDetail.message.length,
-              )
-            : '',
-        dateline: topicDetail.dateline,
-      );
+      await ref
+          .read(browseHistoriesProvider.notifier)
+          .addHistory(
+            feedId: widget.feedId,
+            uid: userInfo.uid,
+            username: userInfo.username,
+            avatarUrl: userInfo.avatar ?? '',
+            deviceTitle: topicDetail.title ?? '',
+            message: topicDetail.message.isNotEmpty
+                ? topicDetail.message.substring(
+                    0,
+                    topicDetail.message.length > 100
+                        ? 100
+                        : topicDetail.message.length,
+                  )
+                : '',
+            dateline: topicDetail.dateline,
+          );
     } catch (e) {
       // 记录浏览历史失败不应影响用户体验，静默处理
       debugPrint('记录浏览历史失败: $e');
@@ -932,7 +934,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             // 编辑话题选项（仅楼主可见）
             if (isTopicAuthor)
               ListTile(
-                leading: Icon(Icons.edit, color: Theme.of(context).colorScheme.primary),
+                leading: Icon(
+                  Icons.edit,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 title: const Text('编辑帖子'),
                 onTap: () {
                   Navigator.of(context).pop();
@@ -1003,9 +1008,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     final colorScheme = Theme.of(context).colorScheme;
     final postId = int.tryParse(reply.id);
     if (postId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('无效的回复ID')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无效的回复ID')));
       return;
     }
 
@@ -1055,7 +1060,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                   ),
                   // 标题栏
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       border: Border(
                         bottom: BorderSide(
@@ -1067,9 +1075,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                       children: [
                         Text(
                           '编辑回复',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         const Spacer(),
                         // 取消按钮
@@ -1112,12 +1119,18 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                                   // 调用 API 保存
                                   final result = await ref
                                       .read(replyNotifierProvider.notifier)
-                                      .editReply(postId: postId, content: content);
+                                      .editReply(
+                                        postId: postId,
+                                        content: content,
+                                      );
 
                                   if (!mounted) return;
 
                                   if (result.success) {
-                                    HapticFeedbackUtil.trigger(ref, HapticScene.commentSuccess);
+                                    HapticFeedbackUtil.trigger(
+                                      ref,
+                                      HapticScene.commentSuccess,
+                                    );
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(content: Text('回复编辑成功')),
                                     );
@@ -1127,7 +1140,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                                       setState(() {
                                         _comments = _comments.map((r) {
                                           if (r.id == reply.id) {
-                                            return r.copyWith(message: originalContent);
+                                            return r.copyWith(
+                                              message: originalContent,
+                                            );
                                           }
                                           return r;
                                         }).toList();
@@ -1135,10 +1150,13 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                                     }
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(result.errorMessage ?? '编辑失败'),
+                                        content: Text(
+                                          result.errorMessage ?? '编辑失败',
+                                        ),
                                         action: SnackBarAction(
                                           label: '重试',
-                                          onPressed: () => _showEditReplyBottomSheet(reply),
+                                          onPressed: () =>
+                                              _showEditReplyBottomSheet(reply),
                                         ),
                                       ),
                                     );
@@ -1148,7 +1166,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Text('保存'),
                         ),
@@ -1210,7 +1230,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                         }
 
                         // 保存删除前的状态，用于错误恢复
-                        final previousComments = List<ReplyData>.from(_comments);
+                        final previousComments = List<ReplyData>.from(
+                          _comments,
+                        );
                         final previousReplyNum = _topicDetail?.replyNum ?? 0;
 
                         // 乐观删除：立即从列表中移除
@@ -1225,7 +1247,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                         if (!mounted) return;
 
                         if (result.success) {
-                          HapticFeedbackUtil.trigger(ref, HapticScene.deleteSuccess);
+                          HapticFeedbackUtil.trigger(
+                            ref,
+                            HapticScene.deleteSuccess,
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('回复已删除')),
                           );
@@ -1234,7 +1259,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                           _restoreComments(previousComments, previousReplyNum);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(result.errorMessage ?? '删除失败，请稍后重试'),
+                              content: Text(
+                                result.errorMessage ?? '删除失败，请稍后重试',
+                              ),
                               action: SnackBarAction(
                                 label: '重试',
                                 onPressed: () => _showDeleteReplyConfirm(reply),
@@ -1273,7 +1300,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
       // 更新回复计数
       if (_topicDetail != null) {
-        final newReplyNum = (_topicDetail!.replyNum - 1).clamp(0, _topicDetail!.replyNum);
+        final newReplyNum = (_topicDetail!.replyNum - 1).clamp(
+          0,
+          _topicDetail!.replyNum,
+        );
         _topicDetail = _topicDetail!.copyWith(replyNum: newReplyNum);
       }
     });
@@ -1283,7 +1313,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   ///
   /// [previousComments] 删除前的评论列表
   /// [previousReplyNum] 删除前的回复数
-  void _restoreComments(List<ReplyData> previousComments, int previousReplyNum) {
+  void _restoreComments(
+    List<ReplyData> previousComments,
+    int previousReplyNum,
+  ) {
     if (!mounted) return;
 
     setState(() {
@@ -1558,155 +1591,155 @@ class _ReplyItem extends ConsumerWidget {
     final likeNum = likeState?.likeCount ?? reply.likeNum;
 
     return Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: colorScheme.outline.withValues(alpha: 0.12),
-                    ),
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: colorScheme.outline.withValues(alpha: 0.12),
+          ),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CommentAvatar(avatar: reply.avatar, username: reply.username),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    _CommentAvatar(avatar: reply.avatar, username: reply.username),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  reply.username,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              if (isTopicAuthor) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colorScheme.primaryContainer,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    '楼主',
-                                    style: Theme.of(context).textTheme.labelSmall
-                                        ?.copyWith(color: colorScheme.onPrimaryContainer),
-                                  ),
-                                ),
-                              ],
-                              const Spacer(),
-                              Text(
-                                '#$floor',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _formatTimestamp(reply.dateline),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          if (reply.replyTo != null && reply.replyTo!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Text(
-                                '回复 @${reply.replyTo}',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.primary,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          _ReplyMessage(htmlContent: reply.message, onLinkTap: onLinkTap),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              GestureDetector(
-                                onTap: () async {
-                                  final postId = int.tryParse(reply.id);
-                                  if (postId != null && postId > 0) {
-                                    await HapticFeedbackUtil.trigger(
-                                      ref,
-                                      isLiked ? HapticScene.unlike : HapticScene.like,
-                                    );
-                                    await ref
-                                        .read(likeProvider.notifier)
-                                        .toggleLike(postId);
-                                  }
-                                },
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isLiked
-                                          ? Icons.thumb_up_alt
-                                          : Icons.thumb_up_alt_outlined,
-                                      size: 16,
-                                      color: isLiked
-                                          ? colorScheme.primary
-                                          : colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '$likeNum',
-                                      style: Theme.of(context).textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: isLiked
-                                                ? colorScheme.primary
-                                                : colorScheme.onSurfaceVariant,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              GestureDetector(
-                                onTap: () async {
-                                  await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
-                                  onReplyTap?.call();
-                                },
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.reply_outlined,
-                                      size: 16,
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '回复',
-                                      style: Theme.of(context).textTheme.bodySmall
-                                          ?.copyWith(color: colorScheme.onSurfaceVariant),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              // 更多操作菜单
-                              _buildMoreOptionsButton(context, ref),
-                            ],
-                          ),
-                        ],
+                    Flexible(
+                      child: Text(
+                        reply.username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (isTopicAuthor) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '楼主',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: colorScheme.onPrimaryContainer),
+                        ),
+                      ),
+                    ],
+                    const Spacer(),
+                    Text(
+                      '#$floor',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
-              );
+                const SizedBox(height: 2),
+                Text(
+                  _formatTimestamp(reply.dateline),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (reply.replyTo != null && reply.replyTo!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      '回复 @${reply.replyTo}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                _ReplyMessage(htmlContent: reply.message, onLinkTap: onLinkTap),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () async {
+                        final postId = int.tryParse(reply.id);
+                        if (postId != null && postId > 0) {
+                          await HapticFeedbackUtil.trigger(
+                            ref,
+                            isLiked ? HapticScene.unlike : HapticScene.like,
+                          );
+                          await ref
+                              .read(likeProvider.notifier)
+                              .toggleLike(postId);
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          Icon(
+                            isLiked
+                                ? Icons.thumb_up_alt
+                                : Icons.thumb_up_alt_outlined,
+                            size: 16,
+                            color: isLiked
+                                ? colorScheme.primary
+                                : colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$likeNum',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: isLiked
+                                      ? colorScheme.primary
+                                      : colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    GestureDetector(
+                      onTap: () async {
+                        await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+                        onReplyTap?.call();
+                      },
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.reply_outlined,
+                            size: 16,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '回复',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    // 更多操作菜单
+                    _buildMoreOptionsButton(context, ref),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 构建更多操作按钮
@@ -1856,7 +1889,9 @@ class _CommentAvatar extends StatelessWidget {
   }
 }
 
-class _BottomCommentBar extends StatelessWidget {
+enum _ReplyToolbarAction { heading, bold, italic, quote, codeBlock, list }
+
+class _BottomCommentBar extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isLoggedIn;
@@ -1882,6 +1917,294 @@ class _BottomCommentBar extends StatelessWidget {
   });
 
   @override
+  State<_BottomCommentBar> createState() => _BottomCommentBarState();
+}
+
+class _BottomCommentBarState extends State<_BottomCommentBar> {
+  Set<_ReplyToolbarAction> _activeActionsFor(TextEditingValue value) {
+    final actions = <_ReplyToolbarAction>{};
+    if (_isCurrentLinePrefixed(value, '# ')) {
+      actions.add(_ReplyToolbarAction.heading);
+    }
+    if (_isCurrentLinePrefixed(value, '> ')) {
+      actions.add(_ReplyToolbarAction.quote);
+    }
+    if (_isCurrentLineList(value)) {
+      actions.add(_ReplyToolbarAction.list);
+    }
+    if (_hasInlineMarker(value, '**')) {
+      actions.add(_ReplyToolbarAction.bold);
+    }
+    if (_hasItalicMarker(value)) {
+      actions.add(_ReplyToolbarAction.italic);
+    }
+    if (_isInCodeBlock(value)) {
+      actions.add(_ReplyToolbarAction.codeBlock);
+    }
+    return actions;
+  }
+
+  TextSelection _safeSelection(TextEditingValue value) {
+    final textLength = value.text.length;
+    final start = value.selection.start.clamp(0, textLength);
+    final end = value.selection.end.clamp(0, textLength);
+    return TextSelection(baseOffset: start, extentOffset: end);
+  }
+
+  bool _isCurrentLinePrefixed(TextEditingValue value, String prefix) {
+    final text = value.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection(value);
+    final cursor = selection.start;
+    final lineStart = text.lastIndexOf('\n', cursor - 1);
+    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
+    final lineEndRaw = text.indexOf('\n', cursor);
+    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
+    final line = text.substring(startIndex, lineEnd).trimLeft();
+    return line.startsWith(prefix);
+  }
+
+  bool _isCurrentLineList(TextEditingValue value) {
+    final text = value.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection(value);
+    final cursor = selection.start;
+    final lineStart = text.lastIndexOf('\n', cursor - 1);
+    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
+    final lineEndRaw = text.indexOf('\n', cursor);
+    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
+    final line = text.substring(startIndex, lineEnd).trimLeft();
+    return line.startsWith('- ') ||
+        line.startsWith('* ') ||
+        RegExp(r'^\d+\.\s').hasMatch(line);
+  }
+
+  bool _hasInlineMarker(TextEditingValue value, String marker) {
+    final text = value.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection(value);
+    final start = selection.start;
+    final end = selection.end;
+
+    if (start != end) {
+      if (start < marker.length || end + marker.length > text.length) {
+        return false;
+      }
+      final left = text.substring(start - marker.length, start);
+      final right = text.substring(end, end + marker.length);
+      return left == marker && right == marker;
+    }
+
+    final cursor = start;
+    final left = text.lastIndexOf(marker, cursor - 1);
+    if (left == -1) return false;
+    final right = text.indexOf(marker, left + marker.length);
+    if (right == -1 || right <= left + marker.length) return false;
+    final contentStart = left + marker.length;
+    return cursor >= contentStart && cursor <= right;
+  }
+
+  bool _hasItalicMarker(TextEditingValue value) {
+    if (_hasInlineMarker(value, '**')) return false;
+    return _hasInlineMarker(value, '*');
+  }
+
+  bool _isInCodeBlock(TextEditingValue value) {
+    final text = value.text;
+    if (text.isEmpty) return false;
+    final selection = _safeSelection(value);
+    final beforeCursor = text.substring(0, selection.start);
+    final fenceCount = RegExp(r'```').allMatches(beforeCursor).length;
+    return fenceCount.isOdd;
+  }
+
+  bool _canEdit() {
+    return widget.isLoggedIn && !widget.isSending && !widget.isUploadingImage;
+  }
+
+  void _updateText(String value, {int? cursor, TextSelection? selection}) {
+    final safeCursor = (cursor ?? value.length).clamp(0, value.length);
+    widget.controller.value = TextEditingValue(
+      text: value,
+      selection: selection ?? TextSelection.collapsed(offset: safeCursor),
+    );
+    widget.focusNode.requestFocus();
+  }
+
+  void _wrapSelection(String prefix, String suffix) {
+    if (!_canEdit()) return;
+    final oldValue = widget.controller.value;
+    final selection = _safeSelection(oldValue);
+    final text = oldValue.text;
+    final start = selection.start;
+    final end = selection.end;
+    final selected = text.substring(start, end);
+    final replacement = '$prefix$selected$suffix';
+    final updated = text.replaceRange(start, end, replacement);
+
+    if (start == end) {
+      _updateText(updated, cursor: start + prefix.length);
+      return;
+    }
+    final newStart = start + prefix.length;
+    final newEnd = newStart + selected.length;
+    _updateText(
+      updated,
+      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
+    );
+  }
+
+  void _toggleInlineMarker(String marker) {
+    if (!_canEdit()) return;
+    if (_tryUnwrapInlineMarker(marker)) return;
+    _wrapSelection(marker, marker);
+  }
+
+  bool _tryUnwrapInlineMarker(String marker) {
+    final oldValue = widget.controller.value;
+    final selection = _safeSelection(oldValue);
+    final text = oldValue.text;
+    final start = selection.start;
+    final end = selection.end;
+
+    if (start != end) {
+      if (start < marker.length || end + marker.length > text.length) {
+        return false;
+      }
+      final left = text.substring(start - marker.length, start);
+      final right = text.substring(end, end + marker.length);
+      if (left != marker || right != marker) {
+        return false;
+      }
+
+      final removedRight = text.replaceRange(end, end + marker.length, '');
+      final updated = removedRight.replaceRange(
+        start - marker.length,
+        start,
+        '',
+      );
+      final newStart = start - marker.length;
+      final selectedLen = end - start;
+      _updateText(
+        updated,
+        selection: TextSelection(
+          baseOffset: newStart,
+          extentOffset: newStart + selectedLen,
+        ),
+      );
+      return true;
+    }
+
+    final cursor = start;
+    final leftMarker = text.lastIndexOf(marker, cursor - 1);
+    if (leftMarker == -1) {
+      return false;
+    }
+    final rightMarker = text.indexOf(marker, leftMarker + marker.length);
+    if (rightMarker == -1 || rightMarker <= leftMarker + marker.length) {
+      return false;
+    }
+    final contentStart = leftMarker + marker.length;
+    if (cursor < contentStart || cursor > rightMarker) return false;
+
+    final removedRight = text.replaceRange(
+      rightMarker,
+      rightMarker + marker.length,
+      '',
+    );
+    final updated = removedRight.replaceRange(
+      leftMarker,
+      leftMarker + marker.length,
+      '',
+    );
+    final newCursor = (cursor - marker.length).clamp(0, updated.length);
+    _updateText(updated, cursor: newCursor);
+    return true;
+  }
+
+  void _toggleLinePrefix(String prefix) {
+    if (!_canEdit()) return;
+    final oldValue = widget.controller.value;
+    final selection = _safeSelection(oldValue);
+    final text = oldValue.text;
+    final start = selection.start;
+    final end = selection.end;
+
+    final lineStartRaw = text.lastIndexOf('\n', start - 1);
+    final lineStart = lineStartRaw == -1 ? 0 : lineStartRaw + 1;
+    final lineEndRaw = text.indexOf('\n', end);
+    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
+    final line = text.substring(lineStart, lineEnd);
+    final indentLength = line.length - line.trimLeft().length;
+    final prefixStart = lineStart + indentLength;
+    final trimmed = line.trimLeft();
+
+    if (trimmed.startsWith(prefix)) {
+      final updated = text.replaceRange(
+        prefixStart,
+        prefixStart + prefix.length,
+        '',
+      );
+      final newStart = (start - prefix.length).clamp(0, updated.length);
+      final newEnd = (end - prefix.length).clamp(0, updated.length);
+      _updateText(
+        updated,
+        selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
+      );
+      return;
+    }
+
+    final updated = text.replaceRange(prefixStart, prefixStart, prefix);
+    final newStart = (start + prefix.length).clamp(0, updated.length);
+    final newEnd = (end + prefix.length).clamp(0, updated.length);
+    _updateText(
+      updated,
+      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
+    );
+  }
+
+  void _toggleCodeBlock() {
+    if (!_canEdit()) return;
+    final value = widget.controller.value;
+    if (_isInCodeBlock(value)) {
+      _removeCurrentCodeBlockFence();
+      return;
+    }
+    _wrapSelection('\n```\n', '\n```\n');
+  }
+
+  void _removeCurrentCodeBlockFence() {
+    final oldValue = widget.controller.value;
+    final text = oldValue.text;
+    if (text.isEmpty) return;
+    final selection = _safeSelection(oldValue);
+    final cursor = selection.start;
+    final leftFence = text.lastIndexOf('```', cursor);
+    if (leftFence == -1) return;
+    final rightFence = text.indexOf('```', cursor);
+    if (rightFence == -1 || rightFence <= leftFence) return;
+
+    final removedRight = text.replaceRange(rightFence, rightFence + 3, '');
+    final updated = removedRight.replaceRange(leftFence, leftFence + 3, '');
+    final newCursor = (cursor - 3).clamp(0, updated.length);
+    _updateText(updated, cursor: newCursor);
+  }
+
+  void _insertTemplate(String template, {int? cursorOffset}) {
+    if (!_canEdit()) return;
+    final oldValue = widget.controller.value;
+    final selection = _safeSelection(oldValue);
+    final text = oldValue.text;
+    final start = selection.start;
+    final end = selection.end;
+    final updated = text.replaceRange(start, end, template);
+    final cursor = cursorOffset != null
+        ? (start + cursorOffset).clamp(0, updated.length)
+        : start + template.length;
+    _updateText(updated, cursor: cursor);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -1897,7 +2220,7 @@ class _BottomCommentBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (replyingToUsername != null)
+            if (widget.replyingToUsername != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
@@ -1910,7 +2233,7 @@ class _BottomCommentBar extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        '正在回复 @$replyingToUsername',
+                        '正在回复 @${widget.replyingToUsername}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: colorScheme.primary,
                         ),
@@ -1919,7 +2242,7 @@ class _BottomCommentBar extends StatelessWidget {
                       ),
                     ),
                     GestureDetector(
-                      onTap: onCancelReply,
+                      onTap: widget.onCancelReply,
                       child: Icon(
                         Icons.close_rounded,
                         size: 18,
@@ -1930,80 +2253,165 @@ class _BottomCommentBar extends StatelessWidget {
                 ),
               ),
             ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
+              valueListenable: widget.controller,
               builder: (context, value, _) {
                 final hasText = value.text.trim().isNotEmpty;
+                final activeActions = _activeActionsFor(value);
 
-                return Row(
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      onPressed: isSending || isUploadingImage
-                          ? null
-                          : (isLoggedIn ? onPickImage : onLoginTap),
-                      icon: isUploadingImage
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(
-                              isLoggedIn
-                                  ? Icons.image_outlined
-                                  : Icons.login_rounded,
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: widget.isSending || widget.isUploadingImage
+                              ? null
+                              : (widget.isLoggedIn
+                                    ? widget.onPickImage
+                                    : widget.onLoginTap),
+                          icon: widget.isUploadingImage
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  widget.isLoggedIn
+                                      ? Icons.image_outlined
+                                      : Icons.login_rounded,
+                                ),
+                          tooltip: widget.isLoggedIn ? '从设备选择图片' : '登录后上传图片',
+                          color: colorScheme.primary,
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: widget.controller,
+                            focusNode: widget.focusNode,
+                            enabled: widget.isLoggedIn && !widget.isSending,
+                            decoration: InputDecoration(
+                              hintText: widget.isLoggedIn
+                                  ? '写下你的回复（支持 Markdown）...'
+                                  : '登录后参与回复',
+                              filled: true,
+                              fillColor: colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.6),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(18),
+                                borderSide: BorderSide.none,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
                             ),
-                      tooltip: isLoggedIn ? '从设备选择图片' : '登录后上传图片',
-                      color: colorScheme.primary,
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        enabled: isLoggedIn && !isSending,
-                        decoration: InputDecoration(
-                          hintText: isLoggedIn ? '写下你的回复...' : '登录后参与回复',
-                          filled: true,
-                          fillColor: colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.6),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
+                            minLines: 1,
+                            maxLines: 4,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) {
+                              if (widget.isLoggedIn &&
+                                  hasText &&
+                                  !widget.isSending) {
+                                widget.onSend();
+                              } else if (!widget.isLoggedIn) {
+                                widget.onLoginTap();
+                              }
+                            },
                           ),
                         ),
-                        minLines: 1,
-                        maxLines: 4,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) {
-                          if (isLoggedIn && hasText && !isSending) {
-                            onSend();
-                          } else if (!isLoggedIn) {
-                            onLoginTap();
-                          }
-                        },
-                      ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: widget.isSending || widget.isUploadingImage
+                              ? null
+                              : (widget.isLoggedIn
+                                    ? (hasText ? widget.onSend : null)
+                                    : widget.onLoginTap),
+                          icon: widget.isSending
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Icon(
+                                  widget.isLoggedIn
+                                      ? Icons.send_rounded
+                                      : Icons.login_rounded,
+                                ),
+                          color: colorScheme.primary,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: isSending || isUploadingImage
-                          ? null
-                          : (isLoggedIn
-                                ? (hasText ? onSend : null)
-                                : onLoginTap),
-                      icon: isSending
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(
-                              isLoggedIn
-                                  ? Icons.send_rounded
-                                  : Icons.login_rounded,
+                    const SizedBox(height: 6),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildToolButton(
+                            icon: Icons.title,
+                            tooltip: '标题',
+                            active: activeActions.contains(
+                              _ReplyToolbarAction.heading,
                             ),
-                      color: colorScheme.primary,
+                            onTap: () => _toggleLinePrefix('# '),
+                          ),
+                          _buildToolButton(
+                            icon: Icons.format_bold,
+                            tooltip: '加粗',
+                            active: activeActions.contains(
+                              _ReplyToolbarAction.bold,
+                            ),
+                            onTap: () => _toggleInlineMarker('**'),
+                          ),
+                          _buildToolButton(
+                            icon: Icons.format_italic,
+                            tooltip: '斜体',
+                            active: activeActions.contains(
+                              _ReplyToolbarAction.italic,
+                            ),
+                            onTap: () => _toggleInlineMarker('*'),
+                          ),
+                          _buildToolButton(
+                            icon: Icons.format_quote,
+                            tooltip: '引用',
+                            active: activeActions.contains(
+                              _ReplyToolbarAction.quote,
+                            ),
+                            onTap: () => _toggleLinePrefix('> '),
+                          ),
+                          _buildToolButton(
+                            icon: Icons.code,
+                            tooltip: '代码块',
+                            active: activeActions.contains(
+                              _ReplyToolbarAction.codeBlock,
+                            ),
+                            onTap: _toggleCodeBlock,
+                          ),
+                          _buildToolButton(
+                            icon: Icons.link,
+                            tooltip: '链接',
+                            onTap: () => _insertTemplate(
+                              '[链接文本](https://)',
+                              cursorOffset: 1,
+                            ),
+                          ),
+                          _buildToolButton(
+                            icon: Icons.format_list_bulleted,
+                            tooltip: '列表',
+                            active: activeActions.contains(
+                              _ReplyToolbarAction.list,
+                            ),
+                            onTap: () => _toggleLinePrefix('- '),
+                          ),
+                          _buildToolButton(
+                            icon: Icons.horizontal_rule_rounded,
+                            tooltip: '分割线',
+                            onTap: () => _insertTemplate('\n---\n'),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 );
@@ -2014,6 +2422,31 @@ class _BottomCommentBar extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildToolButton({
+    required IconData icon,
+    required String tooltip,
+    bool active = false,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: IconButton(
+        onPressed: onTap,
+        tooltip: tooltip,
+        visualDensity: VisualDensity.compact,
+        style: IconButton.styleFrom(
+          backgroundColor: active
+              ? const Color(0xFFDFF4E8)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          foregroundColor: active
+              ? const Color(0xFF0B8A6A)
+              : colorScheme.onSurfaceVariant,
+          minimumSize: const Size(32, 32),
+        ),
+        icon: Icon(icon, size: 17),
+      ),
+    );
+  }
 }
-
-

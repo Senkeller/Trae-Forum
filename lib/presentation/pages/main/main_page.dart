@@ -31,7 +31,7 @@ class MainPage extends ConsumerWidget {
     final currentIndex = ref.watch(mainPageIndexProvider);
 
     return Scaffold(
-      body: _pages[currentIndex],
+      body: IndexedStack(index: currentIndex, children: _pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {

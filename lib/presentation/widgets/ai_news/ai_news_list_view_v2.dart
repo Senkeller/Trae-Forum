@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
-import '../../../core/utils/toast_util.dart';
 import '../../providers/ai_news_provider.dart';
-import 'ai_news_card_v2.dart';
+import 'ai_news_feed_card.dart';
 
 /// AI快讯列表视图组件 V2
 ///
@@ -62,24 +59,6 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
     final notifier = ref.read(aINewsNotifierProvider.notifier);
     await notifier.loadMoreNews();
     _refreshController.loadComplete();
-  }
-
-  /// 处理收藏
-  void _onBookmark(dynamic news) {
-    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
-    // TODO: 实现收藏功能
-    if (context.mounted) {
-      ToastUtil.show(context, '收藏功能开发中');
-    }
-  }
-
-  /// 处理分享
-  void _onShare(dynamic news) {
-    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
-    Share.share(
-      '${news.title}\n${news.sourceUrl}',
-      subject: news.title,
-    );
   }
 
   /// 处理新闻点击
@@ -199,14 +178,10 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
         addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           final news = newsList[index];
-          return RepaintBoundary(
-            child: AINewsCardV2(
-              key: ValueKey('ai_news_${news.id}'),
-              news: news,
-              onTap: () => _onNewsTap(news),
-              onBookmark: () => _onBookmark(news),
-              onShare: () => _onShare(news),
-            ),
+          return AINewsFeedCard(
+            key: ValueKey('ai_news_${news.id}'),
+            news: news,
+            onTap: () => _onNewsTap(news),
           );
         },
       ),
@@ -274,7 +249,7 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: 5,
-      itemBuilder: (context, index) => const AINewsSkeletonCardV2(),
+      itemBuilder: (context, index) => const AINewsFeedSkeleton(),
     );
   }
 }

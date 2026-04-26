@@ -154,6 +154,12 @@ class AppRouter {
         builder: (context, state) => const HomePage(),
       ),
 
+      // 创建 Feed
+      GoRoute(
+        path: RoutePaths.feedCreate,
+        builder: (context, state) => const FeedCreatePage(),
+      ),
+
       // Feed 详情
       GoRoute(
         path: RoutePaths.feedDetail,
@@ -161,12 +167,6 @@ class AppRouter {
           final id = state.pathParameters['id']!;
           return FeedDetailPage(feedId: id);
         },
-      ),
-
-      // 创建 Feed
-      GoRoute(
-        path: RoutePaths.feedCreate,
-        builder: (context, state) => const FeedCreatePage(),
       ),
 
       // Feed 回复

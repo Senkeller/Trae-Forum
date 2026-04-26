@@ -947,15 +947,20 @@ class ApiService extends _$ApiService {
       );
     } catch (e) {
       if (e is DioException) {
-        if (e.response?.statusCode == 403) {
+        final statusCode = e.response?.statusCode ?? 500;
+        final apiError = e.error?.toString().trim();
+        final discourseError =
+            _extractDiscourseErrorMessage(e.response?.data) ??
+            (apiError != null && apiError.isNotEmpty ? apiError : null);
+        if (statusCode == 403) {
           return CreateFeedResponse(
             status: 401,
-            message: 'Unauthorized - please login first',
+            message: discourseError ?? 'Unauthorized - please login first',
           );
         }
         return CreateFeedResponse(
-          status: e.response?.statusCode ?? 500,
-          message: 'Failed to create feed: $e',
+          status: statusCode,
+          message: discourseError ?? 'Failed to create feed: $e',
         );
       }
       return CreateFeedResponse(
@@ -963,6 +968,27 @@ class ApiService extends _$ApiService {
         message: 'Failed to create feed: $e',
       );
     }
+  }
+
+  String? _extractDiscourseErrorMessage(dynamic data) {
+    if (data is! Map) return null;
+
+    final errors = data['errors'];
+    if (errors is List && errors.isNotEmpty) {
+      final message = errors
+          .map((item) => item.toString().trim())
+          .where((item) => item.isNotEmpty)
+          .join('；');
+      if (message.isNotEmpty) return message;
+    }
+
+    final error = data['error']?.toString().trim();
+    if (error != null && error.isNotEmpty) return error;
+
+    final message = data['message']?.toString().trim();
+    if (message != null && message.isNotEmpty) return message;
+
+    return null;
   }
 
   /// 删除动态/评论
