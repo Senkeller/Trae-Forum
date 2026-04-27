@@ -186,7 +186,8 @@ class _PostReplyListState extends ConsumerState<PostReplyList> {
 /// 帖子回复项组件
 ///
 /// 显示单个回复的内容，包括用户信息、内容、操作按钮等
-class PostReplyItem extends StatelessWidget {
+/// 支持内容折叠展开功能，当内容超过6行时显示"展开"按钮
+class PostReplyItem extends StatefulWidget {
   /// 帖子数据
   final DiscoursePost post;
 
@@ -196,18 +197,89 @@ class PostReplyItem extends StatelessWidget {
   /// 点击点赞回调
   final VoidCallback? onLikeTap;
 
+  /// 最大显示行数（折叠状态）
+  final int maxLines;
+
   /// 构造函数
   const PostReplyItem({
     super.key,
     required this.post,
     this.onReplyTap,
     this.onLikeTap,
+    this.maxLines = 6,
   });
 
-  /// 构建帖子回复项
+  @override
+  State<PostReplyItem> createState() => _PostReplyItemState();
+}
+
+class _PostReplyItemState extends State<PostReplyItem> {
+  /// 是否已展开
+  bool _isExpanded = false;
+
+  /// 是否需要折叠（内容是否超过最大行数）
+  bool _needsCollapse = false;
+
+  /// 内容容器的 GlobalKey，用于测量高度
+  final GlobalKey _contentKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // 延迟测量内容是否需要折叠
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkNeedsCollapse();
+    });
+  }
+
+  @override
+  void didUpdateWidget(PostReplyItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 内容变化时重置状态
+    if (oldWidget.post.cooked != widget.post.cooked) {
+      setState(() {
+        _isExpanded = false;
+        _needsCollapse = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkNeedsCollapse();
+      });
+    }
+  }
+
+  /// 检查内容是否需要折叠
   ///
-  /// [context] 构建上下文
-  /// @return 回复项 Widget
+  /// 通过比较内容高度与预估的6行文本高度来判断
+  void _checkNeedsCollapse() {
+    if (widget.post.cooked == null || widget.post.cooked!.isEmpty) return;
+
+    final context = _contentKey.currentContext;
+    if (context == null) return;
+
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final contentHeight = renderBox.size.height;
+
+    // 估算6行文本的高度（基于字体大小和行高）
+    final textTheme = Theme.of(context).textTheme;
+    final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
+    final lineHeight = 1.5;
+    final estimatedLineHeight = fontSize * lineHeight;
+    final maxHeight = estimatedLineHeight * widget.maxLines;
+
+    setState(() {
+      _needsCollapse = contentHeight > maxHeight;
+    });
+  }
+
+  /// 切换展开/折叠状态
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -227,141 +299,215 @@ class PostReplyItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 用户信息行
-          Row(
-            children: [
-              // 头像
-              UserAvatar(
-                avatarUrl: _getAvatarUrl(),
-                size: 40,
-              ),
-              const SizedBox(width: 12),
-              // 用户名和楼层信息
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          post.username,
-                          style: textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (post.admin == true) ...[
-                          const SizedBox(width: 4),
-                          _buildBadge(context, '官方', colorScheme.primary),
-                        ],
-                        if (post.moderator == true) ...[
-                          const SizedBox(width: 4),
-                          _buildBadge(context, '版主', Colors.orange),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        Text(
-                          '#${post.postNumber}',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _formatTime(post.createdAt),
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          _buildUserInfo(context),
           const SizedBox(height: 12),
           // 回复目标（楼中楼）
-          if (post.replyToPostNumber != null)
+          if (widget.post.replyToPostNumber != null)
             _buildReplyTarget(context),
-          // 内容
-          if (post.cooked != null)
-            Html(
-              data: post.cooked,
-              style: {
-                'body': Style(
-                  margin: Margins.zero,
-                  padding: HtmlPaddings.zero,
-                  fontSize: FontSize(14),
-                  color: colorScheme.onSurface,
-                ),
-                'p': Style(
-                  margin: Margins.only(bottom: 8),
-                ),
-                'blockquote': Style(
-                  margin: Margins.only(left: 8, bottom: 8),
-                  padding: HtmlPaddings.only(left: 12),
-                  border: Border(
-                    left: BorderSide(
-                      color: colorScheme.outline.withOpacity(0.5),
-                      width: 3,
-                    ),
-                  ),
-                  color: colorScheme.onSurfaceVariant,
-                ),
-                'a': Style(
-                  color: colorScheme.primary,
-                  textDecoration: TextDecoration.none,
-                ),
-                'img': Style(
-                  width: Width.auto(),
-                  height: Height.auto(),
-                ),
-                'pre': Style(
-                  backgroundColor: colorScheme.surfaceVariant,
-                  padding: HtmlPaddings.all(12),
-                ),
-                'code': Style(
-                  backgroundColor: colorScheme.surfaceVariant,
-                  padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
-                  fontFamily: 'monospace',
-                ),
-              },
-              extensions: [
-                // 自定义图片渲染，限制表情包尺寸
-                ImageExtension(
-                  builder: (extensionContext) {
-                    final imageUrl = DiscourseImageUrlResolver.resolveFromAttributes(
-                      extensionContext.attributes,
-                    );
-                    if (imageUrl == null) return const SizedBox.shrink();
-
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          maxWidth: 120,
-                          maxHeight: 120,
-                        ),
-                        child: CachedImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.contain,
-                          memCacheWidth: 240,
-                          memCacheHeight: 240,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+          // 内容（带折叠展开功能）
+          if (widget.post.cooked != null)
+            _buildContent(context),
           const SizedBox(height: 12),
           // 操作按钮
           _buildActionBar(context),
         ],
       ),
     );
+  }
+
+  /// 构建用户信息行
+  ///
+  /// [context] 构建上下文
+  /// @return 用户信息行 Widget
+  Widget _buildUserInfo(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Row(
+      children: [
+        // 头像
+        UserAvatar(
+          avatarUrl: _getAvatarUrl(),
+          size: 40,
+        ),
+        const SizedBox(width: 12),
+        // 用户名和楼层信息
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    widget.post.username,
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (widget.post.admin == true) ...[
+                    const SizedBox(width: 4),
+                    _buildBadge(context, '官方', colorScheme.primary),
+                  ],
+                  if (widget.post.moderator == true) ...[
+                    const SizedBox(width: 4),
+                    _buildBadge(context, '版主', Colors.orange),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Text(
+                    '#${widget.post.postNumber}',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _formatTime(widget.post.createdAt),
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 构建内容区域（带折叠展开功能）
+  ///
+  /// [context] 构建上下文
+  /// @return 内容区域 Widget
+  Widget _buildContent(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // 折叠状态下的内容容器
+    Widget contentContainer = Container(
+      key: _contentKey,
+      child: Html(
+        data: widget.post.cooked,
+        style: {
+          'body': Style(
+            margin: Margins.zero,
+            padding: HtmlPaddings.zero,
+            fontSize: FontSize(14),
+            color: colorScheme.onSurface,
+          ),
+          'p': Style(
+            margin: Margins.only(bottom: 8),
+          ),
+          'blockquote': Style(
+            margin: Margins.only(left: 8, bottom: 8),
+            padding: HtmlPaddings.only(left: 12),
+            border: Border(
+              left: BorderSide(
+                color: colorScheme.outline.withOpacity(0.5),
+                width: 3,
+              ),
+            ),
+            color: colorScheme.onSurfaceVariant,
+          ),
+          'a': Style(
+            color: colorScheme.primary,
+            textDecoration: TextDecoration.none,
+          ),
+          'img': Style(
+            width: Width.auto(),
+            height: Height.auto(),
+          ),
+          'pre': Style(
+            backgroundColor: colorScheme.surfaceVariant,
+            padding: HtmlPaddings.all(12),
+          ),
+          'code': Style(
+            backgroundColor: colorScheme.surfaceVariant,
+            padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
+            fontFamily: 'monospace',
+          ),
+        },
+        extensions: [
+          // 自定义图片渲染，限制表情包尺寸
+          ImageExtension(
+            builder: (extensionContext) {
+              final imageUrl = DiscourseImageUrlResolver.resolveFromAttributes(
+                extensionContext.attributes,
+              );
+              if (imageUrl == null) return const SizedBox.shrink();
+
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 120,
+                    maxHeight: 120,
+                  ),
+                  child: CachedImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    memCacheWidth: 240,
+                    memCacheHeight: 240,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+
+    // 如果需要折叠，添加折叠逻辑
+    if (_needsCollapse && !_isExpanded) {
+      contentContainer = ClipRect(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: _calculateMaxHeight(context),
+          ),
+          child: contentContainer,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        contentContainer,
+        // 展开/收起按钮
+        if (_needsCollapse) ...[
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: _toggleExpanded,
+            child: Text(
+              _isExpanded ? '收起' : '展开',
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 计算折叠状态下的最大高度
+  ///
+  /// [context] 构建上下文
+  /// @return 最大高度值
+  double _calculateMaxHeight(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
+    const lineHeight = 1.5;
+    final estimatedLineHeight = fontSize * lineHeight;
+
+    // 6行文本的高度 + 段落间距（估算）
+    return estimatedLineHeight * widget.maxLines + 24;
   }
 
   /// 构建徽章
@@ -413,7 +559,7 @@ class PostReplyItem extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '回复 #${post.replyToPostNumber}',
+              '回复 #${widget.post.replyToPostNumber}',
               style: textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
@@ -438,13 +584,13 @@ class PostReplyItem extends StatelessWidget {
         // 点赞按钮
         _buildActionButton(
           context,
-          icon: post.yours == true && post.likeCount > 0
+          icon: widget.post.yours == true && widget.post.likeCount > 0
               ? Icons.favorite
               : Icons.favorite_border,
-          count: post.likeCount,
-          isActive: post.yours == true && post.likeCount > 0,
+          count: widget.post.likeCount,
+          isActive: widget.post.yours == true && widget.post.likeCount > 0,
           activeColor: AppTheme.likeColor,
-          onTap: onLikeTap,
+          onTap: widget.onLikeTap,
         ),
         const SizedBox(width: 24),
         // 回复按钮
@@ -452,7 +598,7 @@ class PostReplyItem extends StatelessWidget {
           context,
           icon: Icons.chat_bubble_outline,
           label: '回复',
-          onTap: onReplyTap,
+          onTap: widget.onReplyTap,
         ),
         const Spacer(),
         // 更多操作
@@ -577,7 +723,7 @@ class PostReplyItem extends StatelessWidget {
                   // TODO: 实现举报功能
                 },
               ),
-              if (post.canEdit == true)
+              if (widget.post.canEdit == true)
                 ListTile(
                   leading: const Icon(Icons.edit),
                   title: const Text('编辑'),
@@ -586,7 +732,7 @@ class PostReplyItem extends StatelessWidget {
                     // TODO: 实现编辑功能
                   },
                 ),
-              if (post.canDelete == true)
+              if (widget.post.canDelete == true)
                 ListTile(
                   leading: Icon(Icons.delete, color: colorScheme.error),
                   title: Text('删除', style: TextStyle(color: colorScheme.error)),
@@ -607,8 +753,8 @@ class PostReplyItem extends StatelessWidget {
   /// 根据帖子数据生成完整的头像 URL
   /// @return 头像 URL 字符串，如果模板为空则返回 null
   String? _getAvatarUrl() {
-    if (post.avatarTemplate.isEmpty) return null;
-    return 'https://forum.trae.cn${post.avatarTemplate.replaceAll('{size}', '96')}';
+    if (widget.post.avatarTemplate.isEmpty) return null;
+    return 'https://forum.trae.cn${widget.post.avatarTemplate.replaceAll('{size}', '96')}';
   }
 
   /// 格式化时间
