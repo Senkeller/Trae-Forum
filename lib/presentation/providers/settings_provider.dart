@@ -220,7 +220,10 @@ class SettingsNotifier extends _$SettingsNotifier {
   /// [settings] 新的设置
   Future<void> updateSettings(AppSettings settings) async {
     await _saveSettings(settings);
-    state = AsyncData(settings);
+    // 确保在 build 完成后才设置 state
+    if (state.hasValue) {
+      state = AsyncData(settings);
+    }
   }
 
   /// 设置图片质量
