@@ -106,7 +106,7 @@ class _FrequentlyVisitedPageState extends ConsumerState<FrequentlyVisitedPage> {
           final item = list[index];
           return _VisitedCard(
             item: item,
-            onTap: () => _navigateToDetail(item.topicId),
+            onTap: () => _navigateToDetail(item.topicTag ?? item.topicId),
             onDelete: () => _removeRecord(item.topicId),
           );
         },
@@ -141,8 +141,8 @@ class _FrequentlyVisitedPageState extends ConsumerState<FrequentlyVisitedPage> {
     );
   }
 
-  void _navigateToDetail(String topicId) {
-    context.push(RoutePaths.topicDetail.replaceFirst(':tag', topicId));
+  void _navigateToDetail(String topicTag) {
+    context.push(RoutePaths.topicDetail.replaceFirst(':tag', topicTag));
   }
 
   Future<void> _removeRecord(String topicId) async {

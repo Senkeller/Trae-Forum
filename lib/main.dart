@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'app.dart';
 import 'core/network/dio_client.dart';
+import 'hive_registrar.g.dart';
 
 /// 应用入口函数
 ///
@@ -114,15 +115,12 @@ class AppInitializer {
   }
 
   /// 注册 Hive 类型适配器
+  ///
+  /// 使用自动生成的 registerAdapters() 扩展方法注册所有适配器
+  /// 包括: LocalFavoriteAdapter, BrowseHistoryAdapter, FrequentlyVisitedAdapter
   static void _registerHiveAdapters() {
-    // 注意：适配器需要通过 build_runner 生成
-    // 运行命令: dart run build_runner build
-    // 生成的适配器类名为: LocalFavoriteAdapter, BrowseHistoryAdapter, FrequentlyVisitedAdapter
-
-    // TODO: 取消注释以下代码（在运行 build_runner 生成适配器后）
-    // Hive.registerAdapter(LocalFavoriteAdapter());
-    // Hive.registerAdapter(BrowseHistoryAdapter());
-    // Hive.registerAdapter(FrequentlyVisitedAdapter());
+    Hive.registerAdapters();
+    debugPrint('✅ [AppInitializer] Hive 适配器注册完成');
   }
 
   /// 配置图片缓存

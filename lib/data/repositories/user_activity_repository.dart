@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -203,6 +204,11 @@ class UserActivityRepository {
   }
 
   /// 记录访问
+  ///
+  /// [topicId] 话题ID
+  /// [topicName] 话题名称
+  /// [topicTag] 话题标签（可选）
+  /// [coverUrl] 封面URL（可选）
   Future<void> recordVisit({
     required String topicId,
     required String topicName,
@@ -211,24 +217,25 @@ class UserActivityRepository {
   }) async {
     final box = await _frequentlyVisitedBoxAsync;
 
-    // 查找是否已存在
-    final existingEntry = box.values.firstWhere(
+    // 查找是否已存在 - 使用 firstWhereOrNull 安全查找
+    final existingEntry = box.values.firstWhereOrNull(
       (item) => item.topicId == topicId,
-      orElse: () => null as FrequentlyVisited,
     );
 
     if (existingEntry != null) {
       // 更新访问次数和时间
-      final key = box.keys.firstWhere(
+      final key = box.keys.firstWhereOrNull(
         (k) => box.get(k)?.topicId == topicId,
       );
-      
-      final updated = existingEntry.copyWith(
-        visitCount: existingEntry.visitCount + 1,
-        lastVisitedAt: DateTime.now(),
-      );
-      
-      await box.put(key, updated);
+
+      if (key != null) {
+        final updated = existingEntry.copyWith(
+          visitCount: existingEntry.visitCount + 1,
+          lastVisitedAt: DateTime.now(),
+        );
+
+        await box.put(key, updated);
+      }
     } else {
       // 创建新记录
       final visit = FrequentlyVisited(
@@ -240,7 +247,7 @@ class UserActivityRepository {
         lastVisitedAt: DateTime.now(),
         coverUrl: coverUrl,
       );
-      
+
       await box.add(visit);
     }
   }
