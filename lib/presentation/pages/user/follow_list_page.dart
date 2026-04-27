@@ -6,6 +6,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../../../config/constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../widgets/user/user_avatar.dart';
 
 class FollowListPage extends ConsumerStatefulWidget {
   final String uid;
@@ -153,14 +154,11 @@ class _UserCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 28,
-                backgroundImage: avatarUrl.isNotEmpty
-                    ? NetworkImage(avatarUrl)
-                    : null,
-                child: avatarUrl.isEmpty
-                    ? const Icon(Icons.person, size: 28)
-                    : null,
+              UserAvatar(
+                avatarUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
+                size: 56,
+                memCacheWidth: 120,
+                memCacheHeight: 120,
               ),
               const SizedBox(width: 16),
               Expanded(

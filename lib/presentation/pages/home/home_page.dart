@@ -11,6 +11,7 @@ import '../../../core/utils/performance_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
 import '../../providers/bookmark_provider.dart';
+import '../../widgets/common/cached_image.dart';
 import '../../widgets/common/like_button.dart';
 import '../../widgets/common/main_top_app_bar_title.dart';
 import '../../widgets/feed/featured_comment.dart';
@@ -18,6 +19,7 @@ import '../../widgets/feed/quick_comment_bar.dart';
 import '../../widgets/comment/quick_comment_sheet.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
 import '../../widgets/ai_news/ai_news_list_view_v2.dart';
+import '../../widgets/user/user_avatar.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -33,9 +35,13 @@ class _HomePageState extends ConsumerState<HomePage>
   final List<RefreshController> _refreshControllers = [];
   final List<ScrollController> _scrollControllers = [];
 
+  /// 是否保持页面状态
   @override
   bool get wantKeepAlive => true;
 
+  /// 初始化状态
+  ///
+  /// 创建 TabController 和滚动控制器，并加载初始数据
   @override
   void initState() {
     super.initState();
@@ -53,6 +59,7 @@ class _HomePageState extends ConsumerState<HomePage>
     });
   }
 
+  /// 释放资源
   @override
   void dispose() {
     _tabController.removeListener(_onTabChanged);
@@ -69,6 +76,9 @@ class _HomePageState extends ConsumerState<HomePage>
     super.dispose();
   }
 
+  /// Tab 切换回调
+  ///
+  /// 处理 Tab 切换时的内存优化和状态更新
   void _onTabChanged() {
     if (_tabController.indexIsChanging) {
       _optimizeMemory();
@@ -78,6 +88,9 @@ class _HomePageState extends ConsumerState<HomePage>
     ref.read(homeNotifierProvider.notifier).switchTab(_tabController.index);
   }
 
+  /// 内存优化
+  ///
+  /// 当缓存超过阈值时清理图片缓存
   void _optimizeMemory() {
     final stats = MemoryOptimizer.getCacheStats();
     if (stats.currentSize > stats.maximumSize * 0.8) {
@@ -85,6 +98,9 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
+  /// 下拉刷新回调
+  ///
+  /// [tabIndex] 当前 Tab 索引
   Future<void> _onRefresh(int tabIndex) async {
     await HapticFeedbackUtil.trigger(ref, HapticScene.refresh);
     final notifier = ref.read(homeNotifierProvider.notifier);
@@ -94,6 +110,9 @@ class _HomePageState extends ConsumerState<HomePage>
     await HapticFeedbackUtil.trigger(ref, HapticScene.refreshDone);
   }
 
+  /// 上拉加载更多回调
+  ///
+  /// [tabIndex] 当前 Tab 索引
   Future<void> _onLoading(int tabIndex) async {
     final notifier = ref.read(homeNotifierProvider.notifier);
     notifier.switchTab(tabIndex);
@@ -101,6 +120,10 @@ class _HomePageState extends ConsumerState<HomePage>
     _refreshControllers[tabIndex].loadComplete();
   }
 
+  /// 解析 Banner 分类 ID
+  ///
+  /// [feedType] Feed 类型
+  /// @return 对应的分类 ID，如果没有则返回 null
   int? _resolveBannerCategoryId(FeedType feedType) {
     switch (feedType) {
       case FeedType.official:
@@ -127,6 +150,10 @@ class _HomePageState extends ConsumerState<HomePage>
     }
   }
 
+  /// 构建首页主体 UI
+  ///
+  /// [context] 构建上下文
+  /// @return 首页 Widget
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -200,8 +227,14 @@ class _HomePageState extends ConsumerState<HomePage>
   }
 }
 
+/// Feed 列表视图组件
+///
+/// 显示指定 Tab 下的 Feed 列表，支持下拉刷新和上拉加载更多
 class _FeedListView extends ConsumerWidget {
+  /// 官方公告分类排序
   static const List<int> _officialSectionOrder = [17, 18, 19, 20];
+
+  /// 官方公告分类标题映射
   static const Map<int, String> _officialSectionTitles = {
     17: '产品更新',
     18: '模型更新',
@@ -209,14 +242,36 @@ class _FeedListView extends ConsumerWidget {
     20: '社区动态',
   };
 
+  /// Tab 索引
   final int tabIndex;
+
+  /// 刷新回调
   final Future<void> Function() onRefresh;
+
+  /// 加载更多回调
   final Future<void> Function() onLoading;
+
+  /// 刷新控制器
   final RefreshController refreshController;
+
+  /// 滚动控制器
   final ScrollController? scrollController;
+
+  /// 是否显示 Banner
   final bool showBanner;
+
+  /// Banner 分类 ID
   final int? bannerCategoryId;
 
+  /// 构造函数
+  ///
+  /// [tabIndex] Tab 索引
+  /// [onRefresh] 刷新回调
+  /// [onLoading] 加载更多回调
+  /// [refreshController] 刷新控制器
+  /// [scrollController] 滚动控制器，可选
+  /// [showBanner] 是否显示 Banner，默认为 false
+  /// [bannerCategoryId] Banner 分类 ID，可选
   const _FeedListView({
     super.key,
     required this.tabIndex,
@@ -228,6 +283,11 @@ class _FeedListView extends ConsumerWidget {
     this.bannerCategoryId,
   });
 
+  /// 构建 Feed 列表视图
+  ///
+  /// [context] 构建上下文
+  /// [ref] Widget 引用
+  /// @return 列表视图 Widget
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedType = homeFeedTabs[tabIndex];
@@ -322,10 +382,10 @@ class _FeedListView extends ConsumerWidget {
         controller: scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: contentCount + (showBanner ? 1 : 0),
-        cacheExtent: 250,
+        cacheExtent: MediaQuery.of(context).size.height * 0.5,
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
-        addSemanticIndexes: true,
+        addSemanticIndexes: false,
         itemBuilder: (context, index) {
           // 如果是第一个位置且需要显示Banner
           if (showBanner && index == 0) {
@@ -368,6 +428,10 @@ class _FeedListView extends ConsumerWidget {
     );
   }
 
+  /// 构建官方公告行数据
+  ///
+  /// [feedList] Feed 数据列表
+  /// @return 官方公告行数据列表
   List<_OfficialFeedRow> _buildOfficialRows(List<FeedItem> feedList) {
     final grouped = <int, List<FeedItem>>{
       for (final categoryId in _officialSectionOrder) categoryId: <FeedItem>[],
@@ -403,6 +467,8 @@ class _FeedListView extends ConsumerWidget {
   }
 
   /// 构建骨架屏列表
+  ///
+  /// @return 骨架屏列表 Widget
   Widget _buildSkeletonList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -412,22 +478,45 @@ class _FeedListView extends ConsumerWidget {
   }
 }
 
+/// 官方公告行数据模型
+///
+/// 用于表示官方公告列表中的标题行或内容行
 class _OfficialFeedRow {
+  /// 标题文本（如果是标题行）
   final String? headerTitle;
+
+  /// Feed 数据（如果是内容行）
   final FeedItem? feed;
 
+  /// 私有构造函数
   const _OfficialFeedRow._({this.headerTitle, this.feed});
+
+  /// 创建标题行
   const _OfficialFeedRow.header(String title) : this._(headerTitle: title);
+
+  /// 创建内容行
   const _OfficialFeedRow.feed(FeedItem item) : this._(feed: item);
 
+  /// 是否为标题行
   bool get isHeader => headerTitle != null;
 }
 
+/// 官方公告分组标题组件
+///
+/// 显示官方公告列表中的分组标题
 class _OfficialSectionHeader extends StatelessWidget {
+  /// 标题文本
   final String title;
 
+  /// 构造函数
+  ///
+  /// [title] 标题文本
   const _OfficialSectionHeader({required this.title});
 
+  /// 构建官方公告分组标题
+  ///
+  /// [context] 构建上下文
+  /// @return 标题 Widget
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -689,25 +778,46 @@ class _FeedSkeletonCard extends StatelessWidget {
   }
 }
 
+/// Feed 卡片组件
+///
+/// 显示单个 Feed 的内容，包括用户信息、标题、内容、图片、标签和操作栏
 class _FeedCard extends ConsumerStatefulWidget {
+  /// Feed 数据
   final FeedItem feed;
+
+  /// 点击回调
   final VoidCallback onTap;
 
+  /// 构造函数
+  ///
+  /// [feed] Feed 数据
+  /// [onTap] 点击回调
   const _FeedCard({super.key, required this.feed, required this.onTap});
 
   @override
   ConsumerState<_FeedCard> createState() => _FeedCardState();
 }
 
+/// Feed 卡片状态类
+///
+/// 管理 Feed 卡片的内部状态，如回复数量
 class _FeedCardState extends ConsumerState<_FeedCard> {
+  /// 回复数量
   late int _replyCount;
 
+  /// 初始化状态
+  ///
+  /// 从 widget 的 feed 数据中初始化回复数量
   @override
   void initState() {
     super.initState();
     _replyCount = widget.feed.replyCount;
   }
 
+  /// 处理 widget 更新
+  ///
+  /// [oldWidget] 之前的 widget 实例
+  /// 当 feed 的回复数量变化时，更新本地状态
   @override
   void didUpdateWidget(_FeedCard oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -716,6 +826,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     }
   }
 
+  /// 处理评论发送成功
+  ///
+  /// [content] 评论内容
+  /// 更新回复计数并显示成功提示
   void _handleCommentSuccess(String content) {
     setState(() {
       _replyCount++;
@@ -726,6 +840,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     ).showSnackBar(const SnackBar(content: Text('评论发送成功')));
   }
 
+  /// 打开快速评论输入面板
+  ///
+  /// [context] 构建上下文
   void _openQuickCommentSheet(BuildContext context) {
     HapticFeedbackUtil.trigger(ref, HapticScene.tap);
     QuickCommentSheet.show(
@@ -735,6 +852,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     );
   }
 
+  /// 切换书签状态
+  ///
+  /// 检查登录状态后，切换当前 feed 的书签状态
+  /// 显示相应的成功或错误提示
   Future<void> _toggleBookmarkFromFeed() async {
     final topicId = widget.feed.topicId;
     if (topicId <= 0) {
@@ -784,6 +905,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tips)));
   }
 
+  /// 构建 Feed 卡片 UI
+  ///
+  /// [context] 构建上下文
+  /// @return 卡片 Widget
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -795,11 +920,14 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
+        // 优化：降低阴影复杂度以提升渲染性能
+        // 原配置：blurRadius: 8, opacity: 0.05
+        // 新配置：blurRadius: 4, opacity: 0.03，更轻量的阴影效果
         boxShadow: [
           BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: colorScheme.shadow.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -874,11 +1002,12 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     );
   }
 
+  /// 构建用户信息区域
+  ///
+  /// [context] 构建上下文
+  /// [colorScheme] 当前主题颜色方案
+  /// @return 用户信息 Widget
   Widget _buildUserInfo(BuildContext context, ColorScheme colorScheme) {
-    final initial = widget.feed.username.isNotEmpty
-        ? widget.feed.username[0].toUpperCase()
-        : '?';
-
     return InkWell(
       onTap: () {
         if (widget.feed.username.isNotEmpty) {
@@ -892,19 +1021,13 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: colorScheme.primaryContainer,
-              backgroundImage: widget.feed.avatarUrl.isNotEmpty
-                  ? NetworkImage(widget.feed.avatarUrl)
-                  : null,
-              onBackgroundImageError: (error, stackTrace) {},
-              child: widget.feed.avatarUrl.isEmpty
-                  ? Text(
-                      initial,
-                      style: TextStyle(color: colorScheme.onPrimaryContainer),
-                    )
-                  : null,
+            UserAvatar(
+              avatarUrl: widget.feed.avatarUrl.isNotEmpty ? widget.feed.avatarUrl : null,
+              size: 40,
+              memCacheWidth: 80,
+              memCacheHeight: 80,
+              fallbackBackgroundColor: colorScheme.primaryContainer,
+              fallbackIconColor: colorScheme.onPrimaryContainer,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -932,6 +1055,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     );
   }
 
+  /// 构建图片预览区域
+  ///
+  /// [context] 构建上下文
+  /// @return 图片预览 Widget
   Widget _buildImagePreview(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -939,19 +1066,14 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
         aspectRatio: 16 / 9,
         child: InkWell(
           onTap: () => _openImagePreview(context),
-          child: Image.network(
-            widget.feed.images.first,
+          child: CachedImage(
+            imageUrl: widget.feed.images.first,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                alignment: Alignment.center,
-                child: Icon(
-                  Icons.image_not_supported_outlined,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              );
-            },
+            width: double.infinity,
+            height: double.infinity,
+            memCacheWidth: 400,
+            memCacheHeight: 225,
+            errorIcon: Icons.image_not_supported_outlined,
           ),
         ),
       ),
@@ -985,6 +1107,8 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   }
 
   /// 处理分类（话题）点击
+  ///
+  /// [context] 构建上下文
   void _onCategoryTap(BuildContext context) {
     if (widget.feed.categoryId <= 0) return;
     final categoryUrl = '${AppConstants.forumUrl}/c/${widget.feed.categoryId}';
@@ -993,6 +1117,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     context.push('${RoutePaths.webview}?url=$encodedUrl&title=$encodedTitle');
   }
 
+  /// 构建元数据标签区域
+  ///
+  /// [context] 构建上下文
+  /// @return 标签区域 Widget
   Widget _buildMetaTags(BuildContext context) {
     final items = <Widget>[];
 
@@ -1028,6 +1156,12 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     return Wrap(spacing: 8, runSpacing: 6, children: items);
   }
 
+  /// 构建单个元数据标签
+  ///
+  /// [context] 构建上下文
+  /// [label] 标签文本
+  /// [onTap] 点击回调，可选
+  /// @return 标签 Widget
   Widget _metaChip(BuildContext context, String label, {VoidCallback? onTap}) {
     final chip = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1054,6 +1188,12 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     return chip;
   }
 
+  /// 构建操作栏区域
+  ///
+  /// [context] 构建上下文
+  /// [colorScheme] 当前主题颜色方案
+  /// [replyCount] 回复数量
+  /// @return 操作栏 Widget
   Widget _buildActions(
     BuildContext context,
     ColorScheme colorScheme,
@@ -1205,6 +1345,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
     );
   }
 
+  /// 格式化时间戳
+  ///
+  /// [timestamp] 时间戳字符串
+  /// @return 格式化后的时间文本
   String _formatTime(String timestamp) {
     return _formatFeedTime(timestamp);
   }

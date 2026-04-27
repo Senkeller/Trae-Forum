@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
@@ -30,6 +31,10 @@ class UserProfilePage extends ConsumerStatefulWidget {
 
 class _UserProfilePageState extends ConsumerState<UserProfilePage> {
   final ScrollController _scrollController = ScrollController();
+
+  /// 滚动加载守卫，用于管理用户动态列表的触底加载逻辑
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard();
+
   String? _activeUsername;
   int _selectedTabIndex = 0;
   bool _initialCategoryApplied = false;
@@ -48,22 +53,24 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
     super.dispose();
   }
 
+  /// 处理滚动事件，使用 ScrollLoadGuard 管理触底加载逻辑
+  ///
+  /// 当用户滚动到列表底部附近时，触发加载更多用户动态。
+  /// 使用 ScrollLoadGuard 防止重复触发和并发请求。
   void _onScroll() {
-    if (_activeUsername == null || !_scrollController.hasClients) {
-      return;
-    }
+    if (_activeUsername == null) return;
 
     final state = ref.read(userSpaceNotifierProvider(_activeUsername!));
-    if (state.isLoadingFeeds || !state.hasMoreFeeds) {
-      return;
-    }
+    if (state.isLoadingFeeds || !state.hasMoreFeeds) return;
 
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref
-          .read(userSpaceNotifierProvider(_activeUsername!).notifier)
-          .loadMoreUserFeeds();
-    }
+    _scrollLoadGuard.tryTrigger(
+      scrollController: _scrollController,
+      onLoad: () async {
+        ref
+            .read(userSpaceNotifierProvider(_activeUsername!).notifier)
+            .loadMoreUserFeeds();
+      },
+    );
   }
 
   String? _resolveUsername(user_model.UserInfo? currentUser) {

@@ -344,77 +344,106 @@ class LazyLoadImage extends StatefulWidget {
 }
 
 class _LazyLoadImageState extends State<LazyLoadImage> {
+  /// 是否应当加载图片
+  /// true 表示停止滚动，可以加载图片；false 表示正在滚动，展示占位图
   bool _shouldLoad = false;
-  final GlobalKey _key = GlobalKey();
 
   @override
   void initState() {
     super.initState();
-    // 延迟检查是否需要加载
+    // 延迟检查滚动状态
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkVisibility();
+      _checkScrollState();
     });
-
-    // 监听滚动
-    widget.scrollController?.addListener(_checkVisibility);
   }
 
   @override
-  void dispose() {
-    widget.scrollController?.removeListener(_checkVisibility);
-    super.dispose();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 依赖变化时重新检查滚动状态
+    _checkScrollState();
   }
 
-  /// 检查图片是否在可视区域内
-  void _checkVisibility() {
+  /// 检查当前滚动状态
+  ///
+  /// 使用 [Scrollable.recommendDeferredLoadingForContext] 判断当前是否正在滚动
+  /// 如果正在滚动，展示轻量级占位图；如果停止滚动，开始加载图片
+  void _checkScrollState() {
     if (_shouldLoad) return;
 
-    final renderObject = _key.currentContext?.findRenderObject();
-    if (renderObject == null) return;
+    final context = this.context;
+    if (!context.mounted) return;
 
-    // 简化懒加载逻辑：直接加载图片
-    // 实际项目中可以使用 visibility_detector 包或类似方案
-    if (mounted) {
-      setState(() {
-        _shouldLoad = true;
+    // 使用 Scrollable.recommendDeferredLoadingForContext 判断滚动状态
+    // 返回 true 表示建议延迟加载（正在滚动），false 表示可以立即加载（停止滚动）
+    final shouldDefer = Scrollable.recommendDeferredLoadingForContext(context);
+
+    if (shouldDefer) {
+      // 正在滚动中，延迟加载，继续监听滚动状态变化
+      // 使用微任务在下一帧再次检查
+      Future.microtask(() {
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _checkScrollState();
+          });
+        }
       });
+    } else {
+      // 停止滚动，开始加载图片
+      if (mounted) {
+        setState(() {
+          _shouldLoad = true;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: _key,
-      width: widget.width,
-      height: widget.height,
-      child: _shouldLoad
-          ? CachedImage(
-              imageUrl: widget.imageUrl,
-              width: widget.width,
-              height: widget.height,
-              borderRadius: widget.borderRadius,
-              isCircular: widget.isCircular,
-              fit: widget.fit,
-            )
-          : _buildPlaceholder(),
-    );
+    return _shouldLoad
+        ? CachedImage(
+            imageUrl: widget.imageUrl,
+            width: widget.width,
+            height: widget.height,
+            borderRadius: widget.borderRadius,
+            isCircular: widget.isCircular,
+            fit: widget.fit,
+          )
+        : _buildPlaceholder(context);
   }
 
-  /// 构建占位图
-  Widget _buildPlaceholder() {
+  /// 构建轻量级占位图
+  ///
+  /// [context] BuildContext，用于获取主题颜色
+  ///
+  /// 返回一个灰色背景的占位容器，用于滚动期间展示
+  /// 避免使用 Shimmer 等复杂动画，减少滚动时的性能开销
+  Widget _buildPlaceholder(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    final placeholderColor = colorScheme.surfaceContainerHighest;
+
+    Widget placeholder = Container(
       width: widget.width,
       height: widget.height,
-      color: colorScheme.surfaceContainerHighest,
-      child: const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+      decoration: BoxDecoration(
+        color: placeholderColor,
+        borderRadius: widget.borderRadius != null && widget.borderRadius! > 0
+            ? BorderRadius.circular(widget.borderRadius!)
+            : null,
       ),
     );
+
+    // 应用圆角或圆形裁剪
+    if (widget.isCircular) {
+      placeholder = ClipOval(child: placeholder);
+    } else if (widget.borderRadius != null && widget.borderRadius! > 0) {
+      placeholder = ClipRRect(
+        borderRadius: BorderRadius.circular(widget.borderRadius!),
+        child: placeholder,
+      );
+    }
+
+    return placeholder;
   }
 }
 

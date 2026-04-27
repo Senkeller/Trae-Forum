@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/scroll_load_guard.dart';
 import '../../providers/search_provider.dart' as sp;
 import 'widgets/hot_search_section.dart';
 import 'widgets/ranking_section.dart';
@@ -33,6 +34,10 @@ class _SearchPageState extends ConsumerState<SearchPage>
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
+
+  /// 滚动加载守卫，用于管理搜索结果列表的触底加载逻辑
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard();
+
   late TabController _tabController;
 
   @override
@@ -58,17 +63,22 @@ class _SearchPageState extends ConsumerState<SearchPage>
     super.dispose();
   }
 
+  /// 处理滚动事件，使用 ScrollLoadGuard 管理触底加载逻辑
+  ///
+  /// 当用户滚动到列表底部附近时，触发加载更多搜索结果。
+  /// 使用 ScrollLoadGuard 防止重复触发和并发请求。
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
     final state = ref.read(sp.searchNotifierProvider);
     if (state.isSearching || state.isLoadingMore || !state.hasMore || state.results.isEmpty) {
       return;
     }
 
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref.read(sp.searchNotifierProvider.notifier).loadMore();
-    }
+    _scrollLoadGuard.tryTrigger(
+      scrollController: _scrollController,
+      onLoad: () async {
+        ref.read(sp.searchNotifierProvider.notifier).loadMore();
+      },
+    );
   }
 
   void _performSearch(String query) {

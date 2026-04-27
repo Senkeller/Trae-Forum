@@ -9,6 +9,7 @@ import '../../../config/constants.dart';
 import '../../../core/utils/date_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
+import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/comment.dart';
 import '../../../data/models/feed.dart';
 import '../../../data/repositories/bookmark_repository.dart';
@@ -41,6 +42,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   final FocusNode _commentFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
+
+  /// 滚动加载守卫，用于管理评论列表的触底加载逻辑
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard(threshold: 220);
 
   FeedContentData? _topicDetail;
   List<TopicContentBlock> _topicBlocks = const [];
@@ -81,14 +85,15 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     super.dispose();
   }
 
+  /// 处理滚动事件，使用 ScrollLoadGuard 管理触底加载逻辑
+  ///
+  /// 当用户滚动到列表底部附近时，触发加载更多评论。
+  /// 使用 ScrollLoadGuard 防止重复触发和并发请求。
   void _handleScroll() {
-    if (!_scrollController.hasClients) {
-      return;
-    }
-    final threshold = _scrollController.position.maxScrollExtent - 220;
-    if (_scrollController.position.pixels >= threshold) {
-      _loadMoreComments();
-    }
+    _scrollLoadGuard.tryTrigger(
+      scrollController: _scrollController,
+      onLoad: _loadMoreComments,
+    );
   }
 
   /// 计算目录项的滚动位置

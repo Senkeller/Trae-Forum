@@ -62,6 +62,9 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
   }
 
   /// 处理新闻点击
+  ///
+  /// [news] 新闻数据对象
+  /// 点击新闻时触发，打开 WebView 查看新闻详情
   void _onNewsTap(dynamic news) {
     HapticFeedbackUtil.trigger(ref, HapticScene.tap);
     final encodedUrl = Uri.encodeComponent(news.sourceUrl);
@@ -69,6 +72,10 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
     context.push('/webview?url=$encodedUrl&title=$encodedTitle');
   }
 
+  /// 构建 AI 快讯列表视图
+  ///
+  /// [context] 构建上下文
+  /// @return 列表视图 Widget
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -115,7 +122,11 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
     );
   }
 
-  /// 构建筛选Chip
+  /// 构建筛选 Chip
+  ///
+  /// [label] Chip 显示的文本标签
+  /// [isSelected] 是否处于选中状态，默认为 false
+  /// @return 筛选 Chip Widget
   Widget _buildFilterChip(String label, {bool isSelected = false}) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -132,6 +143,12 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
   }
 
   /// 构建内容区域
+  ///
+  /// [newsList] 新闻数据列表
+  /// [isRefreshing] 是否正在刷新
+  /// [hasMore] 是否有更多数据
+  /// [errorMessage] 错误信息，可选
+  /// @return 内容区域 Widget
   Widget _buildContent({
     required List<dynamic> newsList,
     required bool isRefreshing,
@@ -173,9 +190,10 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: newsList.length,
-        cacheExtent: 250,
+        cacheExtent: MediaQuery.of(context).size.height * 0.5,
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
+        addSemanticIndexes: false,
         itemBuilder: (context, index) {
           final news = newsList[index];
           return AINewsFeedCard(
@@ -189,6 +207,9 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
   }
 
   /// 构建错误视图
+  ///
+  /// [errorMessage] 错误信息文本
+  /// @return 错误视图 Widget
   Widget _buildErrorView(String errorMessage) {
     return Center(
       child: Column(
@@ -213,6 +234,9 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
   }
 
   /// 构建空视图
+  ///
+  /// 当新闻列表为空时显示的占位视图
+  /// @return 空视图 Widget
   Widget _buildEmptyView() {
     return Center(
       child: Column(
@@ -245,6 +269,9 @@ class _AINewsListViewV2State extends ConsumerState<AINewsListViewV2>
   }
 
   /// 构建骨架屏列表
+  ///
+  /// 加载时显示的占位列表
+  /// @return 骨架屏列表 Widget
   Widget _buildSkeletonList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),

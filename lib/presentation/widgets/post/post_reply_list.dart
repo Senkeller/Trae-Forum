@@ -3,6 +3,7 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/theme.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
+import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/discourse/discourse_post.dart';
 import '../../../presentation/providers/reply_provider.dart';
 import '../../widgets/common/cached_image.dart';
@@ -56,6 +57,9 @@ class PostReplyList extends ConsumerStatefulWidget {
 class _PostReplyListState extends ConsumerState<PostReplyList> {
   final ScrollController _scrollController = ScrollController();
 
+  /// 滚动加载守卫，用于管理回复列表的触底加载逻辑
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard();
+
   @override
   void initState() {
     super.initState();
@@ -69,16 +73,27 @@ class _PostReplyListState extends ConsumerState<PostReplyList> {
     super.dispose();
   }
 
-  /// 滚动监听，实现上拉加载更多
+  /// 处理滚动事件，使用 ScrollLoadGuard 管理触底加载逻辑
+  ///
+  /// 当用户滚动到列表底部附近时，触发加载更多回复。
+  /// 使用 ScrollLoadGuard 防止重复触发和并发请求。
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      if (!widget.isLoading && widget.hasMore && widget.onLoadMore != null) {
-        widget.onLoadMore!();
-      }
-    }
+    if (!widget.hasMore || widget.onLoadMore == null) return;
+
+    _scrollLoadGuard.tryTrigger(
+      scrollController: _scrollController,
+      onLoad: () async {
+        if (!widget.isLoading) {
+          widget.onLoadMore!();
+        }
+      },
+    );
   }
 
+  /// 构建帖子回复列表
+  ///
+  /// [context] 构建上下文
+  /// @return 回复列表 Widget
   @override
   Widget build(BuildContext context) {
     // 监听刷新触发器
@@ -96,6 +111,10 @@ class _PostReplyListState extends ConsumerState<PostReplyList> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: widget.posts.length + (widget.hasMore ? 1 : 0),
+        cacheExtent: MediaQuery.of(context).size.height * 0.5,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
+        addSemanticIndexes: false,
         itemBuilder: (context, index) {
           if (index >= widget.posts.length) {
             return _buildLoadMoreIndicator(context);
@@ -185,6 +204,10 @@ class PostReplyItem extends StatelessWidget {
     this.onLikeTap,
   });
 
+  /// 构建帖子回复项
+  ///
+  /// [context] 构建上下文
+  /// @return 回复项 Widget
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -342,6 +365,11 @@ class PostReplyItem extends StatelessWidget {
   }
 
   /// 构建徽章
+  ///
+  /// [context] 构建上下文
+  /// [text] 徽章显示的文本
+  /// [color] 徽章颜色
+  /// @return 徽章 Widget
   Widget _buildBadge(BuildContext context, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -361,6 +389,9 @@ class PostReplyItem extends StatelessWidget {
   }
 
   /// 构建回复目标（楼中楼引用）
+  ///
+  /// [context] 构建上下文
+  /// @return 回复目标引用 Widget
   Widget _buildReplyTarget(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -396,6 +427,9 @@ class PostReplyItem extends StatelessWidget {
   }
 
   /// 构建操作栏
+  ///
+  /// [context] 构建上下文
+  /// @return 操作栏 Widget
   Widget _buildActionBar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -435,6 +469,15 @@ class PostReplyItem extends StatelessWidget {
   }
 
   /// 构建操作按钮
+  ///
+  /// [context] 构建上下文
+  /// [icon] 按钮图标
+  /// [count] 计数显示，默认为 0
+  /// [label] 标签文本，可选
+  /// [isActive] 是否处于激活状态，默认为 false
+  /// [activeColor] 激活状态颜色，可选
+  /// [onTap] 点击回调，可选
+  /// @return 操作按钮 Widget
   Widget _buildActionButton(
     BuildContext context, {
     required IconData icon,
@@ -485,6 +528,9 @@ class PostReplyItem extends StatelessWidget {
   }
 
   /// 显示更多选项
+  ///
+  /// [context] 构建上下文
+  /// 显示底部弹出菜单，提供复制、举报、编辑、删除等操作选项
   void _showMoreOptions(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -556,13 +602,19 @@ class PostReplyItem extends StatelessWidget {
     );
   }
 
-  /// 获取头像URL
+  /// 获取头像 URL
+  ///
+  /// 根据帖子数据生成完整的头像 URL
+  /// @return 头像 URL 字符串，如果模板为空则返回 null
   String? _getAvatarUrl() {
     if (post.avatarTemplate.isEmpty) return null;
     return 'https://forum.trae.cn${post.avatarTemplate.replaceAll('{size}', '96')}';
   }
 
   /// 格式化时间
+  ///
+  /// [isoTime] ISO 8601 格式的时间字符串
+  /// @return 格式化后的相对时间文本（如：刚刚、5分钟前、2小时前等）
   String _formatTime(String isoTime) {
     final dateTime = DateTime.parse(isoTime);
     final now = DateTime.now();
@@ -597,6 +649,10 @@ class PostReplyListSkeleton extends StatelessWidget {
     this.itemCount = 5,
   });
 
+  /// 构建骨架屏
+  ///
+  /// [context] 构建上下文
+  /// @return 骨架屏 Widget
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;

@@ -56,6 +56,12 @@ class UserAvatar extends StatelessWidget {
   /// 回退图标颜色
   final Color? fallbackIconColor;
 
+  /// 内存缓存宽度（用于优化内存占用）
+  final int? memCacheWidth;
+
+  /// 内存缓存高度（用于优化内存占用）
+  final int? memCacheHeight;
+
   /// 构造函数
   ///
   /// [avatarUrl] 头像 URL
@@ -73,6 +79,8 @@ class UserAvatar extends StatelessWidget {
   /// [fallbackIcon] 回退图标（当没有头像时显示）
   /// [fallbackBackgroundColor] 回退背景色
   /// [fallbackIconColor] 回退图标颜色
+  /// [memCacheWidth] 内存缓存宽度，用于限制内存占用
+  /// [memCacheHeight] 内存缓存高度，用于限制内存占用
   const UserAvatar({
     super.key,
     this.avatarUrl,
@@ -90,6 +98,8 @@ class UserAvatar extends StatelessWidget {
     this.fallbackIcon,
     this.fallbackBackgroundColor,
     this.fallbackIconColor,
+    this.memCacheWidth,
+    this.memCacheHeight,
   });
 
   /// 小尺寸头像（40px）
@@ -109,6 +119,8 @@ class UserAvatar extends StatelessWidget {
     this.fallbackIcon,
     this.fallbackBackgroundColor,
     this.fallbackIconColor,
+    this.memCacheWidth,
+    this.memCacheHeight,
   }) : size = 40;
 
   /// 中尺寸头像（48px）
@@ -128,6 +140,8 @@ class UserAvatar extends StatelessWidget {
     this.fallbackIcon,
     this.fallbackBackgroundColor,
     this.fallbackIconColor,
+    this.memCacheWidth,
+    this.memCacheHeight,
   }) : size = 48;
 
   /// 大尺寸头像（56px）
@@ -147,6 +161,8 @@ class UserAvatar extends StatelessWidget {
     this.fallbackIcon,
     this.fallbackBackgroundColor,
     this.fallbackIconColor,
+    this.memCacheWidth,
+    this.memCacheHeight,
   }) : size = 56;
 
   /// 超大尺寸头像（80px）
@@ -166,6 +182,8 @@ class UserAvatar extends StatelessWidget {
     this.fallbackIcon,
     this.fallbackBackgroundColor,
     this.fallbackIconColor,
+    this.memCacheWidth,
+    this.memCacheHeight,
   }) : size = 80;
 
   @override
@@ -196,6 +214,9 @@ class UserAvatar extends StatelessWidget {
   }
 
   /// 构建头像
+  ///
+  /// [context] 构建上下文
+  /// @return 头像组件
   Widget _buildAvatar(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -207,6 +228,8 @@ class UserAvatar extends StatelessWidget {
         height: size,
         isCircular: true,
         placeholderColor: placeholderColor ?? colorScheme.surfaceVariant,
+        memCacheWidth: memCacheWidth ?? size.toInt(),
+        memCacheHeight: memCacheHeight ?? size.toInt(),
       );
     } else {
       // 默认头像，使用回退参数

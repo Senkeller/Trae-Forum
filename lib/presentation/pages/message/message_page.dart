@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../config/constants.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
+import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/discourse/discourse_notification.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/common/empty_widget.dart';
@@ -242,6 +243,9 @@ class _NotificationList extends ConsumerStatefulWidget {
 class _NotificationListState extends ConsumerState<_NotificationList> {
   final ScrollController _scrollController = ScrollController();
 
+  /// 滚动加载守卫，用于管理通知列表的触底加载逻辑
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard();
+
   @override
   void initState() {
     super.initState();
@@ -255,11 +259,17 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
     super.dispose();
   }
 
+  /// 处理滚动事件，使用 ScrollLoadGuard 管理触底加载逻辑
+  ///
+  /// 当用户滚动到列表底部附近时，触发加载更多通知。
+  /// 使用 ScrollLoadGuard 防止重复触发和并发请求。
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref.read(notificationNotifierProvider.notifier).loadMoreNotifications();
-    }
+    _scrollLoadGuard.tryTrigger(
+      scrollController: _scrollController,
+      onLoad: () async {
+        ref.read(notificationNotifierProvider.notifier).loadMoreNotifications();
+      },
+    );
   }
 
   @override

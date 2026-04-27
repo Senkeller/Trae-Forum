@@ -6,6 +6,7 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import '../../../config/constants.dart';
 import '../../providers/search_provider.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
+import '../../widgets/user/user_avatar.dart';
 
 /// 搜索结果页面
 ///
@@ -152,14 +153,11 @@ class _ResultCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundImage: avatarUrl.isNotEmpty
-                    ? NetworkImage(avatarUrl)
-                    : null,
-                child: avatarUrl.isEmpty
-                    ? const Icon(Icons.person, size: 22)
-                    : null,
+              UserAvatar(
+                avatarUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
+                size: 44,
+                memCacheWidth: 100,
+                memCacheHeight: 100,
               ),
               const SizedBox(width: 12),
               Expanded(

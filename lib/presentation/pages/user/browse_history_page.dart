@@ -7,6 +7,7 @@ import '../../../config/constants.dart';
 import '../../../data/models/user_activity.dart';
 import '../../providers/user_activity_provider.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
+import '../../widgets/user/user_avatar.dart';
 
 /// 浏览历史页面
 class BrowseHistoryPage extends ConsumerStatefulWidget {
@@ -187,14 +188,11 @@ class _HistoryCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundImage: item.avatarUrl.isNotEmpty
-                    ? NetworkImage(item.avatarUrl)
-                    : null,
-                child: item.avatarUrl.isEmpty
-                    ? const Icon(Icons.person, size: 22)
-                    : null,
+              UserAvatar(
+                avatarUrl: item.avatarUrl.isNotEmpty ? item.avatarUrl : null,
+                size: 44,
+                memCacheWidth: 100,
+                memCacheHeight: 100,
               ),
               const SizedBox(width: 12),
               Expanded(

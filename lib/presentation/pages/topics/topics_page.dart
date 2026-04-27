@@ -6,6 +6,7 @@ import '../../../config/constants.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../data/models/tag_group.dart';
 import '../../widgets/common/main_top_app_bar_title.dart';
+import '../../widgets/common/cached_image.dart';
 
 /// 话题页面
 ///
@@ -460,14 +461,15 @@ class _TagCard extends StatelessWidget {
                       child: tag.imageUrl != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(10),
-                              child: Image.network(
-                                tag.imageUrl!,
+                              child: CachedImage(
+                                imageUrl: tag.imageUrl!,
                                 width: 40,
                                 height: 40,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildFallbackIcon(tagColor);
-                                },
+                                borderRadius: 10,
+                                memCacheWidth: 80,
+                                memCacheHeight: 80,
+                                errorIcon: Icons.label,
                               ),
                             )
                           : _buildFallbackIcon(tagColor),
