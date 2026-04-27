@@ -255,19 +255,15 @@ class FakeAuthNotifier extends AuthNotifier {
   FakeAuthNotifier({required bool isAuthenticated}) : _isAuthenticated = isAuthenticated;
 
   @override
-  AsyncValue<UserInfo> build() {
+  Future<UserInfo> build() async {
     if (_isAuthenticated) {
-      return const AsyncData(
-        UserInfo(
-          uid: 'test_user',
-          username: '测试用户',
-          avatar: 'https://example.com/avatar.jpg',
-        ),
+      return const UserInfo(
+        uid: 'test_user',
+        username: '测试用户',
+        avatar: 'https://example.com/avatar.jpg',
       );
     } else {
-      return const AsyncData(
-        UserInfo(uid: '', username: ''),
-      );
+      return const UserInfo(uid: '', username: '');
     }
   }
 }

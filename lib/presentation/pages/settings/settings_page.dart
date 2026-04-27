@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
+import '../../../core/utils/ui_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 
@@ -23,8 +24,6 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
     final currentUser = ref.watch(currentUserProvider);
     final appSettings = ref.watch(currentSettingsProvider);
     final isLoggedIn = currentUser != null;
@@ -214,20 +213,12 @@ class SettingsPage extends ConsumerWidget {
           // 退出登录
           const SizedBox(height: 24),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: FilledButton.tonal(
-              onPressed: () => isLoggedIn
+            padding: UiUtil.symmetric(horizontal: 16, vertical: 0),
+            child: _LogoutButton(
+              isLoggedIn: isLoggedIn,
+              onTap: () => isLoggedIn
                   ? _showLogoutDialog(context, ref)
                   : context.push(RoutePaths.login),
-              style: FilledButton.styleFrom(
-                backgroundColor: isLoggedIn
-                    ? colorScheme.errorContainer
-                    : colorScheme.primaryContainer,
-                foregroundColor: isLoggedIn
-                    ? colorScheme.onErrorContainer
-                    : colorScheme.onPrimaryContainer,
-              ),
-              child: Text(isLoggedIn ? '退出登录' : '去登录'),
             ),
           ),
           const SizedBox(height: 32),
@@ -316,33 +307,225 @@ class SettingsPage extends ConsumerWidget {
   ///
   /// [context] 构建上下文
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('确定要退出登录吗？'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              Icons.logout_outlined,
+              color: colorScheme.error,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            const Text('退出登录'),
+          ],
+        ),
+        content: const Text(
+          '确定要退出当前账号吗？退出后需要重新登录才能使用完整功能。',
+          style: TextStyle(fontSize: 15),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              foregroundColor: colorScheme.onSurfaceVariant,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
             child: const Text('取消'),
           ),
           FilledButton(
             onPressed: () async {
               Navigator.of(context).pop();
+
+              // 触发触觉反馈
+              await HapticFeedbackUtil.trigger(
+                ref,
+                HapticScene.deleteSuccess,
+              );
+
               await ref.read(authNotifierProvider.notifier).logout();
+
               if (context.mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('已退出登录')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text('已安全退出登录'),
+                      ],
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
                 context.go(RoutePaths.main);
               }
             },
             style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+              backgroundColor: colorScheme.error,
+              foregroundColor: colorScheme.onError,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('退出'),
+            child: const Text('退出登录'),
           ),
         ],
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      ),
+    );
+  }
+}
+
+/// 退出登录按钮
+///
+/// 带有动画效果和触觉反馈的退出登录按钮
+class _LogoutButton extends StatefulWidget {
+  /// 是否已登录
+  final bool isLoggedIn;
+
+  /// 点击回调
+  final VoidCallback onTap;
+
+  /// 构造函数
+  const _LogoutButton({
+    required this.isLoggedIn,
+    required this.onTap,
+  });
+
+  @override
+  State<_LogoutButton> createState() => _LogoutButtonState();
+}
+
+class _LogoutButtonState extends State<_LogoutButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.96,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails details) {
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    _controller.reverse();
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: _onTapUp,
+      onTapCancel: _onTapCancel,
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: child,
+          );
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: widget.isLoggedIn
+                ? LinearGradient(
+                    colors: [
+                      colorScheme.error.withValues(alpha: 0.9),
+                      colorScheme.error,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : LinearGradient(
+                    colors: [
+                      colorScheme.primary.withValues(alpha: 0.9),
+                      colorScheme.primary,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: widget.isLoggedIn
+                    ? colorScheme.error.withValues(alpha: 0.3)
+                    : colorScheme.primary.withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.isLoggedIn ? Icons.logout_outlined : Icons.login_outlined,
+                color: widget.isLoggedIn
+                    ? colorScheme.onError
+                    : colorScheme.onPrimary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.isLoggedIn ? '退出登录' : '去登录',
+                style: TextStyle(
+                  color: widget.isLoggedIn
+                      ? colorScheme.onError
+                      : colorScheme.onPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

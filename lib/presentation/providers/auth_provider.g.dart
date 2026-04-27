@@ -93,14 +93,14 @@ final authTokenProvider = AutoDisposeProvider<String?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef AuthTokenRef = AutoDisposeProviderRef<String?>;
-String _$authNotifierHash() => r'fc74dfe1d90f7ac773da7a35fe37eddb02ab5de9';
+String _$authNotifierHash() => r'55ca1af7fafbfb834a6cfef1d9a72a2eaed866a5';
 
 /// 认证状态 Notifier
 ///
 /// Copied from [AuthNotifier].
 @ProviderFor(AuthNotifier)
 final authNotifierProvider =
-    AutoDisposeNotifierProvider<AuthNotifier, AsyncValue<UserInfo>>.internal(
+    AutoDisposeAsyncNotifierProvider<AuthNotifier, UserInfo>.internal(
       AuthNotifier.new,
       name: r'authNotifierProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -110,6 +110,6 @@ final authNotifierProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$AuthNotifier = AutoDisposeNotifier<AsyncValue<UserInfo>>;
+typedef _$AuthNotifier = AutoDisposeAsyncNotifier<UserInfo>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

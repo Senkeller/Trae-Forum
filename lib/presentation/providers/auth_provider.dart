@@ -13,20 +13,19 @@ part 'auth_provider.g.dart';
 /// 认证状态 Notifier
 @riverpod
 class AuthNotifier extends _$AuthNotifier {
-  late ApiService _apiService;
-  late DiscourseApiService _discourseApiService;
+  ApiService? _apiService;
+  DiscourseApiService? _discourseApiService;
 
   /// 构建认证状态
   @override
-  AsyncValue<UserInfo> build() {
+  Future<UserInfo> build() async {
     _apiService = ref.read(apiServiceProvider);
     _discourseApiService = ref.read(discourseApiServiceProvider);
-    _loadUserInfo();
-    return const AsyncValue.loading();
+    return _loadUserInfo();
   }
 
   /// 从本地存储加载用户信息
-  Future<void> _loadUserInfo() async {
+  Future<UserInfo> _loadUserInfo() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final uid = prefs.getString('uid');
@@ -46,13 +45,11 @@ class AuthNotifier extends _$AuthNotifier {
           final restoredUser = await _restoreUserInfoFromDiscourseSession();
           if (restoredUser != null) {
             debugPrint('✅ [AuthNotifier] 论坛会话刷新成功: ${restoredUser.username}');
-            state = AsyncData(restoredUser);
-            return;
+            return restoredUser;
           }
         } else {
           debugPrint('✅ [AuthNotifier] 加载用户信息成功: ${userInfo.username}');
-          state = AsyncData(userInfo);
-          return;
+          return userInfo;
         }
       } else {
         debugPrint('ℹ️ [AuthNotifier] 本地无用户信息，尝试从 Discourse 会话恢复');
@@ -63,15 +60,14 @@ class AuthNotifier extends _$AuthNotifier {
         debugPrint(
           '✅ [AuthNotifier] Discourse 会话恢复成功: ${restoredUser.username}',
         );
-        state = AsyncData(restoredUser);
-        return;
+        return restoredUser;
       }
 
       debugPrint('ℹ️ [AuthNotifier] 未检测到可用会话，设置为未登录');
-      state = const AsyncValue.data(UserInfo(uid: '', username: ''));
+      return const UserInfo(uid: '', username: '');
     } catch (e, stackTrace) {
       debugPrint('❌ [AuthNotifier] 加载用户信息失败: $e');
-      state = AsyncError(e, stackTrace);
+      throw Error.throwWithStackTrace(e, stackTrace);
     }
   }
 
@@ -93,15 +89,17 @@ class AuthNotifier extends _$AuthNotifier {
       final hasSession = await DioClient.hasDiscourseSession();
 
       // 兜底探活：会话可用但当前接口未返回用户详情时，不写入占位用户名，避免污染展示。
-      final probe = await _discourseApiService.getNotifications(
-        limit: 1,
-        recent: true,
-        bumpLastSeen: false,
-      );
-      if (probe.statusCode == 200) {
-        debugPrint('⚠️ [AuthNotifier] 会话可用但未获取到用户名，保留未登录展示避免脏数据');
-      } else if (!hasSession) {
-        debugPrint('ℹ️ [AuthNotifier] 未探测到有效论坛会话');
+      if (_discourseApiService != null) {
+        final probe = await _discourseApiService!.getNotifications(
+          limit: 1,
+          recent: true,
+          bumpLastSeen: false,
+        );
+        if (probe.statusCode == 200) {
+          debugPrint('⚠️ [AuthNotifier] 会话可用但未获取到用户名，保留未登录展示避免脏数据');
+        } else if (!hasSession) {
+          debugPrint('ℹ️ [AuthNotifier] 未探测到有效论坛会话');
+        }
       }
       return null;
     } catch (e) {
@@ -112,7 +110,8 @@ class AuthNotifier extends _$AuthNotifier {
 
   Future<UserInfo?> _fetchCurrentSessionUser() async {
     try {
-      final response = await _discourseApiService.getCurrentSession();
+      if (_discourseApiService == null) return null;
+      final response = await _discourseApiService!.getCurrentSession();
       final data = response.data;
       if (response.statusCode != 200 || data is! Map<String, dynamic>) {
         return null;
@@ -219,7 +218,7 @@ class AuthNotifier extends _$AuthNotifier {
       await TraeCookieManager.clearCookies();
 
       debugPrint('✅ [AuthNotifier] 用户登出完成');
-      state = const AsyncValue.data(UserInfo(uid: '', username: ''));
+      state = const AsyncData(UserInfo(uid: '', username: ''));
     } catch (e, stackTrace) {
       debugPrint('❌ [AuthNotifier] 登出失败: $e');
       state = AsyncError(e, stackTrace);
@@ -237,7 +236,8 @@ class AuthNotifier extends _$AuthNotifier {
     }
 
     try {
-      final response = await _apiService.checkLoginInfo();
+      if (_apiService == null) return false;
+      final response = await _apiService!.checkLoginInfo();
       return response.status == 1;
     } catch (_) {
       return false;
@@ -254,7 +254,8 @@ class AuthNotifier extends _$AuthNotifier {
     state = const AsyncLoading();
 
     try {
-      final response = await _apiService.getProfile(uid: currentUser.uid);
+      if (_apiService == null) return;
+      final response = await _apiService!.getProfile(uid: currentUser.uid);
       final userInfo = response.data?.userInfo;
       if (response.status == 1 && userInfo != null) {
         await _saveUserInfo(userInfo);

@@ -335,6 +335,7 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
 
           final notification = notificationState.notifications[index];
           return _NotificationItem(
+            key: ValueKey('notification_${notification.id}'),
             notification: notification,
             onTap: () => _handleNotificationTap(notification),
             onDelete: () => _handleDeleteNotification(notification.id),
@@ -437,6 +438,7 @@ class _NotificationItem extends StatelessWidget {
   final VoidCallback? onMarkAsUnread;
 
   const _NotificationItem({
+    super.key,
     required this.notification,
     required this.onTap,
     this.onDelete,

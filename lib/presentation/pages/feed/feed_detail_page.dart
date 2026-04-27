@@ -28,6 +28,7 @@ import '../../widgets/detail/toc_progress_bar.dart';
 import '../../widgets/detail/topic_magazine_renderer.dart';
 import '../../widgets/editor/composer_editor.dart';
 import '../../widgets/comment_input_bar.dart';
+import '../../widgets/skeleton/feed_detail_skeleton.dart';
 
 class FeedDetailPage extends ConsumerStatefulWidget {
   final String feedId;
@@ -745,12 +746,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
   Widget _buildContent(BuildContext context) {
     if (_isTopicLoading && _topicDetail == null) {
-      return ListView(
-        children: const [
-          SizedBox(height: 280),
-          Center(child: CircularProgressIndicator()),
-        ],
-      );
+      return const FeedDetailSkeleton();
     }
 
     if (_topicDetail == null) {
@@ -882,9 +878,18 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         else
           SliverList.builder(
             itemCount: _comments.length,
+            // 添加 findChildIndexCallback 优化大列表性能
+            findChildIndexCallback: (key) {
+              if (key is ValueKey<String>) {
+                final id = key.value.replaceFirst('reply_', '');
+                return _comments.indexWhere((reply) => reply.id == id);
+              }
+              return null;
+            },
             itemBuilder: (context, index) {
               final reply = _comments[index];
               return _ReplyItem(
+                key: ValueKey('reply_${reply.id}'),
                 reply: reply,
                 floor: index + 1,
                 topicAuthorUid: detail.userInfo?.uid,
@@ -1575,6 +1580,7 @@ class _ReplyItem extends ConsumerWidget {
   final VoidCallback? onDeleteTap;
 
   const _ReplyItem({
+    super.key,
     required this.reply,
     required this.floor,
     required this.topicAuthorUid,
