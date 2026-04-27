@@ -146,48 +146,138 @@ class DiscourseApiService {
     );
   }
 
+  // ==================== 用户活动相关 API ====================
+
+  /// 获取用户话题列表（基于 user_actions）
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// 调用 Discourse GET /user_actions.json?filter=4,5 API
+  /// filter=4 表示创建话题，filter=5 表示回复
   Future<Response> getUserActivityTopics(
     String username, {
-    int page = 0,
+    int offset = 0,
   }) async {
     return _dio.get(
-      '$_baseUrl/u/$username/activity/topics.json',
-      queryParameters: {'page': page},
+      '$_baseUrl/user_actions.json',
+      queryParameters: {
+        'username': username,
+        'filter': '4,5',
+        'offset': offset,
+      },
     );
   }
 
+  /// 获取用户回复列表
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// 调用 Discourse GET /user_actions.json?filter=5 API
+  /// filter=5 表示回复
   Future<Response> getUserActivityReplies(
     String username, {
-    int page = 0,
+    int offset = 0,
   }) async {
     return _dio.get(
-      '$_baseUrl/u/$username/activity/replies.json',
-      queryParameters: {'page': page},
+      '$_baseUrl/user_actions.json',
+      queryParameters: {
+        'username': username,
+        'filter': '5',
+        'offset': offset,
+      },
     );
   }
 
-  Future<Response> getUserActivityLikes(String username, {int page = 0}) async {
+  /// 获取用户点赞列表
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// 调用 Discourse GET /user_actions.json?filter=1 API
+  /// filter=1 表示点赞
+  Future<Response> getUserActivityLikes(
+    String username, {
+    int offset = 0,
+  }) async {
     return _dio.get(
-      '$_baseUrl/u/$username/activity/likes-given.json',
-      queryParameters: {'page': page},
+      '$_baseUrl/user_actions.json',
+      queryParameters: {
+        'username': username,
+        'filter': '1',
+        'offset': offset,
+      },
     );
   }
 
+  /// 获取用户书签列表
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// 调用 Discourse GET /u/{username}/bookmarks.json API
+  Future<Response> getUserActivityBookmarks(
+    String username, {
+    int offset = 0,
+  }) async {
+    return _dio.get(
+      '$_baseUrl/u/$username/bookmarks.json',
+      queryParameters: {
+        'q': '',
+        'acting_username': '',
+      },
+    );
+  }
+
+  /// 获取用户已解决的话题列表
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// [limit] 返回数量限制，默认20
+  /// 调用 Discourse GET /solution/by_user.json API
   Future<Response> getUserActivitySolved(
     String username, {
-    int page = 0,
+    int offset = 0,
+    int limit = 20,
   }) async {
     return _dio.get(
-      '$_baseUrl/u/$username/activity/solved.json',
-      queryParameters: {'page': page},
+      '$_baseUrl/solution/by_user.json',
+      queryParameters: {
+        'username': username,
+        'offset': offset,
+        'limit': limit,
+      },
     );
   }
 
-  Future<Response> getUserActivityVotes(String username, {int page = 0}) async {
+  /// 获取用户投票的话题列表
+  ///
+  /// [username] 用户名
+  /// 调用 Discourse GET /topics/voted-by/{username}.json API
+  Future<Response> getUserActivityVotes(String username) async {
+    return _dio.get('$_baseUrl/topics/voted-by/$username.json');
+  }
+
+  /// 获取用户草稿列表
+  ///
+  /// [offset] 分页偏移量
+  /// [limit] 返回数量限制，默认30
+  /// 调用 Discourse GET /drafts.json API
+  Future<Response> getUserActivityDrafts({
+    int offset = 0,
+    int limit = 30,
+  }) async {
     return _dio.get(
-      '$_baseUrl/u/$username/activity/votes.json',
-      queryParameters: {'page': page},
+      '$_baseUrl/drafts.json',
+      queryParameters: {
+        'offset': offset,
+        'limit': limit,
+      },
     );
+  }
+
+  /// 获取用户已读话题列表
+  ///
+  /// 调用 Discourse GET /read.json API
+  Future<Response> getUserActivityRead() async {
+    return _dio.get('$_baseUrl/read.json');
   }
 
   Future<Response> getHotTopics({int page = 0}) async {

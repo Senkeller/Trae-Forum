@@ -81,7 +81,7 @@ class _UserTopicsPageState extends ConsumerState<UserTopicsPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityTopics(
         username: widget.username,
-        page: 0,
+        offset: 0,
       );
 
       if (response.status == 200) {
@@ -116,17 +116,17 @@ class _UserTopicsPageState extends ConsumerState<UserTopicsPage> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      final nextPage = _currentPage + 1;
+      final nextOffset = (_currentPage + 1) * 30;
       final response = await apiService.getUserActivityTopics(
         username: widget.username,
-        page: nextPage,
+        offset: nextOffset,
       );
 
       if (response.status == 200) {
         setState(() {
           _topics.addAll(response.data);
           _hasMore = response.data.length >= 30;
-          _currentPage = nextPage;
+          _currentPage = _currentPage + 1;
         });
       } else {
         setState(() {

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/constants.dart';
@@ -28,7 +27,7 @@ import '../../widgets/detail/table_of_contents.dart';
 import '../../widgets/detail/toc_progress_bar.dart';
 import '../../widgets/detail/topic_magazine_renderer.dart';
 import '../../widgets/editor/composer_editor.dart';
-import '../../widgets/editor/quill_composer_editor.dart';
+import '../../widgets/comment_input_bar.dart';
 
 class FeedDetailPage extends ConsumerStatefulWidget {
   final String feedId;
@@ -41,7 +40,6 @@ class FeedDetailPage extends ConsumerStatefulWidget {
 
 class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   final ScrollController _scrollController = ScrollController();
-  final ImagePicker _imagePicker = ImagePicker();
 
   /// 滚动加载守卫，用于管理评论列表的触底加载逻辑
   final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard(threshold: 220);
@@ -60,7 +58,6 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   bool _isCommentsLoading = true;
   bool _isLoadingMoreComments = false;
   bool _isSendingComment = false;
-  bool _isUploadingCommentImage = false;
   bool _hasMoreComments = true;
   String? _replyToUsername;
   int? _replyToPostNumber;
@@ -513,19 +510,24 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     }
   }
 
-  Future<void> _pickImagesForComment() async {
-    if (_isSendingComment || _isUploadingCommentImage) {
+  /// 处理点赞
+  Future<void> _handleLike() async {
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+
+    final topicId = int.tryParse(widget.feedId);
+    if (topicId == null || topicId <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无效的话题ID')));
       return;
     }
 
     final hasSession = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!hasSession) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('请先登录后再上传表情包'),
+          content: const Text('请先登录后再点赞'),
           action: SnackBarAction(
             label: '登录',
             onPressed: () => context.push(RoutePaths.login),
@@ -535,74 +537,61 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       return;
     }
 
-    try {
-      final files = await _imagePicker.pickMultiImage();
-      if (files.isEmpty || !mounted) {
-        return;
-      }
+    // 乐观更新 UI
+    final currentIsLiked = _topicDetail?.action.isLike ?? false;
+    final currentLikeNum = _topicDetail?.action.likeNum ?? 0;
 
-      setState(() {
-        _isUploadingCommentImage = true;
-      });
-
-      final repository = ref.read(commentRepositoryProvider);
-      final markdowns = <String>[];
-      String? firstError;
-
-      for (final file in files) {
-        final result = await repository.uploadCommentImage(
-          filePath: file.path,
-          fileName: file.name,
-        );
-        if (result.success && result.markdown != null) {
-          markdowns.add(result.markdown!);
-        } else {
-          firstError ??= result.errorMessage;
-        }
-      }
-
-      if (!mounted) {
-        return;
-      }
-
-      if (markdowns.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(firstError ?? '上传表情包失败，请稍后重试。')));
-        return;
-      }
-
-      // 图片上传成功，提示用户手动粘贴 Markdown 到编辑器
-      final markdownText = markdowns.join('\n');
-      await Clipboard.setData(ClipboardData(text: markdownText));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('已复制 ${markdowns.length} 张图片的 Markdown 到剪贴板，请粘贴到编辑器中'),
-        ),
-      );
-
-      final failedCount = files.length - markdowns.length;
-      if (failedCount > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$failedCount 张图片上传失败。'),
+    setState(() {
+      if (_topicDetail != null) {
+        _topicDetail = _topicDetail!.copyWith(
+          action: _topicDetail!.action.copyWith(
+            isLike: !currentIsLiked,
+            likeNum: currentIsLiked
+                ? (currentLikeNum - 1).clamp(0, currentLikeNum)
+                : currentLikeNum + 1,
           ),
         );
       }
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('上传表情包失败，请稍后重试。')));
-    } finally {
+    });
+
+    // 调用点赞 API
+    try {
+      await ref.read(likeProvider.notifier).toggleLike(topicId);
+    } catch (e) {
+      // 失败时回滚
       if (mounted) {
         setState(() {
-          _isUploadingCommentImage = false;
+          if (_topicDetail != null) {
+            _topicDetail = _topicDetail!.copyWith(
+              action: _topicDetail!.action.copyWith(
+                isLike: currentIsLiked,
+                likeNum: currentLikeNum,
+              ),
+            );
+          }
         });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('点赞失败: $e')));
       }
     }
+  }
+
+  /// 处理收藏
+  Future<void> _handleFavorite() async {
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+    await _toggleBookmark();
+  }
+
+  /// 处理分享
+  void _handleShare() {
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+    final topicUrl = 'https://forum.trae.cn/t/${widget.feedId}';
+    Clipboard.setData(ClipboardData(text: topicUrl));
+    HapticFeedbackUtil.trigger(ref, HapticScene.copySuccess);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('链接已复制到剪贴板')));
   }
 
   Future<void> _initializeBookmarkState(FeedContentData topicDetail) async {
@@ -727,10 +716,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             scrollController: _scrollController,
             visible: _tocItems.length >= 2,
           ),
-          _BottomCommentBar(
+          CommentInputBar(
             isLoggedIn: isLoggedIn,
             isSending: _isSendingComment,
-            isUploadingImage: _isUploadingCommentImage,
             replyingToUsername: _replyToUsername,
             onCancelReply: () {
               setState(() {
@@ -739,8 +727,16 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
               });
             },
             onSend: (content) => _sendComment(content),
-            onPickImage: _pickImagesForComment,
             onLoginTap: () => context.push(RoutePaths.login),
+            commentCount: _topicDetail?.replyNum ?? 0,
+            likeCount: _topicDetail?.action.likeNum ?? 0,
+            favoriteCount: _topicDetail?.action.favoriteNum ?? 0,
+            shareCount: 0,
+            isLiked: _topicDetail?.action.isLike ?? false,
+            isFavorited: _topicDetail?.action.isFavorite ?? false,
+            onLikeTap: _handleLike,
+            onFavoriteTap: _handleFavorite,
+            onShareTap: _handleShare,
           ),
         ],
       ),
@@ -1840,31 +1836,124 @@ class _ReplyItem extends ConsumerWidget {
   }
 }
 
-class _ReplyMessage extends StatelessWidget {
+class _ReplyMessage extends StatefulWidget {
   final String htmlContent;
   final ValueChanged<String> onLinkTap;
 
   const _ReplyMessage({required this.htmlContent, required this.onLinkTap});
 
   @override
+  State<_ReplyMessage> createState() => _ReplyMessageState();
+}
+
+class _ReplyMessageState extends State<_ReplyMessage> {
+  /// 是否已展开
+  bool _isExpanded = false;
+
+  /// 是否需要折叠（内容是否超过最大行数）
+  bool _needsCollapse = false;
+
+  @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final imageUrls = TopicCookedParser.extractImages(
-      htmlContent,
+      widget.htmlContent,
     ).map(DiscourseImageUrlResolver.toOriginalUrl).whereType<String>().toList();
 
-    return RichTextView(
-      htmlContent: htmlContent,
-      onLinkTap: onLinkTap,
-      onImageTap: (url) {
-        final images = imageUrls.isEmpty ? <String>[url] : imageUrls;
-        final index = images.indexOf(url);
-        ImagePreviewPage.show(
-          context,
-          imageUrls: images,
-          initialIndex: index < 0 ? 0 : index,
-        );
-      },
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 消息内容
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // 测量文本是否需要折叠
+            final textSpan = TextSpan(
+              text: _stripHtmlTags(widget.htmlContent),
+              style: Theme.of(context).textTheme.bodyMedium,
+            );
+
+            final textPainter = TextPainter(
+              text: textSpan,
+              maxLines: 8,
+              textDirection: TextDirection.ltr,
+              textAlign: TextAlign.start,
+            );
+
+            textPainter.layout(maxWidth: constraints.maxWidth);
+            _needsCollapse = textPainter.didExceedMaxLines;
+
+            // 如果不需要折叠，直接显示全部内容
+            if (!_needsCollapse || _isExpanded) {
+              return RichTextView(
+                htmlContent: widget.htmlContent,
+                onLinkTap: widget.onLinkTap,
+                onImageTap: (url) {
+                  final images = imageUrls.isEmpty ? <String>[url] : imageUrls;
+                  final index = images.indexOf(url);
+                  ImagePreviewPage.show(
+                    context,
+                    imageUrls: images,
+                    initialIndex: index < 0 ? 0 : index,
+                  );
+                },
+              );
+            }
+
+            // 需要折叠的情况
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RichTextView(
+                  htmlContent: widget.htmlContent,
+                  maxLines: 8,
+                  onLinkTap: widget.onLinkTap,
+                  onImageTap: (url) {
+                    final images = imageUrls.isEmpty ? <String>[url] : imageUrls;
+                    final index = images.indexOf(url);
+                    ImagePreviewPage.show(
+                      context,
+                      imageUrls: images,
+                      initialIndex: index < 0 ? 0 : index,
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        ),
+        // 展开/收起按钮
+        if (_needsCollapse)
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isExpanded = !_isExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _isExpanded ? '收起' : '展开',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
+  }
+
+  /// 去除 HTML 标签，用于测量文本长度
+  String _stripHtmlTags(String htmlText) {
+    return htmlText
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .trim();
   }
 }
 
@@ -1897,199 +1986,4 @@ class _CommentAvatar extends StatelessWidget {
   }
 }
 
-class _BottomCommentBar extends StatefulWidget {
-  final bool isLoggedIn;
-  final bool isSending;
-  final bool isUploadingImage;
-  final String? replyingToUsername;
-  final VoidCallback? onCancelReply;
-  final Future<void> Function(String content) onSend;
-  final Future<void> Function() onPickImage;
-  final VoidCallback onLoginTap;
 
-  const _BottomCommentBar({
-    required this.isLoggedIn,
-    required this.isSending,
-    required this.isUploadingImage,
-    required this.replyingToUsername,
-    required this.onCancelReply,
-    required this.onSend,
-    required this.onPickImage,
-    required this.onLoginTap,
-  });
-
-  @override
-  State<_BottomCommentBar> createState() => _BottomCommentBarState();
-}
-
-class _BottomCommentBarState extends State<_BottomCommentBar> {
-  String _currentContent = '';
-  final TextEditingController _textController = TextEditingController();
-
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleSend() async {
-    if (!widget.isLoggedIn) {
-      widget.onLoginTap();
-      return;
-    }
-
-    final content = _currentContent.trim();
-    if (content.isEmpty || widget.isSending) {
-      return;
-    }
-
-    await widget.onSend(content);
-    // 发送成功后清空内容
-    setState(() {
-      _currentContent = '';
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (widget.replyingToUsername != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.reply_rounded,
-                      size: 16,
-                      color: colorScheme.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '正在回复 @${widget.replyingToUsername}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.primary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: widget.onCancelReply,
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: 18,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                IconButton(
-                  onPressed: widget.isSending || widget.isUploadingImage
-                      ? null
-                      : (widget.isLoggedIn
-                            ? widget.onPickImage
-                            : widget.onLoginTap),
-                  icon: widget.isUploadingImage
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Icon(
-                          widget.isLoggedIn
-                              ? Icons.image_outlined
-                              : Icons.login_rounded,
-                        ),
-                  tooltip: widget.isLoggedIn ? '从设备选择图片' : '登录后上传图片',
-                  color: colorScheme.primary,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: widget.isLoggedIn
-                      ? QuillComposerEditor(
-                          initialText: _currentContent,
-                          hintText: '写下你的回复...',
-                          onTextChanged: (text) {
-                            setState(() {
-                              _currentContent = text;
-                            });
-                          },
-                          onSubmit: (text) => _handleSend(),
-                          showToolbar: true,
-                          minHeight: 60,
-                          maxHeight: 150,
-                        )
-                      : Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '登录后参与回复',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                ),
-                const SizedBox(width: 4),
-                IconButton(
-                  onPressed: widget.isSending || widget.isUploadingImage
-                      ? null
-                      : (widget.isLoggedIn
-                            ? (_currentContent.trim().isNotEmpty
-                                ? _handleSend
-                                : null)
-                            : widget.onLoginTap),
-                  icon: widget.isSending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : Icon(
-                          widget.isLoggedIn
-                              ? Icons.send_rounded
-                              : Icons.login_rounded,
-                        ),
-                  color: colorScheme.primary,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

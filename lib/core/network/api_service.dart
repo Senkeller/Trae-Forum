@@ -501,19 +501,26 @@ class ApiService extends _$ApiService {
     }
   }
 
+  // ==================== 用户活动相关 API ====================
+
   /// 获取用户活动 - 话题
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// 基于 user_actions API，filter=4,5
   Future<UserActivityResponse> getUserActivityTopics({
     required String username,
-    int page = 0,
+    int offset = 0,
   }) async {
     try {
       final discourseResponse = await _discourseApi.getUserActivityTopics(
         username,
-        page: page,
+        offset: offset,
       );
-      final List<dynamic> data = discourseResponse.data as List<dynamic>;
-      final activities = data.map((item) {
-        return UserActivity.fromJson(item as Map<String, dynamic>);
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> userActions = responseData['user_actions'] as List<dynamic>? ?? [];
+      final activities = userActions.map((item) {
+        return _adaptUserActionToActivity(item as Map<String, dynamic>);
       }).toList();
       return UserActivityResponse(
         status: 200,
@@ -529,18 +536,23 @@ class ApiService extends _$ApiService {
   }
 
   /// 获取用户活动 - 回复
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// 基于 user_actions API，filter=5
   Future<UserActivityResponse> getUserActivityReplies({
     required String username,
-    int page = 0,
+    int offset = 0,
   }) async {
     try {
       final discourseResponse = await _discourseApi.getUserActivityReplies(
         username,
-        page: page,
+        offset: offset,
       );
-      final List<dynamic> data = discourseResponse.data as List<dynamic>;
-      final activities = data.map((item) {
-        return UserActivity.fromJson(item as Map<String, dynamic>);
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> userActions = responseData['user_actions'] as List<dynamic>? ?? [];
+      final activities = userActions.map((item) {
+        return _adaptUserActionToActivity(item as Map<String, dynamic>);
       }).toList();
       return UserActivityResponse(
         status: 200,
@@ -556,18 +568,23 @@ class ApiService extends _$ApiService {
   }
 
   /// 获取用户活动 - 赞
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
+  /// 基于 user_actions API，filter=1
   Future<UserActivityResponse> getUserActivityLikes({
     required String username,
-    int page = 0,
+    int offset = 0,
   }) async {
     try {
       final discourseResponse = await _discourseApi.getUserActivityLikes(
         username,
-        page: page,
+        offset: offset,
       );
-      final List<dynamic> data = discourseResponse.data as List<dynamic>;
-      final activities = data.map((item) {
-        return UserActivity.fromJson(item as Map<String, dynamic>);
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> userActions = responseData['user_actions'] as List<dynamic>? ?? [];
+      final activities = userActions.map((item) {
+        return _adaptUserActionToActivity(item as Map<String, dynamic>);
       }).toList();
       return UserActivityResponse(
         status: 200,
@@ -582,19 +599,51 @@ class ApiService extends _$ApiService {
     }
   }
 
+  /// 获取用户活动 - 书签
+  ///
+  /// [username] 用户名
+  Future<UserActivityResponse> getUserActivityBookmarks({
+    required String username,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivityBookmarks(
+        username,
+      );
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> bookmarks = responseData['bookmarks'] as List<dynamic>? ?? [];
+      final activities = bookmarks.map((item) {
+        return _adaptBookmarkToActivity(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity bookmarks: $e',
+      );
+    }
+  }
+
   /// 获取用户活动 - 已解决
+  ///
+  /// [username] 用户名
+  /// [offset] 分页偏移量
   Future<UserActivityResponse> getUserActivitySolved({
     required String username,
-    int page = 0,
+    int offset = 0,
   }) async {
     try {
       final discourseResponse = await _discourseApi.getUserActivitySolved(
         username,
-        page: page,
+        offset: offset,
       );
-      final List<dynamic> data = discourseResponse.data as List<dynamic>;
-      final activities = data.map((item) {
-        return UserActivity.fromJson(item as Map<String, dynamic>);
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> solutions = responseData['solutions'] as List<dynamic>? ?? [];
+      final activities = solutions.map((item) {
+        return _adaptSolutionToActivity(item as Map<String, dynamic>);
       }).toList();
       return UserActivityResponse(
         status: 200,
@@ -610,18 +659,19 @@ class ApiService extends _$ApiService {
   }
 
   /// 获取用户活动 - 投票
+  ///
+  /// [username] 用户名
   Future<UserActivityResponse> getUserActivityVotes({
     required String username,
-    int page = 0,
   }) async {
     try {
       final discourseResponse = await _discourseApi.getUserActivityVotes(
         username,
-        page: page,
       );
-      final List<dynamic> data = discourseResponse.data as List<dynamic>;
-      final activities = data.map((item) {
-        return UserActivity.fromJson(item as Map<String, dynamic>);
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> topics = responseData['topic_list']?['topics'] as List<dynamic>? ?? [];
+      final activities = topics.map((item) {
+        return _adaptTopicToActivity(item as Map<String, dynamic>);
       }).toList();
       return UserActivityResponse(
         status: 200,
@@ -634,6 +684,125 @@ class ApiService extends _$ApiService {
         message: 'Failed to fetch user activity votes: $e',
       );
     }
+  }
+
+  /// 获取用户活动 - 草稿
+  ///
+  /// [offset] 分页偏移量
+  Future<UserActivityResponse> getUserActivityDrafts({
+    int offset = 0,
+  }) async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivityDrafts(
+        offset: offset,
+      );
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> drafts = responseData['drafts'] as List<dynamic>? ?? [];
+      final activities = drafts.map((item) {
+        return _adaptDraftToActivity(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity drafts: $e',
+      );
+    }
+  }
+
+  /// 获取用户活动 - 已读
+  Future<UserActivityResponse> getUserActivityRead() async {
+    try {
+      final discourseResponse = await _discourseApi.getUserActivityRead();
+      final Map<String, dynamic> responseData = discourseResponse.data as Map<String, dynamic>;
+      final List<dynamic> topics = responseData['topic_list']?['topics'] as List<dynamic>? ?? [];
+      final activities = topics.map((item) {
+        return _adaptTopicToActivity(item as Map<String, dynamic>);
+      }).toList();
+      return UserActivityResponse(
+        status: 200,
+        message: 'success',
+        data: activities,
+      );
+    } catch (e) {
+      return UserActivityResponse(
+        status: 500,
+        message: 'Failed to fetch user activity read: $e',
+      );
+    }
+  }
+
+  // ==================== 数据适配方法 ====================
+
+  /// 适配 user_action 数据为 UserActivity
+  UserActivity _adaptUserActionToActivity(Map<String, dynamic> action) {
+    return UserActivity(
+      id: action['post_id'] ?? action['topic_id'] ?? 0,
+      topicId: action['topic_id'] ?? 0,
+      excerpt: action['excerpt'] ?? action['title'] ?? '',
+      createdAt: action['created_at'],
+      username: action['username'] ?? '',
+      avatarTemplate: action['avatar_template'],
+      replyCount: action['reply_count'],
+      reads: action['reads'],
+      likeCount: action['like_count'],
+      topicSlug: action['slug'],
+    );
+  }
+
+  /// 适配 bookmark 数据为 UserActivity
+  UserActivity _adaptBookmarkToActivity(Map<String, dynamic> bookmark) {
+    return UserActivity(
+      id: bookmark['id'] ?? 0,
+      topicId: bookmark['topic_id'] ?? 0,
+      excerpt: bookmark['title'] ?? '',
+      createdAt: bookmark['created_at'],
+      username: bookmark['user']?['username'] ?? '',
+      avatarTemplate: bookmark['user']?['avatar_template'],
+    );
+  }
+
+  /// 适配 solution 数据为 UserActivity
+  UserActivity _adaptSolutionToActivity(Map<String, dynamic> solution) {
+    return UserActivity(
+      id: solution['id'] ?? 0,
+      topicId: solution['topic_id'] ?? 0,
+      excerpt: solution['excerpt'] ?? solution['title'] ?? '',
+      createdAt: solution['created_at'],
+      username: solution['username'] ?? '',
+      avatarTemplate: solution['avatar_template'],
+      topicSlug: solution['slug'],
+    );
+  }
+
+  /// 适配 topic 数据为 UserActivity
+  UserActivity _adaptTopicToActivity(Map<String, dynamic> topic) {
+    return UserActivity(
+      id: topic['id'] ?? 0,
+      topicId: topic['id'] ?? 0,
+      excerpt: topic['title'] ?? '',
+      createdAt: topic['created_at'],
+      username: topic['last_poster_username'] ?? '',
+      replyCount: topic['posts_count'],
+      reads: topic['views'],
+      likeCount: topic['like_count'],
+      topicSlug: topic['slug'],
+    );
+  }
+
+  /// 适配 draft 数据为 UserActivity
+  UserActivity _adaptDraftToActivity(Map<String, dynamic> draft) {
+    return UserActivity(
+      id: draft['id'] ?? 0,
+      topicId: draft['topic_id'] ?? 0,
+      excerpt: draft['title'] ?? draft['draft_key'] ?? '',
+      createdAt: draft['created_at'],
+      username: '',
+    );
   }
 
   // ==================== 应用相关 ====================

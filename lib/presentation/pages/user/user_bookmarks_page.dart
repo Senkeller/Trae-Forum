@@ -81,12 +81,11 @@ class _UserBookmarksPageState extends ConsumerState<UserBookmarksPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityBookmarks(
         username: widget.username,
-        page: 0,
       );
 
       if (response.status == 1 || response.status == 200) {
         setState(() {
-          _bookmarks = response.data;
+          _bookmarks = response.data.cast<UserBookmark>();
           _isLoading = false;
           _hasMore = response.data.length >= 20;
           _currentPage = 0;
@@ -120,12 +119,11 @@ class _UserBookmarksPageState extends ConsumerState<UserBookmarksPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityBookmarks(
         username: widget.username,
-        page: 0,
       );
 
       if (response.status == 1 || response.status == 200) {
         setState(() {
-          _bookmarks = response.data;
+          _bookmarks = response.data.cast<UserBookmark>();
           _isRefreshing = false;
           _hasMore = response.data.length >= 20;
           _currentPage = 0;
@@ -160,7 +158,6 @@ class _UserBookmarksPageState extends ConsumerState<UserBookmarksPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityBookmarks(
         username: widget.username,
-        page: nextPage,
       );
 
       if (response.status == 1 || response.status == 200) {
@@ -173,7 +170,7 @@ class _UserBookmarksPageState extends ConsumerState<UserBookmarksPage> {
           });
         } else {
           setState(() {
-            _bookmarks = [..._bookmarks, ...newBookmarks];
+            _bookmarks = [..._bookmarks, ...newBookmarks.cast<UserBookmark>()];
             _isLoading = false;
             _hasMore = newBookmarks.length >= 20;
             _currentPage = nextPage;

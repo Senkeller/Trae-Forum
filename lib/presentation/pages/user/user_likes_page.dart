@@ -88,7 +88,7 @@ class _UserLikesPageState extends ConsumerState<UserLikesPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityLikes(
         username: widget.username,
-        page: 0,
+        offset: 0,
       );
 
       if (response.status == 200) {
@@ -126,7 +126,7 @@ class _UserLikesPageState extends ConsumerState<UserLikesPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityLikes(
         username: widget.username,
-        page: 0,
+        offset: 0,
       );
 
       if (response.status == 200) {
@@ -161,17 +161,17 @@ class _UserLikesPageState extends ConsumerState<UserLikesPage> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      final nextPage = _currentPage + 1;
+      final nextOffset = (_currentPage + 1) * AppConstants.pageSize;
       final response = await apiService.getUserActivityLikes(
         username: widget.username,
-        page: nextPage,
+        offset: nextOffset,
       );
 
       if (response.status == 200) {
         setState(() {
           _likes.addAll(response.data);
           _hasMore = response.data.length >= AppConstants.pageSize;
-          _currentPage = nextPage;
+          _currentPage = _currentPage + 1;
         });
       } else {
         setState(() {

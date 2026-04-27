@@ -89,7 +89,7 @@ class _UserRepliesPageState extends ConsumerState<UserRepliesPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityReplies(
         username: widget.username,
-        page: 0,
+        offset: 0,
       );
 
       if (response.status == 1 || response.status == 200) {
@@ -128,7 +128,7 @@ class _UserRepliesPageState extends ConsumerState<UserRepliesPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityReplies(
         username: widget.username,
-        page: 0,
+        offset: 0,
       );
 
       if (response.status == 1 || response.status == 200) {
@@ -164,11 +164,11 @@ class _UserRepliesPageState extends ConsumerState<UserRepliesPage> {
     });
 
     try {
-      final nextPage = _currentPage + 1;
+      final nextOffset = (_currentPage + 1) * 20;
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityReplies(
         username: widget.username,
-        page: nextPage,
+        offset: nextOffset,
       );
 
       if (response.status == 1 || response.status == 200) {
@@ -183,7 +183,7 @@ class _UserRepliesPageState extends ConsumerState<UserRepliesPage> {
           setState(() {
             _replies = [..._replies, ...newReplies];
             _isLoading = false;
-            _currentPage = nextPage;
+            _currentPage = _currentPage + 1;
             _hasMore = newReplies.length >= 20;
           });
         }

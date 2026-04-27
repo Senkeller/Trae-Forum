@@ -89,7 +89,6 @@ class _UserVotesPageState extends ConsumerState<UserVotesPage> {
       final apiService = ref.read(apiServiceProvider);
       final response = await apiService.getUserActivityVotes(
         username: widget.username,
-        page: refresh ? 0 : _currentPage,
       );
 
       if (response.status == 200) {
