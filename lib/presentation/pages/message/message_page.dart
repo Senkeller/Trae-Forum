@@ -381,9 +381,8 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
       case DiscourseNotificationType.invitedToPrivateMessage:
       case DiscourseNotificationType.inviteeAccepted:
         if (notification.topicId != null) {
-          _openDiscourseTopic(notification.topicId!, notification.slug,
-              postNumber: notification.postNumber,
-              title: notification.topicTitle ?? notification.fancyTitle ?? '话题详情');
+          // 跳转到 Feed 详情页，使用 push 带动画
+          _navigateToFeedDetail(notification.topicId.toString());
         } else {
           context.push('/messages');
         }
@@ -392,9 +391,8 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
       // 普通话题通知
       default:
         if (notification.topicId != null) {
-          _openDiscourseTopic(notification.topicId!, notification.slug,
-              postNumber: notification.postNumber,
-              title: notification.topicTitle ?? notification.fancyTitle ?? '话题详情');
+          // 跳转到 Feed 详情页，使用 push 带动画
+          _navigateToFeedDetail(notification.topicId.toString());
         } else {
           // 如果没有 topicId，显示提示
           ScaffoldMessenger.of(context).showSnackBar(
@@ -404,23 +402,10 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
     }
   }
 
-  /// 使用 WebView 打开 Discourse 话题
-  void _openDiscourseTopic(int topicId, String? slug, {int? postNumber, String? title}) {
-    // 构建 Discourse 话题 URL
-    // 格式: https://forum.trae.cn/t/{slug}/{topicId}/{postNumber}
-    final baseUrl = 'https://forum.trae.cn';
-    final topicSlug = slug ?? 'topic';
-    String url = '$baseUrl/t/$topicSlug/$topicId';
-
-    // 如果有特定楼层号，添加到 URL
-    if (postNumber != null && postNumber > 1) {
-      url = '$url/$postNumber';
-    }
-
-    // 使用 WebView 打开
-    context.push(
-      '/webview?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title ?? '话题详情')}',
-    );
+  /// 跳转到 Feed 详情页，使用更流畅的动画
+  void _navigateToFeedDetail(String feedId) {
+    // 使用 push 方法，路由配置中已定义了 CustomTransitionPage
+    context.push('/feed/$feedId');
   }
 
   void _handleDeleteNotification(int notificationId) {

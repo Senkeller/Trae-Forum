@@ -280,11 +280,6 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
               onFollowersTap: () {
                 context.push(RoutePaths.fanList.replaceFirst(':uid', username));
               },
-              onFollowingTap: () {
-                context.push(
-                  RoutePaths.followList.replaceFirst(':uid', username),
-                );
-              },
             ),
           ),
           SliverToBoxAdapter(
@@ -1048,7 +1043,6 @@ class _ProfileHeader extends StatelessWidget {
   final VoidCallback onToggleFollow;
   final VoidCallback onSendMessage;
   final VoidCallback? onFollowersTap;
-  final VoidCallback? onFollowingTap;
 
   const _ProfileHeader({
     required this.profile,
@@ -1057,7 +1051,6 @@ class _ProfileHeader extends StatelessWidget {
     required this.onToggleFollow,
     required this.onSendMessage,
     this.onFollowersTap,
-    this.onFollowingTap,
   });
 
   @override
@@ -1085,11 +1078,6 @@ class _ProfileHeader extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _StatItem(count: profile.feedCount.toString(), label: '动态'),
-                    _StatItem(
-                      count: profile.followCount.toString(),
-                      label: '关注',
-                      onTap: onFollowingTap,
-                    ),
                     _StatItem(
                       count: profile.fansCount.toString(),
                       label: '粉丝',

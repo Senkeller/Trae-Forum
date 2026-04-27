@@ -350,17 +350,21 @@ class _FeedEditPageState extends ConsumerState<FeedEditPage> {
         const Divider(height: 1),
         // 编辑器区域
         Expanded(
-          child: QuillComposerEditor(
-            initialText: _topicDetail!.message,
-            hintText: '编辑帖子内容...',
-            autofocus: true,
-            showToolbar: true,
-            minHeight: 300,
-            onTextChanged: (text) {
-              setState(() {
-                _currentContent = text;
-              });
-            },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: QuillComposerEditor(
+              initialText: _topicDetail!.message,
+              hintText: '编辑帖子内容，支持富文本编辑...',
+              autofocus: true,
+              showToolbar: true,
+              minHeight: 300,
+              maxHeight: 600,
+              onTextChanged: (text) {
+                setState(() {
+                  _currentContent = text;
+                });
+              },
+            ),
           ),
         ),
       ],

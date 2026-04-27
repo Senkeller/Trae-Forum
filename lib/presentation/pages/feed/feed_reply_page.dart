@@ -137,16 +137,31 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('回复'),
+        leading: IconButton(
+          onPressed: () => context.pop(),
+          icon: const Icon(Icons.close),
+        ),
         actions: [
-          TextButton(
-            onPressed: isLoading ? null : _sendReply,
-            child: isLoading
+          // 发送按钮
+          IconButton(
+            onPressed: isLoading
+                ? null
+                : () async {
+                    final content = _editorController.getMarkdown().trim();
+                    if (content.isNotEmpty) {
+                      await _sendReply();
+                    }
+                  },
+            icon: isLoading
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
                   )
-                : const Text('发送'),
+                : const Icon(Icons.send_rounded),
+            color: colorScheme.primary,
           ),
         ],
       ),
@@ -254,9 +269,13 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
               padding: const EdgeInsets.all(16),
               child: QuillComposerEditor(
                 controller: _editorController,
-                hintText: '输入回复内容...',
+                hintText: '输入回复内容，支持富文本编辑...',
                 autofocus: true,
                 maxLength: 10000,
+                minHeight: 200,
+                maxHeight: 400,
+                showToolbar: true,
+                showBottomToolbar: true,
               ),
             ),
           ),

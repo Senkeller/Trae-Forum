@@ -153,9 +153,8 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
       case DiscourseNotificationType.invitedToPrivateMessage:
       case DiscourseNotificationType.inviteeAccepted:
         if (notification.topicId != null) {
-          _openDiscourseTopic(notification.topicId!, notification.slug,
-              postNumber: notification.postNumber,
-              title: notification.topicTitle ?? notification.fancyTitle);
+          // 跳转到 Feed 详情页，Discourse topicId 映射为 Feed id
+          context.push('/feed/${notification.topicId}');
         } else {
           context.push('/messages');
         }
@@ -164,9 +163,8 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
       // 普通话题通知
       default:
         if (notification.topicId != null) {
-          _openDiscourseTopic(notification.topicId!, notification.slug,
-              postNumber: notification.postNumber,
-              title: notification.topicTitle ?? notification.fancyTitle);
+          // 跳转到 Feed 详情页，Discourse topicId 映射为 Feed id
+          context.push('/feed/${notification.topicId}');
         } else {
           // 如果没有 topicId，显示提示
           ScaffoldMessenger.of(context).showSnackBar(
@@ -174,25 +172,6 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
           );
         }
     }
-  }
-
-  /// 使用 WebView 打开 Discourse 话题
-  void _openDiscourseTopic(int topicId, String? slug, {int? postNumber, String? title}) {
-    // 构建 Discourse 话题 URL
-    // 格式: https://forum.trae.cn/t/{slug}/{topicId}/{postNumber}
-    const baseUrl = 'https://forum.trae.cn';
-    final topicSlug = slug ?? 'topic';
-    String url = '$baseUrl/t/$topicSlug/$topicId';
-
-    // 如果有特定楼层号，添加到 URL
-    if (postNumber != null && postNumber > 1) {
-      url = '$url/$postNumber';
-    }
-
-    // 使用 WebView 打开
-    context.push(
-      '/webview?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title ?? '话题详情')}',
-    );
   }
 
   @override

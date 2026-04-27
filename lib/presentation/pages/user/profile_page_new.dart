@@ -270,15 +270,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               Expanded(
                 child: _buildStatItem(
                   context: context,
-                  label: '关注',
-                  count: profile?.followCount ?? 0,
-                  onTap: () => _navigateToFollowing(context),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatItem(
-                  context: context,
                   label: '粉丝',
                   count: profile?.fansCount ?? 0,
                   onTap: () => _navigateToFollowers(context),
@@ -418,15 +409,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               Expanded(
                 child: _buildStatItem(
                   context: context,
-                  label: '关注',
-                  count: 0,
-                  onTap: () => context.push(RoutePaths.login),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatItem(
-                  context: context,
                   label: '粉丝',
                   count: 0,
                   onTap: () => context.push(RoutePaths.login),
@@ -513,6 +495,8 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   /// 构建快捷功能区
   Widget _buildQuickActionsSection(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentUser = ref.watch(currentUserProvider);
+    final username = currentUser?.username ?? '';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -544,51 +528,92 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
           QuickActionsGrid(
             items: [
               QuickActionItem(
-                title: '本地收藏',
-                icon: Icons.favorite_outline,
-                route: RoutePaths.localFavorites,
-                iconColor: const Color(0xFFE91E63),
-                backgroundColor: const Color(0xFFFCE4EC),
-              ),
-              QuickActionItem(
-                title: '浏览历史',
-                icon: Icons.history,
-                route: RoutePaths.browseHistory,
-                iconColor: const Color(0xFF9C27B0),
-                backgroundColor: const Color(0xFFF3E5F5),
-              ),
-              QuickActionItem(
-                title: '我常去',
-                icon: Icons.location_on_outlined,
-                route: RoutePaths.frequentlyVisited,
-                iconColor: const Color(0xFF4CAF50),
-                backgroundColor: const Color(0xFFE8F5E9),
-              ),
-              QuickActionItem(
-                title: '我的收藏',
-                icon: Icons.bookmark_outline,
-                route: RoutePaths.favorites,
-                requireLogin: true,
-                iconColor: const Color(0xFFFF9800),
-                backgroundColor: const Color(0xFFFFF3E0),
-              ),
-              QuickActionItem(
-                title: '我的赞',
-                icon: Icons.thumb_up_outlined,
+                title: '话题',
+                icon: Icons.forum_outlined,
                 route: RoutePaths.userProfile,
                 requireLogin: true,
                 iconColor: const Color(0xFF2196F3),
                 backgroundColor: const Color(0xFFE3F2FD),
-                onTap: () => _navigateToMyLikes(context),
+                onTap: () => context.push(
+                  RoutePaths.userTopics.replaceFirst(':username', username),
+                ),
               ),
               QuickActionItem(
-                title: '我的回复',
-                icon: Icons.chat_bubble_outline,
+                title: '回复',
+                icon: Icons.reply_outlined,
                 route: RoutePaths.userProfile,
                 requireLogin: true,
                 iconColor: const Color(0xFF00BCD4),
                 backgroundColor: const Color(0xFFE0F7FA),
-                onTap: () => _navigateToMyReplies(context),
+                onTap: () => context.push(
+                  RoutePaths.userReplies.replaceFirst(':username', username),
+                ),
+              ),
+              QuickActionItem(
+                title: '已读',
+                icon: Icons.mark_chat_read_outlined,
+                route: RoutePaths.userProfile,
+                requireLogin: true,
+                iconColor: const Color(0xFF4CAF50),
+                backgroundColor: const Color(0xFFE8F5E9),
+                onTap: () => context.push(
+                  RoutePaths.userRead.replaceFirst(':username', username),
+                ),
+              ),
+              QuickActionItem(
+                title: '草稿',
+                icon: Icons.drafts_outlined,
+                route: RoutePaths.userProfile,
+                requireLogin: true,
+                iconColor: const Color(0xFFFF9800),
+                backgroundColor: const Color(0xFFFFF3E0),
+                onTap: () => context.push(
+                  RoutePaths.userDrafts.replaceFirst(':username', username),
+                ),
+              ),
+              QuickActionItem(
+                title: '赞',
+                icon: Icons.thumb_up_outlined,
+                route: RoutePaths.userProfile,
+                requireLogin: true,
+                iconColor: const Color(0xFFE91E63),
+                backgroundColor: const Color(0xFFFCE4EC),
+                onTap: () => context.push(
+                  RoutePaths.userLikes.replaceFirst(':username', username),
+                ),
+              ),
+              QuickActionItem(
+                title: '书签',
+                icon: Icons.bookmark_outline,
+                route: RoutePaths.userProfile,
+                requireLogin: true,
+                iconColor: const Color(0xFF9C27B0),
+                backgroundColor: const Color(0xFFF3E5F5),
+                onTap: () => context.push(
+                  RoutePaths.userBookmarks.replaceFirst(':username', username),
+                ),
+              ),
+              QuickActionItem(
+                title: '已解决',
+                icon: Icons.check_circle_outline,
+                route: RoutePaths.userProfile,
+                requireLogin: true,
+                iconColor: const Color(0xFF3F51B5),
+                backgroundColor: const Color(0xFFE8EAF6),
+                onTap: () => context.push(
+                  RoutePaths.userSolved.replaceFirst(':username', username),
+                ),
+              ),
+              QuickActionItem(
+                title: '投票',
+                icon: Icons.how_to_vote_outlined,
+                route: RoutePaths.userProfile,
+                requireLogin: true,
+                iconColor: const Color(0xFF009688),
+                backgroundColor: const Color(0xFFE0F2F1),
+                onTap: () => context.push(
+                  RoutePaths.userVotes.replaceFirst(':username', username),
+                ),
               ),
             ],
             padding: const EdgeInsets.all(12),
@@ -762,16 +787,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     );
   }
 
-  /// 导航到关注列表
-  void _navigateToFollowing(BuildContext context) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-
-    context.push(
-      RoutePaths.followList.replaceFirst(':uid', currentUser.username),
-    );
-  }
-
   /// 导航到粉丝列表
   void _navigateToFollowers(BuildContext context) {
     final currentUser = ref.read(currentUserProvider);
@@ -780,25 +795,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     context.push(RoutePaths.fanList.replaceFirst(':uid', currentUser.username));
   }
 
-  /// 导航到"我的赞"页面
-  void _navigateToMyLikes(BuildContext context) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-
-    context.push(
-      '${RoutePaths.userProfile.replaceFirst(':uid', currentUser.username)}?tab=activity&category=likes',
-    );
-  }
-
-  /// 导航到"我的回复"页面
-  void _navigateToMyReplies(BuildContext context) {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null) return;
-
-    context.push(
-      '${RoutePaths.userProfile.replaceFirst(':uid', currentUser.username)}?tab=activity&category=replies',
-    );
-  }
 }
 
 class _ProfileGhostTag extends StatelessWidget {

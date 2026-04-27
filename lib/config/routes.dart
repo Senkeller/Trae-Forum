@@ -41,6 +41,14 @@ import '../presentation/pages/error/error_page.dart';
 import '../presentation/pages/common/webview_page.dart' as webview;
 import '../presentation/pages/common/image_preview_page.dart';
 import '../presentation/pages/dashboard/trae_dashboard_page.dart';
+import '../presentation/pages/user/user_topics_page.dart';
+import '../presentation/pages/user/user_replies_page.dart';
+import '../presentation/pages/user/user_read_page.dart';
+import '../presentation/pages/user/user_drafts_page.dart';
+import '../presentation/pages/user/user_likes_page.dart';
+import '../presentation/pages/user/user_bookmarks_page.dart';
+import '../presentation/pages/user/user_solved_page.dart';
+import '../presentation/pages/user/user_votes_page.dart';
 import '../presentation/providers/auth_provider.dart';
 
 /// 应用路由配置
@@ -97,6 +105,14 @@ class AppRouter {
     RoutePaths.localFavorites,
     RoutePaths.browseHistory,
     RoutePaths.frequentlyVisited,
+    RoutePaths.userTopics,
+    RoutePaths.userReplies,
+    RoutePaths.userRead,
+    RoutePaths.userDrafts,
+    RoutePaths.userLikes,
+    RoutePaths.userBookmarks,
+    RoutePaths.userSolved,
+    RoutePaths.userVotes,
   ];
 
   /// 检查路由是否为受保护路由
@@ -162,12 +178,32 @@ class AppRouter {
         builder: (context, state) => const FeedCreatePage(),
       ),
 
-      // Feed 详情
+      // Feed 详情 - 使用自定义转场动画使跳转更流畅
       GoRoute(
         path: RoutePaths.feedDetail,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id']!;
-          return FeedDetailPage(feedId: id);
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: FeedDetailPage(feedId: id),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              // 使用从右向左的滑动动画
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutCubic;
+
+              var tween = Tween(begin: begin, end: end).chain(
+                CurveTween(curve: curve),
+              );
+
+              return SlideTransition(
+                position: animation.drive(tween),
+                child: child,
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 300),
+            reverseTransitionDuration: const Duration(milliseconds: 300),
+          );
         },
       ),
 
@@ -442,6 +478,78 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.frequentlyVisited,
         builder: (context, state) => const FrequentlyVisitedPage(),
+      ),
+
+      // 用户话题
+      GoRoute(
+        path: RoutePaths.userTopics,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserTopicsPage(username: username);
+        },
+      ),
+
+      // 用户回复
+      GoRoute(
+        path: RoutePaths.userReplies,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserRepliesPage(username: username);
+        },
+      ),
+
+      // 用户已读
+      GoRoute(
+        path: RoutePaths.userRead,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserReadPage(username: username);
+        },
+      ),
+
+      // 用户草稿
+      GoRoute(
+        path: RoutePaths.userDrafts,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserDraftsPage(username: username);
+        },
+      ),
+
+      // 用户赞
+      GoRoute(
+        path: RoutePaths.userLikes,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserLikesPage(username: username);
+        },
+      ),
+
+      // 用户书签
+      GoRoute(
+        path: RoutePaths.userBookmarks,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserBookmarksPage(username: username);
+        },
+      ),
+
+      // 用户已解决
+      GoRoute(
+        path: RoutePaths.userSolved,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserSolvedPage(username: username);
+        },
+      ),
+
+      // 用户投票
+      GoRoute(
+        path: RoutePaths.userVotes,
+        builder: (context, state) {
+          final username = state.pathParameters['username']!;
+          return UserVotesPage(username: username);
+        },
       ),
     ],
 

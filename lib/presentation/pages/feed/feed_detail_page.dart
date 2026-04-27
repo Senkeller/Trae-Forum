@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -72,7 +73,13 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_handleScroll);
-    _loadInitialData();
+    // 延迟数据加载，等待页面动画完成后再加载
+    // 避免跳转动画卡顿
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadInitialData();
+      }
+    });
   }
 
   @override
@@ -150,7 +157,12 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       }
 
       final topicDetail = detailResponse.data!;
-      final topicBlocks = TopicCookedParser.parse(topicDetail.message);
+
+      // 使用 compute 将数据解析移到后台线程，避免阻塞 UI
+      final topicBlocks = await compute(
+        _parseTopicContent,
+        topicDetail.message,
+      );
 
       // 提取目录项并为每个标题创建 GlobalKey
       final tocItems = TocUtils.extractFromBlocks(topicBlocks);
@@ -1491,6 +1503,12 @@ class _TopicHeaderSection extends StatelessWidget {
   }
 }
 
+/// 在后台线程解析话题内容
+/// 用于 compute 函数，必须是顶层函数或静态方法
+List<TopicContentBlock> _parseTopicContent(String message) {
+  return TopicCookedParser.parse(message);
+}
+
 class _AuthorAvatar extends StatelessWidget {
   final String? avatar;
   final String username;
@@ -1937,7 +1955,7 @@ class _BottomCommentBarState extends State<_BottomCommentBar> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(
@@ -2004,7 +2022,10 @@ class _BottomCommentBarState extends State<_BottomCommentBar> {
                         ),
                   tooltip: widget.isLoggedIn ? '从设备选择图片' : '登录后上传图片',
                   color: colorScheme.primary,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 ),
+                const SizedBox(width: 4),
                 Expanded(
                   child: widget.isLoggedIn
                       ? QuillComposerEditor(
@@ -2017,13 +2038,13 @@ class _BottomCommentBarState extends State<_BottomCommentBar> {
                           },
                           onSubmit: (text) => _handleSend(),
                           showToolbar: true,
-                          minHeight: 80,
-                          maxHeight: 200,
+                          minHeight: 60,
+                          maxHeight: 150,
                         )
                       : Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
+                            horizontal: 12,
+                            vertical: 10,
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.surfaceContainerHighest
@@ -2038,7 +2059,7 @@ class _BottomCommentBarState extends State<_BottomCommentBar> {
                           ),
                         ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 IconButton(
                   onPressed: widget.isSending || widget.isUploadingImage
                       ? null
@@ -2061,6 +2082,8 @@ class _BottomCommentBarState extends State<_BottomCommentBar> {
                               : Icons.login_rounded,
                         ),
                   color: colorScheme.primary,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                 ),
               ],
             ),

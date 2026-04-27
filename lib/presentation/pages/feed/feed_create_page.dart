@@ -634,19 +634,13 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minHeight: 200,
-          maxHeight: 400,
-        ),
-        child: QuillComposerEditor(
-          initialText: _editorContent,
-          hintText: '在此处输入。使用工具栏或 Markdown 进行格式化。',
-          onTextChanged: _onEditorTextChanged,
-          minHeight: 200,
-          maxHeight: 400,
-          showToolbar: false,
-        ),
+      child: QuillComposerEditor(
+        initialText: _editorContent,
+        hintText: '分享你的想法，支持富文本编辑...',
+        onTextChanged: _onEditorTextChanged,
+        minHeight: 250,
+        maxHeight: 500,
+        showToolbar: true,
       ),
     );
   }

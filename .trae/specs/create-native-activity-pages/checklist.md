@@ -1,0 +1,12 @@
+- [x] 用户话题页面 (UserTopicsPage) 已实现
+- [x] 用户回复页面 (UserRepliesPage) 已实现
+- [x] 用户已读页面 (UserReadPage) 已实现
+- [x] 用户草稿页面 (UserDraftsPage) 已实现
+- [x] 用户赞页面 (UserLikesPage) 已实现
+- [x] 用户书签页面 (UserBookmarksPage) 已实现
+- [x] 用户已解决页面 (UserSolvedPage) 已实现
+- [x] 用户投票页面 (UserVotesPage) 已实现
+- [x] 8 个页面的路由已配置
+- [x] `profile_page_new.dart` 中的功能入口已更新为应用内路由
+- [x] 未使用的 WebView 相关代码已清理
+- [x] 所有页面可以正常导航和显示

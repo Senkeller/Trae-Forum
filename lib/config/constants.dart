@@ -184,6 +184,16 @@ class RoutePaths {
   static const String myFavorites = '/user/my-favorites';
   static const String myLikes = '/user/my-likes';
   static const String myReplies = '/user/my-replies';
+
+  // 用户活动页面（话题、回复、已读、草稿、赞、书签、已解决、投票）
+  static const String userTopics = '/user/:username/topics';
+  static const String userReplies = '/user/:username/replies';
+  static const String userRead = '/user/:username/read';
+  static const String userDrafts = '/user/:username/drafts';
+  static const String userLikes = '/user/:username/likes';
+  static const String userBookmarks = '/user/:username/bookmarks';
+  static const String userSolved = '/user/:username/solved';
+  static const String userVotes = '/user/:username/votes';
 }
 
 /// 图片质量
