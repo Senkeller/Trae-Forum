@@ -20,7 +20,7 @@ class LocalCacheService {
   /// 缓存键前缀
   static const String _notificationPrefix = 'notification_';
   static const String _feedPrefix = 'feed_';
-  static const String _cacheTimePrefix = 'cache_time_';
+  static const String _homeFeedPrefix = 'home_feed_';
 
   /// 默认缓存有效期（小时）
   static const int _defaultCacheDurationHours = 1;
@@ -136,6 +136,80 @@ class LocalCacheService {
     }
   }
 
+  /// 缓存首页 Feed 列表
+  ///
+  /// [feedType] 首页 Tab 类型
+  /// [page] 页码
+  /// [data] Feed 数据
+  Future<void> cacheHomeFeed(
+    String feedType,
+    int page,
+    List<Map<String, dynamic>> data,
+  ) async {
+    await init();
+    final key = '$_homeFeedPrefix${feedType}_$page';
+    final cacheData = {
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'data': data,
+    };
+    await _prefs!.setString(key, jsonEncode(cacheData));
+  }
+
+  /// 获取缓存的首页 Feed 列表
+  ///
+  /// [feedType] 首页 Tab 类型
+  /// [page] 页码
+  /// [maxAgeMinutes] 缓存最大有效期（分钟）
+  List<Map<String, dynamic>>? getCachedHomeFeed(
+    String feedType,
+    int page, {
+    int maxAgeMinutes = 3,
+  }) {
+    if (_prefs == null) return null;
+
+    final key = '$_homeFeedPrefix${feedType}_$page';
+    final cachedString = _prefs!.getString(key);
+    if (cachedString == null) return null;
+
+    try {
+      final cacheData = jsonDecode(cachedString) as Map<String, dynamic>;
+      final timestamp = cacheData['timestamp'] as int;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final ageMs = now - timestamp;
+      final maxAgeMs = maxAgeMinutes * 60 * 1000;
+
+      if (ageMs > maxAgeMs) {
+        _prefs!.remove(key);
+        return null;
+      }
+
+      final list = cacheData['data'] as List<dynamic>;
+      return list
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    } catch (_) {
+      _prefs!.remove(key);
+      return null;
+    }
+  }
+
+  /// 清理首页 Feed 缓存
+  ///
+  /// [feedType] 为空时清理全部首页 Feed 缓存；否则仅清理指定 Tab 类型缓存
+  Future<void> clearHomeFeedCache({String? feedType}) async {
+    await init();
+    final keys = _prefs!.getKeys();
+    final prefix = feedType == null
+        ? _homeFeedPrefix
+        : '$_homeFeedPrefix${feedType}_';
+    for (final key in keys) {
+      if (key.startsWith(prefix)) {
+        await _prefs!.remove(key);
+      }
+    }
+  }
+
   /// 清除所有通知缓存
   Future<void> clearNotificationCache() async {
     await init();
@@ -152,7 +226,7 @@ class LocalCacheService {
     await init();
     final keys = _prefs!.getKeys();
     for (final key in keys) {
-      if (key.startsWith(_feedPrefix)) {
+      if (key.startsWith(_feedPrefix) || key.startsWith(_homeFeedPrefix)) {
         await _prefs!.remove(key);
       }
     }
@@ -171,7 +245,9 @@ class LocalCacheService {
     int size = 0;
     final keys = _prefs!.getKeys();
     for (final key in keys) {
-      if (key.startsWith(_notificationPrefix) || key.startsWith(_feedPrefix)) {
+      if (key.startsWith(_notificationPrefix) ||
+          key.startsWith(_feedPrefix) ||
+          key.startsWith(_homeFeedPrefix)) {
         final value = _prefs!.getString(key);
         if (value != null) {
           size += value.length;

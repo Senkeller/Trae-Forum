@@ -105,7 +105,7 @@ class _HomePageState extends ConsumerState<HomePage>
     await HapticFeedbackUtil.trigger(ref, HapticScene.refresh);
     final notifier = ref.read(homeNotifierProvider.notifier);
     notifier.switchTab(tabIndex);
-    await notifier.refreshFeeds();
+    await notifier.refreshFeeds(force: true);
     _refreshControllers[tabIndex].refreshCompleted();
     await HapticFeedbackUtil.trigger(ref, HapticScene.refreshDone);
   }
@@ -218,7 +218,9 @@ class _HomePageState extends ConsumerState<HomePage>
         onPressed: () async {
           final created = await context.push<bool>(RoutePaths.feedCreate);
           if (created == true && mounted) {
-            await ref.read(homeNotifierProvider.notifier).refreshFeeds();
+            await ref
+                .read(homeNotifierProvider.notifier)
+                .refreshFeeds(force: true);
           }
         },
         child: const Icon(Icons.add),
@@ -1022,7 +1024,9 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
         child: Row(
           children: [
             UserAvatar(
-              avatarUrl: widget.feed.avatarUrl.isNotEmpty ? widget.feed.avatarUrl : null,
+              avatarUrl: widget.feed.avatarUrl.isNotEmpty
+                  ? widget.feed.avatarUrl
+                  : null,
               size: 40,
               memCacheWidth: 80,
               memCacheHeight: 80,

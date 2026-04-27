@@ -181,11 +181,14 @@ class AppSettings {
 @riverpod
 class SettingsNotifier extends _$SettingsNotifier {
   static const String _settingsKey = 'app_settings';
+  AppSettings _latestSettings = const AppSettings();
 
   /// 构建设置状态
   @override
   Future<AppSettings> build() async {
-    return _loadSettings();
+    final loaded = await _loadSettings();
+    _latestSettings = loaded;
+    return loaded;
   }
 
   /// 从本地存储加载设置
@@ -215,22 +218,36 @@ class SettingsNotifier extends _$SettingsNotifier {
     }
   }
 
+  /// 安全地获取当前设置
+  /// 如果 state 还未初始化，返回默认设置
+  AppSettings _getCurrentSettings() {
+    return _latestSettings;
+  }
+
+  /// 安全地设置 state
+  /// 确保在 build 完成后才设置 state
+  void _setStateSafe(AppSettings settings) {
+    _latestSettings = settings;
+    try {
+      state = AsyncData(settings);
+    } catch (e) {
+      // state 还未初始化，忽略
+    }
+  }
+
   /// 更新设置
   ///
   /// [settings] 新的设置
   Future<void> updateSettings(AppSettings settings) async {
     await _saveSettings(settings);
-    // 确保在 build 完成后才设置 state
-    if (state.hasValue) {
-      state = AsyncData(settings);
-    }
+    _setStateSafe(settings);
   }
 
   /// 设置图片质量
   ///
   /// [quality] 图片质量
   Future<void> setImageQuality(ImageQuality quality) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(imageQuality: quality);
     await updateSettings(newSettings);
   }
@@ -239,7 +256,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [fontSize] 字体大小
   Future<void> setFontSize(FontSize fontSize) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(fontSize: fontSize);
     await updateSettings(newSettings);
   }
@@ -248,7 +265,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [language] 应用语言
   Future<void> setLanguage(AppLanguage language) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(language: language);
     await updateSettings(newSettings);
   }
@@ -257,7 +274,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setAutoPlayVideo(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(autoPlayVideo: enabled);
     await updateSettings(newSettings);
   }
@@ -266,7 +283,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setAutoPlayVideoOnlyOnWifi(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(autoPlayVideoOnlyOnWifi: enabled);
     await updateSettings(newSettings);
   }
@@ -275,7 +292,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setDataSaverMode(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(dataSaverMode: enabled);
     await updateSettings(newSettings);
   }
@@ -284,7 +301,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setPushNotification(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(pushNotification: enabled);
     await updateSettings(newSettings);
   }
@@ -293,7 +310,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setSoundEnabled(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(soundEnabled: enabled);
     await updateSettings(newSettings);
   }
@@ -302,7 +319,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setVibrationEnabled(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(vibrationEnabled: enabled);
     await updateSettings(newSettings);
   }
@@ -311,7 +328,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setShowLargeImage(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(showLargeImage: enabled);
     await updateSettings(newSettings);
   }
@@ -320,7 +337,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [density] 密度值（0.8 - 1.2）
   Future<void> setListDensity(double density) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final clampedDensity = density.clamp(0.8, 1.2);
     final newSettings = currentSettings.copyWith(listDensity: clampedDensity);
     await updateSettings(newSettings);
@@ -330,7 +347,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setFollowSystemDarkMode(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(followSystemDarkMode: enabled);
     await updateSettings(newSettings);
   }
@@ -339,7 +356,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setEnableGestureBack(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(enableGestureBack: enabled);
     await updateSettings(newSettings);
   }
@@ -348,7 +365,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setEnableDoubleTapLike(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(enableDoubleTapLike: enabled);
     await updateSettings(newSettings);
   }
@@ -357,7 +374,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [enabled] 是否开启
   Future<void> setCacheImages(bool enabled) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(cacheImages: enabled);
     await updateSettings(newSettings);
   }
@@ -366,7 +383,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// [sizeMB] 缓存大小限制（MB）
   Future<void> setCacheSizeLimit(int sizeMB) async {
-    final currentSettings = state.valueOrNull ?? const AppSettings();
+    final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(cacheSizeLimit: sizeMB);
     await updateSettings(newSettings);
   }
@@ -391,7 +408,11 @@ class SettingsNotifier extends _$SettingsNotifier {
 @riverpod
 AppSettings currentSettings(CurrentSettingsRef ref) {
   final settingsAsync = ref.watch(settingsNotifierProvider);
-  return settingsAsync.valueOrNull ?? const AppSettings();
+  return settingsAsync.when(
+    data: (settings) => settings,
+    loading: () => const AppSettings(),
+    error: (error, stackTrace) => const AppSettings(),
+  );
 }
 
 /// 图片质量 Provider

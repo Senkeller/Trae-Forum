@@ -28,8 +28,12 @@ class HapticFeedbackUtil {
     bool ignoreSettings = false,
   }) async {
     if (!ignoreSettings) {
-      final enabled = ref.read(currentSettingsProvider).vibrationEnabled;
-      if (!enabled) return;
+      try {
+        final enabled = ref.read(currentSettingsProvider).vibrationEnabled;
+        if (!enabled) return;
+      } catch (e) {
+        // 如果设置还未初始化，默认启用振动
+      }
     }
 
     try {

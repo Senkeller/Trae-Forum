@@ -6,7 +6,7 @@ part of 'settings_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$currentSettingsHash() => r'1ca3715345058826c72ce0a7654c26831388198b';
+String _$currentSettingsHash() => r'84fb1281efcbf7e2846c734eb3bb77c7d1ee6ee2';
 
 /// 当前设置 Provider
 ///
@@ -121,7 +121,7 @@ final isPushNotificationEnabledProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsPushNotificationEnabledRef = AutoDisposeProviderRef<bool>;
-String _$settingsNotifierHash() => r'3cac20212457f5273a694427d6282714e5daa926';
+String _$settingsNotifierHash() => r'9e44fb7eb7a53770a4b0920a0464b8ae026d3274';
 
 /// 设置状态 Notifier
 ///

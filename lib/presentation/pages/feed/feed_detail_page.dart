@@ -1853,11 +1853,18 @@ class _ReplyMessage extends StatefulWidget {
 }
 
 class _ReplyMessageState extends State<_ReplyMessage> {
+  static const int _maxLines = 8;
+
   /// 是否已展开
   bool _isExpanded = false;
 
-  /// 是否需要折叠（内容是否超过最大行数）
-  bool _needsCollapse = false;
+  @override
+  void didUpdateWidget(covariant _ReplyMessage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.htmlContent != widget.htmlContent && _isExpanded) {
+      _isExpanded = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1866,99 +1873,167 @@ class _ReplyMessageState extends State<_ReplyMessage> {
       widget.htmlContent,
     ).map(DiscourseImageUrlResolver.toOriginalUrl).whereType<String>().toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 消息内容
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // 测量文本是否需要折叠
-            final textSpan = TextSpan(
-              text: _stripHtmlTags(widget.htmlContent),
-              style: Theme.of(context).textTheme.bodyMedium,
-            );
+    void previewImage(String url) {
+      final images = imageUrls.isEmpty ? <String>[url] : imageUrls;
+      final index = images.indexOf(url);
+      ImagePreviewPage.show(
+        context,
+        imageUrls: images,
+        initialIndex: index < 0 ? 0 : index,
+      );
+    }
 
-            final textPainter = TextPainter(
-              text: textSpan,
-              maxLines: 8,
-              textDirection: TextDirection.ltr,
-              textAlign: TextAlign.start,
-            );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final needsCollapse = _shouldCollapse(context, constraints.maxWidth);
 
-            textPainter.layout(maxWidth: constraints.maxWidth);
-            _needsCollapse = textPainter.didExceedMaxLines;
+        if (!needsCollapse) {
+          return RichTextView(
+            htmlContent: widget.htmlContent,
+            onLinkTap: widget.onLinkTap,
+            onImageTap: previewImage,
+          );
+        }
 
-            // 如果不需要折叠，直接显示全部内容
-            if (!_needsCollapse || _isExpanded) {
-              return RichTextView(
+        final contentWidget = _isExpanded
+            ? RichTextView(
+                key: const ValueKey('expanded_reply_content'),
                 htmlContent: widget.htmlContent,
                 onLinkTap: widget.onLinkTap,
-                onImageTap: (url) {
-                  final images = imageUrls.isEmpty ? <String>[url] : imageUrls;
-                  final index = images.indexOf(url);
-                  ImagePreviewPage.show(
-                    context,
-                    imageUrls: images,
-                    initialIndex: index < 0 ? 0 : index,
-                  );
-                },
-              );
-            }
-
-            // 需要折叠的情况
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichTextView(
-                  htmlContent: widget.htmlContent,
-                  maxLines: 8,
-                  onLinkTap: widget.onLinkTap,
-                  onImageTap: (url) {
-                    final images = imageUrls.isEmpty ? <String>[url] : imageUrls;
-                    final index = images.indexOf(url);
-                    ImagePreviewPage.show(
-                      context,
-                      imageUrls: images,
-                      initialIndex: index < 0 ? 0 : index,
-                    );
-                  },
+                onImageTap: previewImage,
+              )
+            : ClipRect(
+                key: const ValueKey('collapsed_reply_content'),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: _calculateFoldedHeight(context),
+                  ),
+                  child: Stack(
+                    children: [
+                      RichTextView(
+                        htmlContent: widget.htmlContent,
+                        onLinkTap: widget.onLinkTap,
+                        onImageTap: previewImage,
+                      ),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: IgnorePointer(
+                          child: Container(
+                            height: 36,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  colorScheme.surface.withOpacity(0),
+                                  colorScheme.surface,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            );
-          },
-        ),
-        // 展开/收起按钮
-        if (_needsCollapse)
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                _isExpanded ? '收起' : '展开',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
+              );
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 140),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: contentWidget,
+            ),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isExpanded = !_isExpanded;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _isExpanded ? '收起' : '查看更多',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 
+  double _calculateFoldedHeight(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
+    const lineHeight = 1.5;
+    final estimatedLineHeight = fontSize * lineHeight;
+    return estimatedLineHeight * _maxLines + 56;
+  }
+
+  bool _shouldCollapse(BuildContext context, double maxWidth) {
+    final html = widget.htmlContent.trim();
+    if (html.isEmpty) return false;
+
+    final hasHeavyBlocks = RegExp(
+      r'<\s*(img|pre|blockquote|table|ul|ol|li|h[1-6]|iframe|video)\b',
+      caseSensitive: false,
+    ).hasMatch(html);
+    if (hasHeavyBlocks) {
+      return true;
+    }
+
+    final plainText = _extractPlainText(html);
+    if (plainText.isEmpty) return false;
+
+    if (plainText.runes.length > 220) {
+      return true;
+    }
+    final lineCount = '\n'.allMatches(plainText).length + 1;
+    if (lineCount > _maxLines) {
+      return true;
+    }
+
+    final effectiveWidth = maxWidth.isFinite && maxWidth > 0
+        ? maxWidth
+        : MediaQuery.of(context).size.width - 32;
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: plainText,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.5),
+      ),
+      maxLines: _maxLines,
+      textDirection: Directionality.of(context),
+    )..layout(maxWidth: effectiveWidth);
+
+    return textPainter.didExceedMaxLines;
+  }
+
   /// 去除 HTML 标签，用于测量文本长度
-  String _stripHtmlTags(String htmlText) {
+  String _extractPlainText(String htmlText) {
     return htmlText
+        .replaceAll(
+          RegExp(r'</(p|div|li|blockquote|h[1-6])>', caseSensitive: false),
+          '\n',
+        )
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
         .replaceAll(RegExp(r'<[^>]*>'), '')
         .replaceAll('&nbsp;', ' ')
         .replaceAll('&quot;', '"')
         .replaceAll('&amp;', '&')
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>')
+        .replaceAll(RegExp(r'[ \t\r\f\v]+'), ' ')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
   }
 }
@@ -1991,5 +2066,3 @@ class _CommentAvatar extends StatelessWidget {
     );
   }
 }
-
-

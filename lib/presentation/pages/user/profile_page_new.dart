@@ -11,6 +11,7 @@ import '../../providers/user_provider.dart';
 import '../../widgets/user/quick_actions_grid.dart';
 import '../../widgets/user/notification_list.dart';
 import '../../widgets/dashboard/embedded_trae_dashboard.dart';
+import '../settings/settings_page.dart';
 
 /// 新版个人主页页面
 ///
@@ -76,11 +77,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
           slivers: [
             // 顶部导航栏
             SliverToBoxAdapter(
-              child: _buildAppBar(
-                context,
-                isAuthenticated,
-                unreadCount,
-              ),
+              child: _buildAppBar(context, isAuthenticated, unreadCount),
             ),
             // 用户状态卡片
             SliverToBoxAdapter(
@@ -124,7 +121,13 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             children: [
               // 设置按钮
               IconButton(
-                onPressed: () => context.push(RoutePaths.settings),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SettingsPage(),
+                    ),
+                  );
+                },
                 icon: const Icon(Icons.settings_outlined),
                 tooltip: '设置',
               ),
@@ -174,7 +177,12 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     final textTheme = Theme.of(context).textTheme;
     final userState = ref.watch(userSpaceNotifierProvider(user.username));
     final profile = userState.profile;
-    final summary = ref.watch(userStatsSummaryProvider).valueOrNull;
+    final summaryAsync = ref.watch(userStatsSummaryProvider);
+    final summary = summaryAsync.when(
+      data: (value) => value,
+      loading: () => null,
+      error: (error, stackTrace) => null,
+    );
     final registerDays = summary?.registerDays ?? 1;
     final displayName = _resolveDisplayName(user.username, summary?.screenName);
 
@@ -794,7 +802,6 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
 
     context.push(RoutePaths.fanList.replaceFirst(':uid', currentUser.username));
   }
-
 }
 
 class _ProfileGhostTag extends StatelessWidget {

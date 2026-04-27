@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
-import '../../../core/utils/ui_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 
@@ -213,7 +212,7 @@ class SettingsPage extends ConsumerWidget {
           // 退出登录
           const SizedBox(height: 24),
           Padding(
-            padding: UiUtil.symmetric(horizontal: 16, vertical: 0),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _LogoutButton(
               isLoggedIn: isLoggedIn,
               onTap: () => isLoggedIn
@@ -312,16 +311,10 @@ class SettingsPage extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(
-              Icons.logout_outlined,
-              color: colorScheme.error,
-              size: 24,
-            ),
+            Icon(Icons.logout_outlined, color: colorScheme.error, size: 24),
             const SizedBox(width: 8),
             const Text('退出登录'),
           ],
@@ -344,10 +337,7 @@ class SettingsPage extends ConsumerWidget {
               Navigator.of(context).pop();
 
               // 触发触觉反馈
-              await HapticFeedbackUtil.trigger(
-                ref,
-                HapticScene.deleteSuccess,
-              );
+              await HapticFeedbackUtil.trigger(ref, HapticScene.deleteSuccess);
 
               await ref.read(authNotifierProvider.notifier).logout();
 
@@ -403,10 +393,7 @@ class _LogoutButton extends StatefulWidget {
   final VoidCallback onTap;
 
   /// 构造函数
-  const _LogoutButton({
-    required this.isLoggedIn,
-    required this.onTap,
-  });
+  const _LogoutButton({required this.isLoggedIn, required this.onTap});
 
   @override
   State<_LogoutButton> createState() => _LogoutButtonState();
@@ -427,12 +414,7 @@ class _LogoutButtonState extends State<_LogoutButton>
     _scaleAnimation = Tween<double>(
       begin: 1.0,
       end: 0.96,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -465,10 +447,7 @@ class _LogoutButtonState extends State<_LogoutButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: child,
-          );
+          return Transform.scale(scale: _scaleAnimation.value, child: child);
         },
         child: Container(
           width: double.infinity,
@@ -506,7 +485,9 @@ class _LogoutButtonState extends State<_LogoutButton>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                widget.isLoggedIn ? Icons.logout_outlined : Icons.login_outlined,
+                widget.isLoggedIn
+                    ? Icons.logout_outlined
+                    : Icons.login_outlined,
                 color: widget.isLoggedIn
                     ? colorScheme.onError
                     : colorScheme.onPrimary,

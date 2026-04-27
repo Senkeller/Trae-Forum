@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../config/constants.dart';
 import '../../core/network/discourse_api_service.dart';
 import '../../core/recommendation/recommendation_engine.dart';
+import '../../core/services/local_cache_service.dart';
 import '../../core/utils/tag_util.dart';
 import '../../data/models/feed.dart';
 
@@ -316,13 +319,21 @@ class HomeState {
 /// 首页状态 Notifier
 @riverpod
 class HomeNotifier extends _$HomeNotifier {
+  static const Duration _refreshCooldown = Duration(seconds: 2);
+  static const int _homeFeedCacheMinutes = 3;
+
   late DiscourseApiService _discourseApiService;
   late RecommendationEngine _recommendationEngine;
+  late LocalCacheService _localCacheService;
+  final Map<String, Future<List<FeedItem>>> _inFlightRequests = {};
+  final Map<String, DateTime> _lastRefreshAt = {};
 
   @override
   HomeState build() {
     _discourseApiService = ref.read(discourseApiServiceProvider);
     _recommendationEngine = RecommendationEngine(_discourseApiService);
+    _localCacheService = LocalCacheService();
+    unawaited(_localCacheService.init());
     return const HomeState();
   }
 
@@ -362,11 +373,23 @@ class HomeNotifier extends _$HomeNotifier {
   /// 刷新 Feed 列表
   ///
   /// 清空当前列表并重新加载第一页数据
-  Future<void> refreshFeeds() async {
+  Future<void> refreshFeeds({bool force = false}) async {
     final feedType = _indexToFeedType(state.currentTabIndex);
     final currentTabState = _getTabState(feedType);
+    final now = DateTime.now();
+
+    if (!force &&
+        currentTabState.feedList.isNotEmpty &&
+        _shouldSkipRefresh(feedType, now)) {
+      return;
+    }
+
     final previousFeedIds = currentTabState.feedList.map((e) => e.id).toSet();
     if (currentTabState.isRefreshing) return;
+
+    if (force) {
+      await _localCacheService.clearHomeFeedCache(feedType: feedType.name);
+    }
 
     _updateTabState(
       feedType,
@@ -382,6 +405,7 @@ class HomeNotifier extends _$HomeNotifier {
       final feeds = await _fetchFeedItems(
         feedType,
         1,
+        forceRefresh: force,
         avoidIds: feedType == FeedType.recommended ? previousFeedIds : null,
       );
       final latestState = _getTabState(feedType);
@@ -396,6 +420,7 @@ class HomeNotifier extends _$HomeNotifier {
           errorMessage: null,
         ),
       );
+      _lastRefreshAt[feedType.name] = DateTime.now();
     } catch (e) {
       final latestState = _getTabState(feedType);
       _updateTabState(
@@ -495,6 +520,49 @@ class HomeNotifier extends _$HomeNotifier {
   Future<List<FeedItem>> _fetchFeedItems(
     FeedType type,
     int page, {
+    bool forceRefresh = false,
+    Set<String>? avoidIds,
+  }) async {
+    final avoidIdsKey = (avoidIds == null || avoidIds.isEmpty)
+        ? ''
+        : (avoidIds.toList()..sort()).join(',');
+    final requestKey = '${type.name}_${page}_$avoidIdsKey';
+    final effectiveForceRefresh =
+        forceRefresh || (avoidIds?.isNotEmpty ?? false);
+
+    if (!effectiveForceRefresh) {
+      final cachedFeeds = _loadCachedHomeFeeds(type, page);
+      if (cachedFeeds != null && cachedFeeds.isNotEmpty) {
+        return cachedFeeds;
+      }
+    }
+
+    final inFlight = _inFlightRequests[requestKey];
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final fetchFuture = _fetchFeedItemsFromNetwork(
+      type,
+      page,
+      avoidIds: avoidIds,
+    );
+    _inFlightRequests[requestKey] = fetchFuture;
+
+    try {
+      final result = await fetchFuture;
+      if (result.isNotEmpty) {
+        await _saveCachedHomeFeeds(type, page, result);
+      }
+      return result;
+    } finally {
+      _inFlightRequests.remove(requestKey);
+    }
+  }
+
+  Future<List<FeedItem>> _fetchFeedItemsFromNetwork(
+    FeedType type,
+    int page, {
     Set<String>? avoidIds,
   }) async {
     switch (type) {
@@ -570,6 +638,68 @@ class HomeNotifier extends _$HomeNotifier {
       case FeedType.events:
         return _fetchEvents(page);
     }
+  }
+
+  bool _shouldSkipRefresh(FeedType type, DateTime now) {
+    final lastRefresh = _lastRefreshAt[type.name];
+    if (lastRefresh == null) {
+      return false;
+    }
+    return now.difference(lastRefresh) < _refreshCooldown;
+  }
+
+  List<FeedItem>? _loadCachedHomeFeeds(FeedType type, int page) {
+    final raw = _localCacheService.getCachedHomeFeed(
+      type.name,
+      page,
+      maxAgeMinutes: _homeFeedCacheMinutes,
+    );
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+
+    return raw.map(FeedItem.fromJson).toList();
+  }
+
+  Future<void> _saveCachedHomeFeeds(
+    FeedType type,
+    int page,
+    List<FeedItem> feeds,
+  ) async {
+    final payload = feeds.map(_feedItemToJson).toList();
+    await _localCacheService.cacheHomeFeed(type.name, page, payload);
+  }
+
+  Map<String, dynamic> _feedItemToJson(FeedItem item) {
+    return {
+      'id': item.id,
+      'topicId': item.topicId,
+      'uid': item.uid,
+      'username': item.username,
+      'avatarUrl': item.avatarUrl,
+      'title': item.title,
+      'content': item.content,
+      'category': item.category,
+      'categoryId': item.categoryId,
+      'createTime': item.createTime,
+      'likeCount': item.likeCount,
+      'replyCount': item.replyCount,
+      'viewCount': item.viewCount,
+      'isLiked': item.isLiked,
+      'images': item.images,
+      'type': item.type,
+      'tags': item.tags,
+      'isPinned': item.isPinned,
+      'topComment': item.topComment == null
+          ? null
+          : {
+              'id': item.topComment!.id,
+              'username': item.topComment!.username,
+              'content': item.topComment!.content,
+              'like_count': item.topComment!.likeCount,
+              'avatar_url': item.topComment!.avatarUrl,
+            },
+    };
   }
 
   Future<List<FeedItem>> _fetchEvents(int page) async {

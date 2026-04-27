@@ -97,7 +97,7 @@ class _PostReplyListState extends ConsumerState<PostReplyList> {
   @override
   Widget build(BuildContext context) {
     // 监听刷新触发器
-    ref.listen(replyListRefreshProvider, (_, __) {
+    ref.listen(replyListRefreshProvider, (_, _) {
       widget.onRefresh?.call();
     });
 
@@ -217,9 +217,6 @@ class _PostReplyItemState extends State<PostReplyItem> {
   /// 是否已展开
   bool _isExpanded = false;
 
-  /// 是否需要折叠（内容是否超过最大行数）
-  bool _needsCollapse = false;
-
   /// 切换展开/收起状态
   void _toggleExpanded() {
     setState(() {
@@ -227,38 +224,9 @@ class _PostReplyItemState extends State<PostReplyItem> {
     });
   }
 
-  /// 检查内容是否需要折叠
-  ///
-  /// 通过测量实际渲染后的内容高度来判断
-  void _checkNeedsCollapse(BuildContext context, double contentHeight) {
-    if (widget.post.cooked == null || widget.post.cooked!.isEmpty) {
-      setState(() {
-        _needsCollapse = false;
-      });
-      return;
-    }
-
-    // 计算最大高度（6行文本 + 段落间距）
-    final textTheme = Theme.of(context).textTheme;
-    final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
-    const lineHeight = 1.5;
-    final estimatedLineHeight = fontSize * lineHeight;
-    // 6行高度 + 段落间距(每段底部8px，最多5段) + 代码块/引用块额外高度
-    final maxHeight = estimatedLineHeight * widget.maxLines + 40;
-
-    final newNeedsCollapse = contentHeight > maxHeight;
-    if (_needsCollapse != newNeedsCollapse) {
-      setState(() {
-        _needsCollapse = newNeedsCollapse;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -276,11 +244,9 @@ class _PostReplyItemState extends State<PostReplyItem> {
           _buildUserInfo(context),
           const SizedBox(height: 12),
           // 回复目标（楼中楼）
-          if (widget.post.replyToPostNumber != null)
-            _buildReplyTarget(context),
+          if (widget.post.replyToPostNumber != null) _buildReplyTarget(context),
           // 内容（带折叠展开功能）
-          if (widget.post.cooked != null)
-            _buildContent(context),
+          if (widget.post.cooked != null) _buildContent(context),
           const SizedBox(height: 12),
           // 操作按钮
           _buildActionBar(context),
@@ -300,10 +266,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
     return Row(
       children: [
         // 头像
-        UserAvatar(
-          avatarUrl: _getAvatarUrl(),
-          size: 40,
-        ),
+        UserAvatar(avatarUrl: _getAvatarUrl(), size: 40),
         const SizedBox(width: 12),
         // 用户名和楼层信息
         Expanded(
@@ -358,29 +321,87 @@ class _PostReplyItemState extends State<PostReplyItem> {
   /// [context] 构建上下文
   /// @return 内容区域 Widget
   Widget _buildContent(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 在布局构建时检查内容高度
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            final renderBox = context.findRenderObject() as RenderBox?;
-            if (renderBox != null) {
-              _checkNeedsCollapse(context, renderBox.size.height);
-            }
-          }
-        });
-        return _buildContentWithFold(context, colorScheme, constraints);
+        final colorScheme = Theme.of(context).colorScheme;
+        final needsCollapse = _shouldCollapse(context, constraints.maxWidth);
+        return _buildContentWithFold(context, colorScheme, needsCollapse);
       },
     );
+  }
+
+  /// 基于内容文本测量是否超过折叠阈值
+  bool _shouldCollapse(BuildContext context, double maxWidth) {
+    final cooked = widget.post.cooked;
+    if (cooked == null || cooked.trim().isEmpty) {
+      return false;
+    }
+
+    // 富文本块元素通常占据较大空间，优先触发折叠
+    final hasHeavyBlocks = RegExp(
+      r'<\s*(img|pre|blockquote|table|ul|ol|li|h[1-6]|iframe|video)\b',
+      caseSensitive: false,
+    ).hasMatch(cooked);
+    if (hasHeavyBlocks) {
+      return true;
+    }
+
+    final plainText = _extractPlainText(cooked);
+    if (plainText.isEmpty) {
+      return false;
+    }
+
+    // 长文本和多换行先走快速判定，避免仅靠绘制测量漏判
+    const collapseTextLengthThreshold = 220;
+    if (plainText.runes.length > collapseTextLengthThreshold) {
+      return true;
+    }
+    final lineCount = '\n'.allMatches(plainText).length + 1;
+    if (lineCount > widget.maxLines) {
+      return true;
+    }
+
+    final effectiveMaxWidth = maxWidth.isFinite && maxWidth > 0
+        ? maxWidth
+        : MediaQuery.of(context).size.width - 32;
+    final textTheme = Theme.of(context).textTheme;
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: plainText,
+        style: textTheme.bodyMedium?.copyWith(fontSize: 14, height: 1.5),
+      ),
+      maxLines: widget.maxLines,
+      textDirection: Directionality.of(context),
+    )..layout(maxWidth: effectiveMaxWidth);
+
+    return textPainter.didExceedMaxLines;
+  }
+
+  /// 将 HTML 内容转换为纯文本用于估算行数
+  String _extractPlainText(String html) {
+    return html
+        .replaceAll(
+          RegExp(r'</(p|div|li|blockquote|h[1-6])>', caseSensitive: false),
+          '\n',
+        )
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll(RegExp(r'[ \t\r\f\v]+'), ' ')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
   }
 
   /// 构建带折叠功能的内容
   Widget _buildContentWithFold(
     BuildContext context,
     ColorScheme colorScheme,
-    BoxConstraints constraints,
+    bool needsCollapse,
   ) {
     // 构建 HTML 内容
     Widget htmlContent = Html(
@@ -413,10 +434,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
           color: colorScheme.primary,
           textDecoration: TextDecoration.none,
         ),
-        'img': Style(
-          width: Width.auto(),
-          height: Height.auto(),
-        ),
+        'img': Style(width: Width.auto(), height: Height.auto()),
         'pre': Style(
           backgroundColor: colorScheme.surfaceVariant,
           padding: HtmlPaddings.all(12),
@@ -442,15 +460,9 @@ class _PostReplyItemState extends State<PostReplyItem> {
           fontWeight: FontWeight.bold,
           margin: Margins.only(bottom: 8),
         ),
-        'ul': Style(
-          margin: Margins.only(left: 16, bottom: 8),
-        ),
-        'ol': Style(
-          margin: Margins.only(left: 16, bottom: 8),
-        ),
-        'li': Style(
-          margin: Margins.only(bottom: 4),
-        ),
+        'ul': Style(margin: Margins.only(left: 16, bottom: 8)),
+        'ol': Style(margin: Margins.only(left: 16, bottom: 8)),
+        'li': Style(margin: Margins.only(bottom: 4)),
       },
       extensions: [
         // 自定义图片渲染，限制表情包尺寸
@@ -482,13 +494,37 @@ class _PostReplyItemState extends State<PostReplyItem> {
     );
 
     // 如果需要折叠且未展开，限制高度
-    if (_needsCollapse && !_isExpanded) {
+    if (needsCollapse && !_isExpanded) {
       htmlContent = ClipRect(
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: _calculateFoldedHeight(context),
           ),
-          child: htmlContent,
+          child: Stack(
+            children: [
+              htmlContent,
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: IgnorePointer(
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          colorScheme.surface.withOpacity(0),
+                          colorScheme.surface,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -500,7 +536,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
         // 内容区域
         htmlContent,
         // 展开/收起按钮
-        if (_needsCollapse) ...[
+        if (needsCollapse) ...[
           const SizedBox(height: 8),
           GestureDetector(
             onTap: _toggleExpanded,
@@ -510,7 +546,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _isExpanded ? '收起' : '展开',
+                    _isExpanded ? '收起' : '查看更多',
                     style: TextStyle(
                       fontSize: 14,
                       color: colorScheme.primary,
@@ -588,11 +624,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.reply,
-            size: 16,
-            color: colorScheme.onSurfaceVariant,
-          ),
+          Icon(Icons.reply, size: 16, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -682,28 +714,17 @@ class _PostReplyItemState extends State<PostReplyItem> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 18,
-            color: iconColor,
-          ),
+          Icon(icon, size: 18, color: iconColor),
           if (count > 0) ...[
             const SizedBox(width: 4),
             Text(
               count.toString(),
-              style: textTheme.bodySmall?.copyWith(
-                color: iconColor,
-              ),
+              style: textTheme.bodySmall?.copyWith(color: iconColor),
             ),
           ],
           if (label != null && count == 0) ...[
             const SizedBox(width: 4),
-            Text(
-              label,
-              style: textTheme.bodySmall?.copyWith(
-                color: iconColor,
-              ),
-            ),
+            Text(label, style: textTheme.bodySmall?.copyWith(color: iconColor)),
           ],
         ],
       ),
@@ -827,10 +848,7 @@ class PostReplyListSkeleton extends StatelessWidget {
   final int itemCount;
 
   /// 构造函数
-  const PostReplyListSkeleton({
-    super.key,
-    this.itemCount = 5,
-  });
+  const PostReplyListSkeleton({super.key, this.itemCount = 5});
 
   /// 构建骨架屏
   ///

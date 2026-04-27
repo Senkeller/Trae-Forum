@@ -15,6 +15,7 @@ class DioClient {
   static dio_lib.Dio? _dio;
   static CookieJar? _cookieJar;
   static final Logger _logger = Logger();
+  static final Map<String, String> _lastCookiePayloadByUrl = <String, String>{};
 
   /// 获取 Dio 实例
   static dio_lib.Dio get dio {
@@ -70,10 +71,7 @@ class DioClient {
   /// 否则创建一个新的内存 CookieJar
   static void _initCookieManager(dio_lib.Dio dio) {
     // 如果 _cookieJar 已经存在，说明已经初始化过（如持久化的 CookieJar）
-    if (_cookieJar == null) {
-      // 使用内存 CookieJar 作为默认值
-      _cookieJar = CookieJar();
-    }
+    _cookieJar ??= CookieJar();
     dio.interceptors.add(CookieManager(_cookieJar!));
   }
 
@@ -136,6 +134,11 @@ class DioClient {
         normalized = normalized.substring(1, normalized.length - 1);
       }
       normalized = normalized.replaceAll(r'\"', '"');
+      final lastPayload = _lastCookiePayloadByUrl[url];
+      if (lastPayload == normalized) {
+        _logger.d('ℹ️ [DioClient] Cookie 未变化，跳过重复同步: $url');
+        return;
+      }
 
       // 解析 Cookie 字符串
       final pairs = normalized.split(';');
@@ -159,14 +162,17 @@ class DioClient {
           }
 
           cookies.add(Cookie(name, cleanValue));
-          _logger.i(
-            '🍪 [DioClient] 加载 Cookie: $name=${cleanValue.length > 20 ? cleanValue.substring(0, 20) + "..." : cleanValue}',
-          );
         }
+      }
+
+      if (cookies.isEmpty) {
+        _logger.w('⚠️ [DioClient] 未解析到可用 Cookie: $url');
+        return;
       }
 
       // 保存 Cookie 到 CookieJar
       await _cookieJar!.saveFromResponse(uri, cookies);
+      _lastCookiePayloadByUrl[url] = normalized;
       _logger.i('✅ [DioClient] WebView Cookie 已同步到 Dio，共 ${cookies.length} 个');
     } catch (e) {
       _logger.e('❌ [DioClient] 加载 WebView Cookie 失败: $e');
