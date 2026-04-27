@@ -9,6 +9,7 @@ import '../../../config/constants.dart';
 import '../../../data/repositories/comment_repository.dart';
 import '../../../data/repositories/feed_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../widgets/editor/quill_composer_editor.dart';
 
 class _PreparedPublishContent {
@@ -824,7 +825,8 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     if (_isPickingImage) return;
     _isPickingImage = true;
     try {
-      final files = await _imagePicker.pickMultiImage(imageQuality: 90);
+      final quality = ref.read(imageQualityProvider).imagePickerQuality;
+      final files = await _imagePicker.pickMultiImage(imageQuality: quality);
       if (!mounted || files.isEmpty) return;
 
       setState(() {

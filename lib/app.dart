@@ -4,6 +4,7 @@ import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
+import 'presentation/providers/settings_provider.dart';
 import 'presentation/providers/push_bootstrap_provider.dart';
 
 /// 应用根组件
@@ -18,6 +19,7 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // 启动系统推送轮询服务（幂等）
     ref.watch(pushBootstrapProvider);
+    final fontScale = ref.watch(fontSizeProvider).scaleFactor;
 
     return MaterialApp.router(
       title: 'TRAE Forum',
@@ -27,7 +29,6 @@ class MyApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system, // 临时使用系统主题
-
       // 本地化配置
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -35,10 +36,7 @@ class MyApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         FlutterQuillLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('zh', 'CN'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
       locale: const Locale('zh', 'CN'),
 
       // 路由配置
@@ -46,8 +44,14 @@ class MyApp extends ConsumerWidget {
 
       // Builder 配置
       builder: (context, child) {
-        // TODO: 添加全局加载指示器、错误处理等
-        return child ?? const SizedBox.shrink();
+        final currentMediaQuery = MediaQuery.of(context);
+        final scaledMediaQuery = currentMediaQuery.copyWith(
+          textScaler: TextScaler.linear(fontScale),
+        );
+        return MediaQuery(
+          data: scaledMediaQuery,
+          child: child ?? const SizedBox.shrink(),
+        );
       },
     );
   }

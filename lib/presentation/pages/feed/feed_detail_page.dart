@@ -32,15 +32,31 @@ import '../../widgets/skeleton/feed_detail_skeleton.dart';
 
 class FeedDetailPage extends ConsumerStatefulWidget {
   final String feedId;
+  final int? initialPostNumber;
+  final int? initialPostId;
 
-  const FeedDetailPage({super.key, required this.feedId});
+  const FeedDetailPage({
+    super.key,
+    required this.feedId,
+    this.initialPostNumber,
+    this.initialPostId,
+  });
 
   @override
   ConsumerState<FeedDetailPage> createState() => _FeedDetailPageState();
 }
 
 class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
+  static const String _defaultSortType = '';
+  static const String _latestSortType = 'latest';
+  static const String _hotSortType = 'hot';
+  static const String _authorSortType = 'author';
+
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _commentsSectionKey = GlobalKey(
+    debugLabel: 'comments_section',
+  );
+  final Map<String, GlobalKey> _replyItemKeys = {};
 
   /// 滚动加载守卫，用于管理评论列表的触底加载逻辑
   final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard(threshold: 220);
@@ -64,8 +80,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   int? _replyToPostNumber;
 
   int _commentsPage = 1;
-  String _commentSortType = '';
+  String _commentSortType = _defaultSortType;
   String? _errorMessage;
+  bool _hasResolvedInitialAnchor = false;
 
   @override
   void initState() {
@@ -174,7 +191,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       final rawComments = _isSuccessStatus(commentResponse.status)
           ? commentResponse.data
           : const <ReplyData>[];
-      final comments = _stripFirstPostIfNeeded(topicDetail, rawComments);
+      final comments = _applyCommentFilter(
+        comments: _stripFirstPostIfNeeded(topicDetail, rawComments),
+        topic: topicDetail,
+      );
 
       if (!mounted) {
         return;
@@ -203,6 +223,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       });
       _initializeLikeStatesForReplies(comments);
       _initializeBookmarkState(topicDetail);
+      _resolveInitialReplyAnchor();
 
       // 记录浏览历史
       _recordBrowseHistory(topicDetail);
@@ -224,7 +245,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     }
 
     if (listType != null) {
-      _commentSortType = listType;
+      _commentSortType = _normalizeSortType(listType);
     }
 
     setState(() {
@@ -247,17 +268,22 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
       if (_isSuccessStatus(response.status)) {
         final topic = _topicDetail;
-        final normalized = topic == null
+        final normalizedComments = topic == null
             ? response.data
             : _stripFirstPostIfNeeded(topic, response.data);
+        final filteredComments = _applyCommentFilter(
+          comments: normalizedComments,
+          topic: topic,
+        );
 
         setState(() {
-          _comments = normalized;
+          _comments = filteredComments;
           _commentsPage = 1;
           _hasMoreComments = response.data.length >= AppConstants.pageSize;
           _isCommentsLoading = false;
         });
-        _initializeLikeStatesForReplies(normalized);
+        _initializeLikeStatesForReplies(filteredComments);
+        _resolveInitialReplyAnchor();
       } else {
         setState(() {
           _isCommentsLoading = false;
@@ -305,9 +331,13 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         final newItems = response.data
             .where((reply) => !existingIds.contains(reply.id))
             .toList();
+        final mergedComments = _applyCommentFilter(
+          comments: [..._comments, ...newItems],
+          topic: _topicDetail,
+        );
 
         setState(() {
-          _comments = [..._comments, ...newItems];
+          _comments = mergedComments;
           _commentsPage = nextPage;
           _hasMoreComments = response.data.length >= AppConstants.pageSize;
           _isLoadingMoreComments = false;
@@ -331,6 +361,255 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         _errorMessage = '加载更多回复失败: $error';
       });
     }
+  }
+
+  ReplyData? _findReplyByPostNumber(int targetPostNumber) {
+    for (final reply in _comments) {
+      if (reply.postNumber == targetPostNumber) {
+        return reply;
+      }
+    }
+    return null;
+  }
+
+  ReplyData? _findReplyByPostId(int targetPostId) {
+    for (final reply in _comments) {
+      if (int.tryParse(reply.id) == targetPostId) {
+        return reply;
+      }
+    }
+    return null;
+  }
+
+  String _normalizeSortType(String sortType) {
+    switch (sortType) {
+      case _latestSortType:
+      case 'new':
+        return _latestSortType;
+      case _hotSortType:
+        return _hotSortType;
+      case _authorSortType:
+        return _authorSortType;
+      default:
+        return _defaultSortType;
+    }
+  }
+
+  List<ReplyData> _applyCommentFilter({
+    required List<ReplyData> comments,
+    FeedContentData? topic,
+  }) {
+    final normalizedSort = _normalizeSortType(_commentSortType);
+    final list = List<ReplyData>.from(comments);
+
+    if (normalizedSort == _authorSortType) {
+      final authorUid = topic?.userInfo?.uid;
+      if (authorUid != null && authorUid.isNotEmpty) {
+        return list.where((reply) => reply.uid == authorUid).toList();
+      }
+      return list;
+    }
+
+    if (normalizedSort == _latestSortType) {
+      list.sort((a, b) {
+        final timeCompare = (int.tryParse(b.dateline) ?? 0).compareTo(
+          int.tryParse(a.dateline) ?? 0,
+        );
+        if (timeCompare != 0) {
+          return timeCompare;
+        }
+        return (b.postNumber ?? 0).compareTo(a.postNumber ?? 0);
+      });
+      return list;
+    }
+
+    if (normalizedSort == _hotSortType) {
+      list.sort((a, b) {
+        final likeCompare = b.likeNum.compareTo(a.likeNum);
+        if (likeCompare != 0) {
+          return likeCompare;
+        }
+        final replyCompare = b.replyNum.compareTo(a.replyNum);
+        if (replyCompare != 0) {
+          return replyCompare;
+        }
+        return (int.tryParse(b.dateline) ?? 0).compareTo(
+          int.tryParse(a.dateline) ?? 0,
+        );
+      });
+      return list;
+    }
+
+    return list;
+  }
+
+  Future<void> _resolveInitialReplyAnchor() async {
+    final targetPostNumber = widget.initialPostNumber;
+    final targetPostId = widget.initialPostId;
+    if (_hasResolvedInitialAnchor || !mounted) {
+      return;
+    }
+
+    if (targetPostNumber == null && targetPostId == null) {
+      _hasResolvedInitialAnchor = true;
+      return;
+    }
+
+    if (targetPostNumber != null && targetPostNumber <= 1) {
+      _hasResolvedInitialAnchor = true;
+      return;
+    }
+
+    ReplyData? targetReply;
+    if (targetPostNumber != null) {
+      targetReply = _findReplyByPostNumber(targetPostNumber);
+    }
+    if (targetReply == null && targetPostId != null) {
+      targetReply = _findReplyByPostId(targetPostId);
+    }
+
+    while (targetReply == null &&
+        _hasMoreComments &&
+        !_isLoadingMoreComments &&
+        mounted) {
+      final beforeLength = _comments.length;
+      await _loadMoreComments();
+      if (!mounted || _comments.length == beforeLength) {
+        break;
+      }
+      if (targetPostNumber != null) {
+        targetReply = _findReplyByPostNumber(targetPostNumber);
+      }
+      if (targetReply == null && targetPostId != null) {
+        targetReply = _findReplyByPostId(targetPostId);
+      }
+    }
+
+    _hasResolvedInitialAnchor = true;
+    if (targetReply == null || !mounted) {
+      return;
+    }
+    final targetReplyId = targetReply.id;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _scrollToReply(targetReplyId);
+    });
+  }
+
+  GlobalKey _keyForReply(ReplyData reply) {
+    return _replyItemKeys.putIfAbsent(
+      reply.id,
+      () => GlobalKey(debugLabel: 'reply_${reply.id}'),
+    );
+  }
+
+  Future<void> _scrollToReply(String replyId) async {
+    final targetIndex = _comments.indexWhere((reply) => reply.id == replyId);
+    if (targetIndex < 0) {
+      return;
+    }
+
+    for (var i = 0; i < 20 && !_scrollController.hasClients; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    final key = _replyItemKeys[replyId];
+    if (key == null) {
+      return;
+    }
+
+    final maxScrollExtent = _scrollController.position.maxScrollExtent;
+    if (_comments.length > 1 && maxScrollExtent > 0) {
+      final estimatedRatio = targetIndex / (_comments.length - 1);
+      final estimatedOffset = (maxScrollExtent * estimatedRatio).clamp(
+        0.0,
+        maxScrollExtent,
+      );
+      await _scrollController.animateTo(
+        estimatedOffset,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+
+    for (var attempt = 0; attempt < 40; attempt++) {
+      if (!mounted) {
+        return;
+      }
+
+      final targetContext = key.currentContext;
+      if (targetContext != null) {
+        await Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: 0.12,
+        );
+        return;
+      }
+
+      if (!_scrollController.hasClients) {
+        return;
+      }
+
+      final currentOffset = _scrollController.offset;
+      final maxOffset = _scrollController.position.maxScrollExtent;
+      if (currentOffset >= maxOffset - 2) {
+        break;
+      }
+
+      final nextOffset = (currentOffset + 560.0).clamp(0.0, maxOffset);
+      await _scrollController.animateTo(
+        nextOffset,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  Future<void> _scrollToCommentsSection() async {
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+
+    final targetContext = _commentsSectionKey.currentContext;
+    if (targetContext != null) {
+      await Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: 0.02,
+      );
+      return;
+    }
+
+    final estimatedOffset = (_scrollController.position.maxScrollExtent * 0.4)
+        .clamp(0.0, _scrollController.position.maxScrollExtent);
+    await _scrollController.animateTo(
+      estimatedOffset,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _scrollToTop() async {
+    HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   List<ReplyData> _stripFirstPostIfNeeded(
@@ -424,6 +703,16 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       // 使用 reply id 进行楼中楼回复
       _replyToPostNumber = int.tryParse(reply.id);
     });
+  }
+
+  void _openUserCard(String? username, {String? fallbackUid}) {
+    final profileId = (username ?? '').trim().isNotEmpty
+        ? username!.trim()
+        : (fallbackUid ?? '').trim();
+    if (profileId.isEmpty || !mounted) {
+      return;
+    }
+    context.push(RoutePaths.userProfile.replaceFirst(':uid', profileId));
   }
 
   Future<void> _sendComment(String content) async {
@@ -741,6 +1030,15 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
           ),
         ],
       ),
+      floatingActionButton: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 88),
+          child: _DetailQuickScrollFab(
+            onScrollToComments: _scrollToCommentsSection,
+            onScrollToTop: _scrollToTop,
+          ),
+        ),
+      ),
     );
   }
 
@@ -788,6 +1086,10 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             blocks: _topicBlocks,
             headingKeys: _headingKeys,
             onLinkTap: _openExternalLink,
+            onAuthorAvatarTap: () => _openUserCard(
+              detail.userInfo?.username,
+              fallbackUid: detail.userInfo?.uid,
+            ),
             isBookmarked: isBookmarked,
             isBookmarkLoading: isBookmarkLoading,
             onBookmarkTap: _toggleBookmark,
@@ -796,32 +1098,20 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
           ),
         ),
         SliverToBoxAdapter(
+          key: _commentsSectionKey,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 10),
-            child: Row(
-              children: [
-                Text(
-                  '回复',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '${detail.replyNum}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                _CommentSortButton(
-                  currentSort: _commentSortType,
-                  onSortChanged: (sort) async {
-                    await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
-                    await _reloadComments(listType: sort);
-                  },
-                ),
-              ],
+            child: _CommentSortSegmentedControl(
+              replyCount: detail.replyNum,
+              currentSort: _commentSortType,
+              onSortChanged: (sort) async {
+                final normalizedSort = _normalizeSortType(sort);
+                if (normalizedSort == _commentSortType) {
+                  return;
+                }
+                await HapticFeedbackUtil.trigger(ref, HapticScene.tap);
+                await _reloadComments(listType: normalizedSort);
+              },
             ),
           ),
         ),
@@ -888,15 +1178,20 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             },
             itemBuilder: (context, index) {
               final reply = _comments[index];
-              return _ReplyItem(
-                key: ValueKey('reply_${reply.id}'),
-                reply: reply,
-                floor: index + 1,
-                topicAuthorUid: detail.userInfo?.uid,
-                onLinkTap: _openExternalLink,
-                onReplyTap: () => _startReplyTo(reply),
-                onEditTap: () => _showEditReplyBottomSheet(reply),
-                onDeleteTap: () => _showDeleteReplyConfirm(reply),
+              return KeyedSubtree(
+                key: _keyForReply(reply),
+                child: _ReplyItem(
+                  key: ValueKey('reply_${reply.id}'),
+                  reply: reply,
+                  floor: index + 1,
+                  topicAuthorUid: detail.userInfo?.uid,
+                  onLinkTap: _openExternalLink,
+                  onAvatarTap: () =>
+                      _openUserCard(reply.username, fallbackUid: reply.uid),
+                  onReplyTap: () => _startReplyTo(reply),
+                  onEditTap: () => _showEditReplyBottomSheet(reply),
+                  onDeleteTap: () => _showDeleteReplyConfirm(reply),
+                ),
               );
             },
           ),
@@ -1336,6 +1631,7 @@ class _TopicHeaderSection extends StatelessWidget {
   final List<TopicContentBlock> blocks;
   final List<GlobalKey> headingKeys;
   final ValueChanged<String> onLinkTap;
+  final VoidCallback onAuthorAvatarTap;
   final bool isBookmarked;
   final bool isBookmarkLoading;
   final VoidCallback onBookmarkTap;
@@ -1346,6 +1642,7 @@ class _TopicHeaderSection extends StatelessWidget {
     required this.blocks,
     required this.headingKeys,
     required this.onLinkTap,
+    required this.onAuthorAvatarTap,
     required this.isBookmarked,
     required this.isBookmarkLoading,
     required this.onBookmarkTap,
@@ -1383,7 +1680,11 @@ class _TopicHeaderSection extends StatelessWidget {
             const SizedBox(height: 16),
           Row(
             children: [
-              _AuthorAvatar(avatar: avatar, username: username),
+              _AuthorAvatar(
+                avatar: avatar,
+                username: username,
+                onTap: onAuthorAvatarTap,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1504,6 +1805,39 @@ class _TopicHeaderSection extends StatelessWidget {
   }
 }
 
+class _DetailQuickScrollFab extends StatelessWidget {
+  final Future<void> Function() onScrollToComments;
+  final Future<void> Function() onScrollToTop;
+
+  const _DetailQuickScrollFab({
+    required this.onScrollToComments,
+    required this.onScrollToTop,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        FloatingActionButton.small(
+          heroTag: 'feed_detail_comments_fab',
+          onPressed: onScrollToComments,
+          tooltip: '跳到评论区',
+          child: const Icon(Icons.forum_outlined),
+        ),
+        const SizedBox(height: 10),
+        FloatingActionButton.small(
+          heroTag: 'feed_detail_top_fab',
+          onPressed: onScrollToTop,
+          tooltip: '回到顶部',
+          child: const Icon(Icons.vertical_align_top),
+        ),
+      ],
+    );
+  }
+}
+
 /// 在后台线程解析话题内容
 /// 用于 compute 函数，必须是顶层函数或静态方法
 List<TopicContentBlock> _parseTopicContent(String message) {
@@ -1513,11 +1847,24 @@ List<TopicContentBlock> _parseTopicContent(String message) {
 class _AuthorAvatar extends StatelessWidget {
   final String? avatar;
   final String username;
+  final VoidCallback? onTap;
 
-  const _AuthorAvatar({required this.avatar, required this.username});
+  const _AuthorAvatar({
+    required this.avatar,
+    required this.username,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final avatarWidget = _buildAvatar();
+    if (onTap == null) {
+      return avatarWidget;
+    }
+    return GestureDetector(onTap: onTap, child: avatarWidget);
+  }
+
+  Widget _buildAvatar() {
     final imageUrl = avatar;
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return ClipOval(
@@ -1537,34 +1884,116 @@ class _AuthorAvatar extends StatelessWidget {
   }
 }
 
-class _CommentSortButton extends StatelessWidget {
+class _CommentSortSegmentedControl extends StatelessWidget {
+  static const _filters = <({String label, String value})>[
+    (label: '默认', value: ''),
+    (label: '最新', value: 'latest'),
+    (label: '热门', value: 'hot'),
+    (label: '楼主', value: 'author'),
+  ];
+
+  final int replyCount;
   final String currentSort;
   final ValueChanged<String> onSortChanged;
 
-  const _CommentSortButton({
+  const _CommentSortSegmentedControl({
+    required this.replyCount,
     required this.currentSort,
     required this.onSortChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isHot = currentSort == 'hot';
-    return PopupMenuButton<String>(
-      initialValue: currentSort,
-      onSelected: onSortChanged,
-      itemBuilder: (context) => const [
-        PopupMenuItem(value: '', child: Text('时间排序')),
-        PopupMenuItem(value: 'hot', child: Text('热度排序')),
-      ],
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            isHot ? '热度排序' : '时间排序',
-            style: Theme.of(context).textTheme.bodySmall,
+    final colorScheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Text(
+          '共 $replyCount 回复',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final filter in _filters)
+                      _CommentFilterChip(
+                        label: filter.label,
+                        selected: currentSort == filter.value,
+                        onTap: () => onSortChanged(filter.value),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const Icon(Icons.arrow_drop_down_rounded, size: 18),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _CommentFilterChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CommentFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: selected ? colorScheme.surface : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: selected
+            ? [
+                BoxShadow(
+                  color: colorScheme.shadow.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ]
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: selected
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1575,6 +2004,7 @@ class _ReplyItem extends ConsumerWidget {
   final int floor;
   final String? topicAuthorUid;
   final ValueChanged<String> onLinkTap;
+  final VoidCallback? onAvatarTap;
   final VoidCallback? onReplyTap;
   final VoidCallback? onEditTap;
   final VoidCallback? onDeleteTap;
@@ -1585,6 +2015,7 @@ class _ReplyItem extends ConsumerWidget {
     required this.floor,
     required this.topicAuthorUid,
     required this.onLinkTap,
+    this.onAvatarTap,
     this.onReplyTap,
     this.onEditTap,
     this.onDeleteTap,
@@ -1612,7 +2043,11 @@ class _ReplyItem extends ConsumerWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CommentAvatar(avatar: reply.avatar, username: reply.username),
+          _CommentAvatar(
+            avatar: reply.avatar,
+            username: reply.username,
+            onTap: onAvatarTap,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -2041,11 +2476,24 @@ class _ReplyMessageState extends State<_ReplyMessage> {
 class _CommentAvatar extends StatelessWidget {
   final String? avatar;
   final String username;
+  final VoidCallback? onTap;
 
-  const _CommentAvatar({required this.avatar, required this.username});
+  const _CommentAvatar({
+    required this.avatar,
+    required this.username,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final avatarWidget = _buildAvatar(context);
+    if (onTap == null) {
+      return avatarWidget;
+    }
+    return GestureDetector(onTap: onTap, child: avatarWidget);
+  }
+
+  Widget _buildAvatar(BuildContext context) {
     if (avatar != null && avatar!.isNotEmpty) {
       return ClipOval(
         child: CachedImage(

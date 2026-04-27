@@ -15,10 +15,7 @@ import '../../widgets/user/user_avatar.dart';
 class MessageDetailPage extends ConsumerStatefulWidget {
   final String type;
 
-  const MessageDetailPage({
-    super.key,
-    required this.type,
-  });
+  const MessageDetailPage({super.key, required this.type});
 
   @override
   ConsumerState<MessageDetailPage> createState() => _MessageDetailPageState();
@@ -41,7 +38,9 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_filterType != null) {
-        ref.read(notificationNotifierProvider.notifier).switchFilterType(_filterType!);
+        ref
+            .read(notificationNotifierProvider.notifier)
+            .switchFilterType(_filterType!);
       } else {
         ref.read(notificationNotifierProvider.notifier).loadNotifications();
       }
@@ -56,7 +55,9 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
       if (newFilterType != _filterType) {
         _filterType = newFilterType;
         if (_filterType != null) {
-          ref.read(notificationNotifierProvider.notifier).switchFilterType(_filterType!);
+          ref
+              .read(notificationNotifierProvider.notifier)
+              .switchFilterType(_filterType!);
         }
       }
     }
@@ -112,16 +113,22 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
 
   Future<void> _onRefresh() async {
     if (_filterType != null) {
-      ref.read(notificationNotifierProvider.notifier).switchFilterType(_filterType!);
+      ref
+          .read(notificationNotifierProvider.notifier)
+          .switchFilterType(_filterType!);
       await Future.delayed(const Duration(milliseconds: 300));
     } else {
-      await ref.read(notificationNotifierProvider.notifier).refreshNotifications();
+      await ref
+          .read(notificationNotifierProvider.notifier)
+          .refreshNotifications();
     }
     _refreshController.refreshCompleted();
   }
 
   Future<void> _markAsRead(int notificationId) async {
-    await ref.read(notificationNotifierProvider.notifier).markAsRead(notificationId);
+    await ref
+        .read(notificationNotifierProvider.notifier)
+        .markAsRead(notificationId);
   }
 
   Future<void> _markAllAsRead() async {
@@ -130,7 +137,9 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
 
   void _handleNotificationTap(DiscourseNotification notification) {
     if (!notification.read) {
-      ref.read(notificationNotifierProvider.notifier).markAsRead(notification.id);
+      ref
+          .read(notificationNotifierProvider.notifier)
+          .markAsRead(notification.id);
     }
 
     // 根据通知类型跳转到不同页面
@@ -154,7 +163,11 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
       case DiscourseNotificationType.inviteeAccepted:
         if (notification.topicId != null) {
           // 跳转到 Feed 详情页，Discourse topicId 映射为 Feed id
-          context.push('/feed/${notification.topicId}');
+          _navigateToFeedDetail(
+            notification.topicId.toString(),
+            postNumber: notification.postNumber,
+            postId: notification.data?.originalPostId,
+          );
         } else {
           context.push('/messages');
         }
@@ -164,14 +177,30 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
       default:
         if (notification.topicId != null) {
           // 跳转到 Feed 详情页，Discourse topicId 映射为 Feed id
-          context.push('/feed/${notification.topicId}');
+          _navigateToFeedDetail(
+            notification.topicId.toString(),
+            postNumber: notification.postNumber,
+            postId: notification.data?.originalPostId,
+          );
         } else {
           // 如果没有 topicId，显示提示
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法跳转到该通知')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('无法跳转到该通知')));
         }
     }
+  }
+
+  void _navigateToFeedDetail(String feedId, {int? postNumber, int? postId}) {
+    final queryParameters = <String, String>{};
+    if (postNumber != null && postNumber > 0) {
+      queryParameters['postNumber'] = postNumber.toString();
+    }
+    if (postId != null && postId > 0) {
+      queryParameters['postId'] = postId.toString();
+    }
+    final uri = Uri(path: '/feed/$feedId', queryParameters: queryParameters);
+    context.push(uri.toString());
   }
 
   @override
@@ -182,9 +211,7 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
 
     if (!isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text(_title),
-        ),
+        appBar: AppBar(title: Text(_title)),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -209,7 +236,9 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.done_all),
-            onPressed: notificationState.notifications.isNotEmpty ? _markAllAsRead : null,
+            onPressed: notificationState.notifications.isNotEmpty
+                ? _markAllAsRead
+                : null,
             tooltip: '全部已读',
           ),
         ],
@@ -219,7 +248,8 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
   }
 
   Widget _buildBody(NotificationState notificationState) {
-    if (notificationState.isLoading && notificationState.notifications.isEmpty) {
+    if (notificationState.isLoading &&
+        notificationState.notifications.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -236,9 +266,13 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
             FilledButton(
               onPressed: () {
                 if (_filterType != null) {
-                  ref.read(notificationNotifierProvider.notifier).switchFilterType(_filterType!);
+                  ref
+                      .read(notificationNotifierProvider.notifier)
+                      .switchFilterType(_filterType!);
                 } else {
-                  ref.read(notificationNotifierProvider.notifier).loadNotifications();
+                  ref
+                      .read(notificationNotifierProvider.notifier)
+                      .loadNotifications();
                 }
               },
               child: const Text('重试'),
@@ -268,14 +302,17 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
       onRefresh: _onRefresh,
       onLoading: notificationState.hasMore
           ? () {
-              ref.read(notificationNotifierProvider.notifier).loadMoreNotifications();
+              ref
+                  .read(notificationNotifierProvider.notifier)
+                  .loadMoreNotifications();
               _refreshController.loadComplete();
             }
           : null,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: notificationState.notifications.length +
+        itemCount:
+            notificationState.notifications.length +
             (notificationState.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= notificationState.notifications.length) {
@@ -366,7 +403,9 @@ class _MessageCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: isUnread ? colorScheme.primaryContainer.withValues(alpha: 0.3) : null,
+      color: isUnread
+          ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+          : null,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -433,7 +472,9 @@ class _MessageCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          color: colorScheme.surfaceContainerHighest.withValues(
+                            alpha: 0.5,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
@@ -550,14 +591,16 @@ class _MessageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.primaryContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         typeName,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
+          color: Theme.of(context).colorScheme.primary,
+        ),
       ),
     );
   }

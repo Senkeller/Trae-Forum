@@ -7,8 +7,6 @@ import '../../../data/models/trae_dashboard.dart';
 import '../../providers/trae_dashboard_provider.dart';
 import 'activity_heatmap.dart';
 import 'hourly_activity_curve.dart';
-import 'language_bar_chart.dart';
-import 'model_preference_list.dart';
 
 /// 嵌入式 TRAE 仪表盘（Banner 滑动版）
 ///
@@ -48,9 +46,9 @@ class _DashboardBannerContent extends StatefulWidget {
 }
 
 class _DashboardBannerContentState extends State<_DashboardBannerContent> {
-  static const double _bannerHeight = 430;
-  static const int _maxLanguageItems = 6;
-  static const int _maxModelItems = 6;
+  static const double _bannerHeight = 220;
+  static const int _maxLanguageItems = 3;
+  static const int _maxModelItems = 3;
 
   late final PageController _pageController;
   int _currentPage = 0;
@@ -74,7 +72,7 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       decoration: BoxDecoration(
         color: const Color(0xFF121317),
         borderRadius: BorderRadius.circular(16),
@@ -90,7 +88,7 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
                   'TRAE 仪表盘',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -99,7 +97,7 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
                   '${_currentPage + 1}/${modules.length}',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.55),
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -108,7 +106,7 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
                   icon: const Icon(
                     Icons.refresh,
                     color: Colors.white70,
-                    size: 18,
+                    size: 16,
                   ),
                   tooltip: '刷新',
                   visualDensity: VisualDensity.compact,
@@ -116,7 +114,7 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           SizedBox(
             height: _bannerHeight,
             child: PageView.builder(
@@ -140,15 +138,15 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
               },
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(modules.length, (index) {
               final active = _currentPage == index;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                width: active ? 18 : 6,
-                height: 6,
+                width: active ? 14 : 5,
+                height: 5,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
                   color: active ? const Color(0xFF32F08C) : Colors.white24,
@@ -157,17 +155,21 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
               );
             }),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
             child: FilledButton.tonalIcon(
               onPressed: () => context.push(RoutePaths.traeDashboard),
               icon: const Icon(Icons.open_in_full, size: 16),
-              label: const Text('查看完整仪表盘'),
+              label: const Text('查看完整数据'),
               style: FilledButton.styleFrom(
                 backgroundColor: const Color(0xFF262A30),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                textStyle: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -207,45 +209,14 @@ class _DashboardBannerContentState extends State<_DashboardBannerContent> {
         child: _ConversationContent(stats: stats),
       ),
       _BannerModule(
-        title: '编程语言分布',
-        subtitle: '近7天代码采纳按语言统计',
-        child: _DarkCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LanguageBarChart(data: languageTop),
-              if (stats.sortedLanguageStats.length > languageTop.length) ...[
-                const SizedBox(height: 8),
-                Text(
-                  '仅展示前$_maxLanguageItems项，更多请进入完整仪表盘',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.52),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-      _BannerModule(
-        title: 'AI 模型偏好',
-        subtitle: '近7天模型调用统计',
-        child: Column(
-          children: [
-            Expanded(child: ModelPreferenceList(data: modelTop)),
-            if (stats.sortedModelStats.length > modelTop.length)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '仅展示前$_maxModelItems项，更多请进入完整仪表盘',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.52),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-          ],
+        title: '语言/模型概览',
+        subtitle: '排行信息已精简展示',
+        child: _CompactRankingContent(
+          languageTop: languageTop,
+          modelTop: modelTop,
+          omittedLanguageCount:
+              stats.sortedLanguageStats.length - languageTop.length,
+          omittedModelCount: stats.sortedModelStats.length - modelTop.length,
         ),
       ),
       _BannerModule(
@@ -294,33 +265,33 @@ class _BannerModulePage extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
               Icon(
                 Icons.info_outline,
-                size: 16,
+                size: 14,
                 color: Colors.white.withValues(alpha: 0.42),
               ),
             ],
           ),
         ),
         if (subtitle != null) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Text(
               subtitle!,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.48),
-                fontSize: 14,
+                fontSize: 12,
               ),
             ),
           ),
         ],
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         Expanded(child: child),
       ],
     );
@@ -335,7 +306,7 @@ class _DarkCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: const Color(0xFF252525),
         borderRadius: BorderRadius.circular(12),
@@ -366,28 +337,41 @@ class _CodeAcceptContent extends StatelessWidget {
             '${stats.codeAcceptCount7d}',
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 64,
+              fontSize: 42,
               height: 1,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 4),
+          Text(
+            '近7天采纳总量',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: LanguageBarChart(data: languageData),
-                  ),
-                ),
+                ...languageData
+                    .take(2)
+                    .map(
+                      (language) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: _CompactStatRow(
+                          label: language.language,
+                          value: '${language.count}',
+                        ),
+                      ),
+                    ),
                 if (omittedLanguageCount > 0)
                   Text(
                     '已省略 $omittedLanguageCount 项',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.52),
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                   ),
               ],
@@ -421,17 +405,17 @@ class _ConversationContent extends StatelessWidget {
                 '${stats.conversationCount7d}',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 64,
+                  fontSize: 42,
                   height: 1,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               if (topAgent != null)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+                    horizontal: 8,
+                    vertical: 4,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF32F08C).withValues(alpha: 0.15),
@@ -443,14 +427,14 @@ class _ConversationContent extends StatelessWidget {
                       const Icon(
                         Icons.smart_toy_outlined,
                         color: Color(0xFF32F08C),
-                        size: 16,
+                        size: 14,
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Text(
                         topAgent.agentName,
                         style: const TextStyle(
                           color: Color(0xFF32F08C),
-                          fontSize: 15,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -460,28 +444,144 @@ class _ConversationContent extends StatelessWidget {
             ],
           ),
           if (topAgent != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   colors: [Color(0xFF1F4D3F), Color(0xFF1C453A)],
                 ),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
-                '${topAgent.count}',
-                style: const TextStyle(
-                  color: Color(0xFF32F08C),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Row(
+                children: [
+                  Text(
+                    '${topAgent.count}',
+                    style: const TextStyle(
+                      color: Color(0xFF32F08C),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Top 模型对话次数',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _CompactRankingContent extends StatelessWidget {
+  final List<LanguageStat> languageTop;
+  final List<ModelStat> modelTop;
+  final int omittedLanguageCount;
+  final int omittedModelCount;
+
+  const _CompactRankingContent({
+    required this.languageTop,
+    required this.modelTop,
+    required this.omittedLanguageCount,
+    required this.omittedModelCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _DarkCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '语言 TOP',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...languageTop
+              .take(2)
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _CompactStatRow(
+                    label: item.language,
+                    value: '${item.count}',
+                  ),
+                ),
+              ),
+          const SizedBox(height: 2),
+          Text(
+            '模型 TOP',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 6),
+          ...modelTop
+              .take(2)
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: _CompactStatRow(
+                    label: item.modelName,
+                    value: '${item.count}',
+                  ),
+                ),
+              ),
+          if (omittedLanguageCount > 0 || omittedModelCount > 0)
+            Text(
+              '更多排行已省略，进入完整仪表盘查看',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 11,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactStatRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _CompactStatRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Color(0xFF32F08C),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

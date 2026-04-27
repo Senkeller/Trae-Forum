@@ -1,37 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../config/constants.dart';
-
-final fontScaleProvider = StateProvider<double>((ref) => AppConstants.fontSizeNormal);
+import '../../providers/settings_provider.dart';
 
 class FontSettingsPage extends ConsumerWidget {
   const FontSettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final fontScale = ref.watch(fontScaleProvider);
+    final selectedFontSize = ref.watch(fontSizeProvider);
+    final settingsNotifier = ref.read(settingsNotifierProvider.notifier);
+    final fontScale = selectedFontSize.scaleFactor;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('字体设置'),
-      ),
+      appBar: AppBar(title: const Text('字体设置')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
             '字体大小',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
             '调整应用内的字体大小',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 24),
           _FontScalePreview(fontScale: fontScale),
@@ -39,25 +37,19 @@ class FontSettingsPage extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'A',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+              Text('A', style: Theme.of(context).textTheme.bodySmall),
               Expanded(
                 child: Slider(
                   value: fontScale,
-                  min: AppConstants.fontSizeSmall,
-                  max: AppConstants.fontSizeExtraLarge,
+                  min: FontSize.small.scaleFactor,
+                  max: FontSize.extraLarge.scaleFactor,
                   divisions: 3,
                   onChanged: (value) {
-                    ref.read(fontScaleProvider.notifier).state = value;
+                    settingsNotifier.setFontSize(_fontSizeFromScale(value));
                   },
                 ),
               ),
-              Text(
-                'A',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              Text('A', style: Theme.of(context).textTheme.headlineSmall),
             ],
           ),
           const SizedBox(height: 8),
@@ -66,34 +58,34 @@ class FontSettingsPage extends ConsumerWidget {
             children: [
               _FontSizePresetChip(
                 label: '小',
-                value: AppConstants.fontSizeSmall,
+                value: FontSize.small.scaleFactor,
                 currentValue: fontScale,
                 onTap: () {
-                  ref.read(fontScaleProvider.notifier).state = AppConstants.fontSizeSmall;
+                  settingsNotifier.setFontSize(FontSize.small);
                 },
               ),
               _FontSizePresetChip(
                 label: '标准',
-                value: AppConstants.fontSizeNormal,
+                value: FontSize.medium.scaleFactor,
                 currentValue: fontScale,
                 onTap: () {
-                  ref.read(fontScaleProvider.notifier).state = AppConstants.fontSizeNormal;
+                  settingsNotifier.setFontSize(FontSize.medium);
                 },
               ),
               _FontSizePresetChip(
                 label: '大',
-                value: AppConstants.fontSizeLarge,
+                value: FontSize.large.scaleFactor,
                 currentValue: fontScale,
                 onTap: () {
-                  ref.read(fontScaleProvider.notifier).state = AppConstants.fontSizeLarge;
+                  settingsNotifier.setFontSize(FontSize.large);
                 },
               ),
               _FontSizePresetChip(
                 label: '特大',
-                value: AppConstants.fontSizeExtraLarge,
+                value: FontSize.extraLarge.scaleFactor,
                 currentValue: fontScale,
                 onTap: () {
-                  ref.read(fontScaleProvider.notifier).state = AppConstants.fontSizeExtraLarge;
+                  settingsNotifier.setFontSize(FontSize.extraLarge);
                 },
               ),
             ],
@@ -101,9 +93,9 @@ class FontSettingsPage extends ConsumerWidget {
           const Divider(height: 48),
           Text(
             '预览',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
           _FontPreviewSection(fontScale: fontScale),
@@ -111,6 +103,22 @@ class FontSettingsPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+FontSize _fontSizeFromScale(double scale) {
+  final all = FontSize.values;
+  FontSize nearest = all.first;
+  double minDiff = (scale - nearest.scaleFactor).abs();
+
+  for (final item in all.skip(1)) {
+    final diff = (scale - item.scaleFactor).abs();
+    if (diff < minDiff) {
+      minDiff = diff;
+      nearest = item;
+    }
+  }
+
+  return nearest;
 }
 
 class _FontScalePreview extends StatelessWidget {
@@ -123,7 +131,9 @@ class _FontScalePreview extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        color: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
@@ -131,17 +141,14 @@ class _FontScalePreview extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
-            '当前字体缩放',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text('当前字体缩放', style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 8),
           Text(
             '${(fontScale * 100).round()}%',
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ],
       ),
@@ -196,17 +203,17 @@ class _FontPreviewSection extends StatelessWidget {
           Text(
             '标题预览',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontSize: 20 * fontScale,
-                  fontWeight: FontWeight.bold,
-                ),
+              fontSize: 20 * fontScale,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             '这是一段正文内容的预览文字，用于展示不同字体大小下的阅读效果。你可以在这里看到调整字体大小后的实际显示效果。',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontSize: 14 * fontScale,
-                  height: 1.6,
-                ),
+              fontSize: 14 * fontScale,
+              height: 1.6,
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -220,9 +227,9 @@ class _FontPreviewSection extends StatelessWidget {
               Text(
                 '提示文字',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontSize: 12 * fontScale,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  fontSize: 12 * fontScale,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
             ],
           ),

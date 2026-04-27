@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,10 +9,13 @@ part 'settings_provider.g.dart';
 enum ImageQuality {
   /// 原图
   original,
+
   /// 高清
   high,
+
   /// 标清
   medium,
+
   /// 省流
   low,
 }
@@ -19,10 +24,13 @@ enum ImageQuality {
 enum FontSize {
   /// 小
   small,
+
   /// 中
   medium,
+
   /// 大
   large,
+
   /// 超大
   extraLarge,
 }
@@ -31,10 +39,13 @@ enum FontSize {
 enum AppLanguage {
   /// 跟随系统
   system,
+
   /// 简体中文
   simplifiedChinese,
+
   /// 繁体中文
   traditionalChinese,
+
   /// 英语
   english,
 }
@@ -43,34 +54,49 @@ enum AppLanguage {
 class AppSettings {
   /// 图片质量
   final ImageQuality imageQuality;
+
   /// 字体大小
   final FontSize fontSize;
+
   /// 应用语言
   final AppLanguage language;
+
   /// 是否开启自动播放视频
   final bool autoPlayVideo;
+
   /// 是否仅在WiFi下自动播放
   final bool autoPlayVideoOnlyOnWifi;
+
   /// 是否开启省流量模式
   final bool dataSaverMode;
+
   /// 是否开启推送通知
   final bool pushNotification;
+
   /// 是否开启声音
   final bool soundEnabled;
+
   /// 是否开启振动
   final bool vibrationEnabled;
+
   /// 是否显示动态大图
   final bool showLargeImage;
+
   /// 动态列表显示密度
   final double listDensity;
+
   /// 是否开启夜间模式跟随系统
   final bool followSystemDarkMode;
+
   /// 是否开启手势返回
   final bool enableGestureBack;
+
   /// 是否开启双击点赞
   final bool enableDoubleTapLike;
+
   /// 是否缓存图片
   final bool cacheImages;
+
   /// 缓存大小限制（MB）
   final int cacheSizeLimit;
 
@@ -95,10 +121,25 @@ class AppSettings {
 
   /// 从 JSON 创建
   factory AppSettings.fromJson(Map<String, dynamic> json) {
+    T parseEnum<T extends Enum>(List<T> values, dynamic rawIndex, T fallback) {
+      if (rawIndex is int && rawIndex >= 0 && rawIndex < values.length) {
+        return values[rawIndex];
+      }
+      return fallback;
+    }
+
     return AppSettings(
-      imageQuality: ImageQuality.values[json['imageQuality'] ?? 1],
-      fontSize: FontSize.values[json['fontSize'] ?? 1],
-      language: AppLanguage.values[json['language'] ?? 0],
+      imageQuality: parseEnum(
+        ImageQuality.values,
+        json['imageQuality'],
+        ImageQuality.high,
+      ),
+      fontSize: parseEnum(FontSize.values, json['fontSize'], FontSize.medium),
+      language: parseEnum(
+        AppLanguage.values,
+        json['language'],
+        AppLanguage.system,
+      ),
       autoPlayVideo: json['autoPlayVideo'] ?? false,
       autoPlayVideoOnlyOnWifi: json['autoPlayVideoOnlyOnWifi'] ?? true,
       dataSaverMode: json['dataSaverMode'] ?? false,
@@ -161,7 +202,8 @@ class AppSettings {
       fontSize: fontSize ?? this.fontSize,
       language: language ?? this.language,
       autoPlayVideo: autoPlayVideo ?? this.autoPlayVideo,
-      autoPlayVideoOnlyOnWifi: autoPlayVideoOnlyOnWifi ?? this.autoPlayVideoOnlyOnWifi,
+      autoPlayVideoOnlyOnWifi:
+          autoPlayVideoOnlyOnWifi ?? this.autoPlayVideoOnlyOnWifi,
       dataSaverMode: dataSaverMode ?? this.dataSaverMode,
       pushNotification: pushNotification ?? this.pushNotification,
       soundEnabled: soundEnabled ?? this.soundEnabled,
@@ -197,9 +239,13 @@ class SettingsNotifier extends _$SettingsNotifier {
       final prefs = await SharedPreferences.getInstance();
       final settingsJson = prefs.getString(_settingsKey);
       if (settingsJson != null) {
-        // 这里简化处理，实际应该使用 jsonDecode
-        // 暂时返回默认设置
-        return const AppSettings();
+        final decoded = jsonDecode(settingsJson);
+        if (decoded is Map<String, dynamic>) {
+          return AppSettings.fromJson(decoded);
+        }
+        if (decoded is Map) {
+          return AppSettings.fromJson(Map<String, dynamic>.from(decoded));
+        }
       }
       return const AppSettings();
     } catch (e) {
@@ -211,8 +257,7 @@ class SettingsNotifier extends _$SettingsNotifier {
   Future<void> _saveSettings(AppSettings settings) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      // 这里简化处理，实际应该使用 jsonEncode
-      await prefs.setString(_settingsKey, settings.toJson().toString());
+      await prefs.setString(_settingsKey, jsonEncode(settings.toJson()));
     } catch (e) {
       // 保存失败
     }
@@ -284,7 +329,9 @@ class SettingsNotifier extends _$SettingsNotifier {
   /// [enabled] 是否开启
   Future<void> setAutoPlayVideoOnlyOnWifi(bool enabled) async {
     final currentSettings = _getCurrentSettings();
-    final newSettings = currentSettings.copyWith(autoPlayVideoOnlyOnWifi: enabled);
+    final newSettings = currentSettings.copyWith(
+      autoPlayVideoOnlyOnWifi: enabled,
+    );
     await updateSettings(newSettings);
   }
 
@@ -472,6 +519,22 @@ extension ImageQualityExtension on ImageQuality {
         return '.m.jpg';
       case ImageQuality.low:
         return '.l.jpg';
+    }
+  }
+
+  /// 获取 image_picker 图片压缩质量参数（0-100）
+  ///
+  /// 返回 null 表示保留原图不压缩。
+  int? get imagePickerQuality {
+    switch (this) {
+      case ImageQuality.original:
+        return null;
+      case ImageQuality.high:
+        return 95;
+      case ImageQuality.medium:
+        return 80;
+      case ImageQuality.low:
+        return 65;
     }
   }
 }

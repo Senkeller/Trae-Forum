@@ -87,7 +87,8 @@ class CachedImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final placeholderBgColor = placeholderColor ??
+    final placeholderBgColor =
+        placeholderColor ??
         (Theme.of(context).brightness == Brightness.light
             ? Colors.grey[200]
             : Colors.grey[800]);
@@ -125,10 +126,7 @@ class CachedImage extends StatelessWidget {
 
     // 添加点击手势
     if (onTap != null) {
-      imageWidget = GestureDetector(
-        onTap: onTap,
-        child: imageWidget,
-      );
+      imageWidget = GestureDetector(onTap: onTap, child: imageWidget);
     }
 
     return imageWidget;
@@ -276,9 +274,8 @@ class CachedImageWithPreview extends StatelessWidget {
             // 预览图使用原图尺寸
             memCacheWidth: null,
             memCacheHeight: null,
-            placeholder: (context, url) => const Center(
-              child: CircularProgressIndicator(),
-            ),
+            placeholder: (context, url) =>
+                const Center(child: CircularProgressIndicator()),
             errorWidget: (context, url, error) => const Center(
               child: Icon(Icons.broken_image, color: Colors.white, size: 48),
             ),
@@ -337,7 +334,11 @@ class LazyLoadImage extends StatefulWidget {
     this.fit = BoxFit.cover,
     this.scrollController,
     this.preloadOffset = 200,
+    this.onTap,
   });
+
+  /// 点击回调
+  final VoidCallback? onTap;
 
   @override
   State<LazyLoadImage> createState() => _LazyLoadImageState();
@@ -400,7 +401,7 @@ class _LazyLoadImageState extends State<LazyLoadImage> {
 
   @override
   Widget build(BuildContext context) {
-    return _shouldLoad
+    final imageWidget = _shouldLoad
         ? CachedImage(
             imageUrl: widget.imageUrl,
             width: widget.width,
@@ -410,6 +411,12 @@ class _LazyLoadImageState extends State<LazyLoadImage> {
             fit: widget.fit,
           )
         : _buildPlaceholder(context);
+
+    if (widget.onTap == null) {
+      return imageWidget;
+    }
+
+    return GestureDetector(onTap: widget.onTap, child: imageWidget);
   }
 
   /// 构建轻量级占位图
@@ -497,11 +504,21 @@ class OptimizedImageGrid extends StatelessWidget {
 
     if (imageCount == 1) {
       return _buildSingleImage(context);
-    } else if (imageCount == 4) {
-      return _buildFourImages(context);
-    } else {
-      return _buildNineGrid(context);
     }
+
+    if (imageCount == 2) {
+      return _buildGrid(context, crossAxisCount: 2, itemCount: 2);
+    }
+
+    if (imageCount == 3) {
+      return _buildGrid(context, crossAxisCount: 3, itemCount: 3);
+    }
+
+    if (imageCount == 4) {
+      return _buildGrid(context, crossAxisCount: 2, itemCount: 4);
+    }
+
+    return _buildNineGrid(context);
   }
 
   /// 构建单张图片
@@ -515,18 +532,22 @@ class OptimizedImageGrid extends StatelessWidget {
     );
   }
 
-  /// 构建四张图片（2x2 布局）
-  Widget _buildFourImages(BuildContext context) {
+  /// 构建网格布局
+  Widget _buildGrid(
+    BuildContext context, {
+    required int crossAxisCount,
+    required int itemCount,
+  }) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+        crossAxisCount: crossAxisCount,
         crossAxisSpacing: spacing,
         mainAxisSpacing: spacing,
         childAspectRatio: 1,
       ),
-      itemCount: 4,
+      itemCount: itemCount,
       itemBuilder: (context, index) {
         return _buildGridItem(index);
       },
@@ -535,15 +556,16 @@ class OptimizedImageGrid extends StatelessWidget {
 
   /// 构建九宫格
   Widget _buildNineGrid(BuildContext context) {
-    final crossAxisCount = images.length == 2 || images.length == 3 ? images.length : 3;
-    final displayCount = images.length > maxDisplayCount ? maxDisplayCount : images.length;
+    final displayCount = images.length > maxDisplayCount
+        ? maxDisplayCount
+        : images.length;
     final hasMore = images.length > maxDisplayCount;
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
+        crossAxisCount: 3,
         crossAxisSpacing: spacing,
         mainAxisSpacing: spacing,
         childAspectRatio: 1,
@@ -576,6 +598,7 @@ class OptimizedImageGrid extends StatelessWidget {
         fit: fit,
         width: double.infinity,
         height: double.infinity,
+        onTap: onImageTap != null ? () => onImageTap!(index) : null,
       );
     }
 

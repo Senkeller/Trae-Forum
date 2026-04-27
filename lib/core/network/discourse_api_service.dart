@@ -180,11 +180,7 @@ class DiscourseApiService {
   }) async {
     return _dio.get(
       '$_baseUrl/user_actions.json',
-      queryParameters: {
-        'username': username,
-        'filter': '5',
-        'offset': offset,
-      },
+      queryParameters: {'username': username, 'filter': '5', 'offset': offset},
     );
   }
 
@@ -200,11 +196,7 @@ class DiscourseApiService {
   }) async {
     return _dio.get(
       '$_baseUrl/user_actions.json',
-      queryParameters: {
-        'username': username,
-        'filter': '1',
-        'offset': offset,
-      },
+      queryParameters: {'username': username, 'filter': '1', 'offset': offset},
     );
   }
 
@@ -219,10 +211,7 @@ class DiscourseApiService {
   }) async {
     return _dio.get(
       '$_baseUrl/u/$username/bookmarks.json',
-      queryParameters: {
-        'q': '',
-        'acting_username': '',
-      },
+      queryParameters: {'q': '', 'acting_username': ''},
     );
   }
 
@@ -239,11 +228,7 @@ class DiscourseApiService {
   }) async {
     return _dio.get(
       '$_baseUrl/solution/by_user.json',
-      queryParameters: {
-        'username': username,
-        'offset': offset,
-        'limit': limit,
-      },
+      queryParameters: {'username': username, 'offset': offset, 'limit': limit},
     );
   }
 
@@ -266,10 +251,7 @@ class DiscourseApiService {
   }) async {
     return _dio.get(
       '$_baseUrl/drafts.json',
-      queryParameters: {
-        'offset': offset,
-        'limit': limit,
-      },
+      queryParameters: {'offset': offset, 'limit': limit},
     );
   }
 
@@ -359,9 +341,12 @@ class DiscourseApiService {
   }
 
   /// 获取私信话题列表
-  Future<Response> getPrivateMessages(String username) async {
+  Future<Response> getPrivateMessages(String username, {int page = 0}) async {
     await _ensureForumSessionReady();
-    return _dio.get('$_baseUrl/topics/private-messages/$username.json');
+    return _dio.get(
+      '$_baseUrl/topics/private-messages/$username.json',
+      queryParameters: {if (page > 0) 'page': page},
+    );
   }
 
   /// 获取私信追踪状态
@@ -1017,6 +1002,7 @@ class DiscourseApiService {
   /// [page] 页码，从0开始
   /// 调用 Discourse GET /user_activity_bookmarks.json API
   Future<Response> getUserBookmarks({int page = 0}) async {
+    await _ensureForumSessionReady();
     return _dio.get(
       '$_baseUrl/user_activity_bookmarks.json',
       queryParameters: {'page': page},

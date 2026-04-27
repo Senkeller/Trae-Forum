@@ -183,24 +183,36 @@ class AppRouter {
         path: RoutePaths.feedDetail,
         pageBuilder: (context, state) {
           final id = state.pathParameters['id']!;
+          final postNumber = int.tryParse(
+            state.uri.queryParameters['postNumber'] ?? '',
+          );
+          final postId = int.tryParse(
+            state.uri.queryParameters['postId'] ?? '',
+          );
           return CustomTransitionPage(
             key: state.pageKey,
-            child: FeedDetailPage(feedId: id),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              // 使用从右向左的滑动动画
-              const begin = Offset(1.0, 0.0);
-              const end = Offset.zero;
-              const curve = Curves.easeInOutCubic;
+            child: FeedDetailPage(
+              feedId: id,
+              initialPostNumber: postNumber,
+              initialPostId: postId,
+            ),
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  // 使用从右向左的滑动动画
+                  const begin = Offset(1.0, 0.0);
+                  const end = Offset.zero;
+                  const curve = Curves.easeInOutCubic;
 
-              var tween = Tween(begin: begin, end: end).chain(
-                CurveTween(curve: curve),
-              );
+                  var tween = Tween(
+                    begin: begin,
+                    end: end,
+                  ).chain(CurveTween(curve: curve));
 
-              return SlideTransition(
-                position: animation.drive(tween),
-                child: child,
-              );
-            },
+                  return SlideTransition(
+                    position: animation.drive(tween),
+                    child: child,
+                  );
+                },
             transitionDuration: const Duration(milliseconds: 300),
             reverseTransitionDuration: const Duration(milliseconds: 300),
           );

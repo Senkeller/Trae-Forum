@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../data/repositories/comment_repository.dart';
+import '../../providers/settings_provider.dart';
 
 enum _QuickToolbarAction { heading, bold, italic, quote, codeBlock, list }
 
@@ -420,7 +421,8 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
     if (_isLoading || _isUploadingImage) return;
 
     try {
-      final files = await _imagePicker.pickMultiImage();
+      final quality = ref.read(imageQualityProvider).imagePickerQuality;
+      final files = await _imagePicker.pickMultiImage(imageQuality: quality);
       if (files.isEmpty || !mounted) return;
 
       setState(() {

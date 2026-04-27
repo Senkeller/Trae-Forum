@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill/quill_delta.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import 'package:markdown_quill/markdown_quill.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../../core/services/image_upload_service.dart';
+import '../../providers/settings_provider.dart';
 
 /// Quill 富文本编辑器组件
 ///
@@ -23,7 +25,7 @@ import '../../../core/services/image_upload_service.dart';
 ///   onImageUpload: (file) async => 'https://example.com/image.png',
 /// )
 /// ```
-class QuillComposerEditor extends StatefulWidget {
+class QuillComposerEditor extends ConsumerStatefulWidget {
   /// 初始文本内容（Markdown 格式）
   final String? initialText;
 
@@ -82,10 +84,11 @@ class QuillComposerEditor extends StatefulWidget {
   });
 
   @override
-  State<QuillComposerEditor> createState() => _QuillComposerEditorState();
+  ConsumerState<QuillComposerEditor> createState() =>
+      _QuillComposerEditorState();
 }
 
-class _QuillComposerEditorState extends State<QuillComposerEditor> {
+class _QuillComposerEditorState extends ConsumerState<QuillComposerEditor> {
   late final QuillController _controller;
   late final md.Document _mdDocument;
   late final MarkdownToDelta _mdToDelta;
@@ -149,7 +152,8 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
         return Delta()..insert('\n');
       }
       // 确保 Delta 以换行符结尾
-      if (delta.last.data is String && !(delta.last.data as String).endsWith('\n')) {
+      if (delta.last.data is String &&
+          !(delta.last.data as String).endsWith('\n')) {
         delta.insert('\n');
       }
       return delta;
@@ -202,9 +206,10 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
     if (_isUploadingImage) return;
 
     try {
+      final quality = ref.read(imageQualityProvider).imagePickerQuality;
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: quality,
       );
 
       if (image == null) return;
@@ -222,9 +227,7 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
       } else {
         // 默认使用 ImageUploadService
         final uploadService = ImageUploadService();
-        final result = await uploadService.uploadImage(
-          filePath: image.path,
-        );
+        final result = await uploadService.uploadImage(filePath: image.path);
 
         if (result.success && mounted) {
           _insertImageMarkdown(result.imageUrl!);
@@ -236,9 +239,9 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选择图片失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('选择图片失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -292,7 +295,9 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
           ),
           TextButton(
             onPressed: () {
-              final text = textController.text.isEmpty ? urlController.text : textController.text;
+              final text = textController.text.isEmpty
+                  ? urlController.text
+                  : textController.text;
               final url = urlController.text;
               if (url.isNotEmpty) {
                 final linkMarkdown = '[$text]($url)';
@@ -330,9 +335,7 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
             ),
             decoration: BoxDecoration(
               color: colorScheme.surface,
-              border: Border.all(
-                color: colorScheme.outline.withOpacity(0.3),
-              ),
+              border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
               borderRadius: BorderRadius.circular(8),
             ),
             child: ClipRRect(
@@ -414,7 +417,8 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
                         color: colorScheme.primary,
                         fontSize: 14,
                         fontFamily: 'monospace',
-                        backgroundColor: colorScheme.primaryContainer.withOpacity(0.3),
+                        backgroundColor: colorScheme.primaryContainer
+                            .withOpacity(0.3),
                       ),
                       const HorizontalSpacing(4, 4),
                       const VerticalSpacing(0, 0),
@@ -452,7 +456,9 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8)),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(8),
+              ),
             ),
             child: Row(
               children: [
@@ -485,58 +491,68 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.bold,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.italic,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.underline,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.strikeThrough,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           _buildDivider(),
                           // 行内代码/代码块
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.inlineCode,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.codeBlock,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           _buildDivider(),
                           // 引用
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.blockQuote,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           _buildDivider(),
                           // 列表
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.ul,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.ol,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           QuillToolbarToggleStyleButton(
                             controller: _controller,
                             attribute: Attribute.checked,
-                            options: const QuillToolbarToggleStyleButtonOptions(),
+                            options:
+                                const QuillToolbarToggleStyleButtonOptions(),
                           ),
                           _buildDivider(),
                           // 链接按钮
@@ -560,11 +576,18 @@ class _QuillComposerEditorState extends State<QuillComposerEditor> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Icon(Icons.image_outlined, size: 20, color: colorScheme.primary),
+                      : Icon(
+                          Icons.image_outlined,
+                          size: 20,
+                          color: colorScheme.primary,
+                        ),
                   tooltip: '插入图片',
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
                 // 字数统计
                 if (widget.maxLength != null)

@@ -783,6 +783,18 @@ class _SummaryTopicItem extends StatelessWidget {
                   context,
                 ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
               ),
+              if (topic.excerpt != null &&
+                  topic.excerpt!.trim().isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  topic.excerpt!.trim(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -818,6 +830,16 @@ class _SummaryTopicItem extends StatelessWidget {
                     '${topic.views}',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (topic.createdAt != null &&
+                      topic.createdAt!.trim().isNotEmpty) ...[
+                    const Spacer(),
+                    Text(
+                      _formatTime(topic.createdAt!),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ],
@@ -825,6 +847,27 @@ class _SummaryTopicItem extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatTime(String isoTime) {
+    try {
+      final dateTime = DateTime.parse(isoTime).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dateTime);
+
+      if (diff.inDays > 0) {
+        return '${diff.inDays} 天前';
+      }
+      if (diff.inHours > 0) {
+        return '${diff.inHours} 小时前';
+      }
+      if (diff.inMinutes > 0) {
+        return '${diff.inMinutes} 分钟前';
+      }
+      return '刚刚';
+    } catch (_) {
+      return isoTime;
+    }
   }
 }
 
@@ -910,6 +953,16 @@ class _ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryText = _resolvePrimaryText();
+    final cookedText = _stripHtml(activity.cooked ?? '');
+    final bodyText = cookedText.isNotEmpty && cookedText != primaryText
+        ? cookedText
+        : '';
+    final showStats =
+        (activity.replyCount ?? 0) > 0 ||
+        (activity.reads ?? 0) > 0 ||
+        (activity.likeCount ?? 0) > 0;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
@@ -963,13 +1016,26 @@ class _ActivityCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (activity.cooked != null && activity.cooked!.isNotEmpty) ...[
+              if (primaryText.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  _stripHtml(activity.cooked!),
+                  primaryText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
+              if (bodyText.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  bodyText,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
               if (activity.topicSlug != null) ...[
@@ -991,11 +1057,69 @@ class _ActivityCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (showStats) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    if ((activity.replyCount ?? 0) > 0) ...[
+                      Icon(
+                        Icons.comment_outlined,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${activity.replyCount}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if ((activity.reads ?? 0) > 0) ...[
+                      Icon(
+                        Icons.visibility_outlined,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${activity.reads}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    if ((activity.likeCount ?? 0) > 0) ...[
+                      Icon(
+                        Icons.thumb_up_outlined,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${activity.likeCount}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _resolvePrimaryText() {
+    final excerpt = activity.excerpt?.trim() ?? '';
+    if (excerpt.isNotEmpty) return excerpt;
+
+    final cooked = _stripHtml(activity.cooked ?? '');
+    if (cooked.isNotEmpty) return cooked;
+
+    if (activity.topicId > 0) {
+      return '话题 #${activity.topicId}';
+    }
+    return '';
   }
 
   String _formatAvatarUrl(String template) {
@@ -1189,7 +1313,13 @@ class _FeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = feed.content.isNotEmpty ? feed.content : '话题 #${feed.id}';
+    final title = feed.title.trim().isNotEmpty
+        ? feed.title.trim()
+        : (feed.content.trim().isNotEmpty
+              ? feed.content.trim()
+              : '话题 #${feed.id}');
+    final excerpt = _stripHtml(feed.content).trim();
+    final showExcerpt = excerpt.isNotEmpty && excerpt != title;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1208,11 +1338,24 @@ class _FeedCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                content,
-                maxLines: 4,
+                title,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
               ),
+              if (showExcerpt) ...[
+                const SizedBox(height: 8),
+                Text(
+                  excerpt,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               if (feed.images.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 ClipRRect(
@@ -1237,7 +1380,7 @@ class _FeedCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    feed.createTime.isNotEmpty ? feed.createTime : '未知时间',
+                    _formatTime(feed.createTime),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
@@ -1269,6 +1412,45 @@ class _FeedCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _stripHtml(String htmlString) {
+    return htmlString
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .trim();
+  }
+
+  String _formatTime(String value) {
+    if (value.trim().isEmpty) return '未知时间';
+
+    final parsedInt = int.tryParse(value.trim());
+    if (parsedInt != null) {
+      final milliseconds = parsedInt > 1000000000000
+          ? parsedInt
+          : parsedInt * 1000;
+      final dt = DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
+      return _relativeTime(dt);
+    }
+
+    try {
+      final dt = DateTime.parse(value).toLocal();
+      return _relativeTime(dt);
+    } catch (_) {
+      return value;
+    }
+  }
+
+  String _relativeTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+    if (diff.inDays > 0) return '${diff.inDays} 天前';
+    if (diff.inHours > 0) return '${diff.inHours} 小时前';
+    if (diff.inMinutes > 0) return '${diff.inMinutes} 分钟前';
+    return '刚刚';
   }
 }
 

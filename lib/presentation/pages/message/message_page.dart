@@ -77,7 +77,8 @@ class _MessagePageState extends ConsumerState<MessagePage>
     if (_initialFilterApplied) return;
 
     // 优先使用 widget 传入的 initialFilter，其次从 URL 解析
-    final filterQuery = widget.initialFilter ??
+    final filterQuery =
+        widget.initialFilter ??
         GoRouterState.of(context).uri.queryParameters['filter'];
     final initialFilter = notificationFilterTypeFromQuery(filterQuery);
     if (initialFilter == NotificationFilterType.all) {
@@ -242,6 +243,7 @@ class _NotificationList extends ConsumerStatefulWidget {
 
 class _NotificationListState extends ConsumerState<_NotificationList> {
   final ScrollController _scrollController = ScrollController();
+  final Set<_NotificationSource> _expandedSources = <_NotificationSource>{};
 
   /// 滚动加载守卫，用于管理通知列表的触底加载逻辑
   final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard();
@@ -275,6 +277,9 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
   @override
   Widget build(BuildContext context) {
     final notificationState = ref.watch(notificationNotifierProvider);
+    final visibleNotifications = _filterNotificationsByTab(
+      notificationState.notifications,
+    );
 
     // 如果当前筛选类型不匹配，显示加载状态
     if (notificationState.filterType != widget.filterType) {
@@ -282,14 +287,13 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
     }
 
     // 加载中状态
-    if (notificationState.isLoading &&
-        notificationState.notifications.isEmpty) {
+    if (notificationState.isLoading && visibleNotifications.isEmpty) {
       return const Center(child: LoadingWidget());
     }
 
     // 错误状态
     if (notificationState.errorMessage != null &&
-        notificationState.notifications.isEmpty) {
+        visibleNotifications.isEmpty) {
       return ErrorWidgetWithRetry(
         message: notificationState.errorMessage!,
         onRetry: () {
@@ -299,7 +303,7 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
     }
 
     // 空状态
-    if (notificationState.notifications.isEmpty) {
+    if (visibleNotifications.isEmpty) {
       return EmptyWidget(
         icon: Icons.notifications_none,
         title: '暂无通知',
@@ -317,34 +321,159 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
             .refreshNotifications();
         await HapticFeedbackUtil.trigger(ref, HapticScene.refreshDone);
       },
-      child: ListView.builder(
+      child: ListView(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount:
-            notificationState.notifications.length +
-            (notificationState.isLoadingMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index >= notificationState.notifications.length) {
-            return const Center(
+        children: [
+          ..._buildGroupedNotificationWidgets(visibleNotifications),
+          if (notificationState.isLoadingMore)
+            const Center(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: CircularProgressIndicator(),
               ),
-            );
-          }
-
-          final notification = notificationState.notifications[index];
-          return _NotificationItem(
-            key: ValueKey('notification_${notification.id}'),
-            notification: notification,
-            onTap: () => _handleNotificationTap(notification),
-            onDelete: () => _handleDeleteNotification(notification.id),
-            onMarkAsRead: () => _handleMarkAsRead(notification.id),
-            onMarkAsUnread: () => _handleMarkAsUnread(notification.id),
-          );
-        },
+            ),
+        ],
       ),
     );
+  }
+
+  List<DiscourseNotification> _filterNotificationsByTab(
+    List<DiscourseNotification> notifications,
+  ) {
+    if (widget.filterType == NotificationFilterType.all) {
+      return notifications;
+    }
+    return notifications
+        .where(
+          (notification) => widget.filterType.matchesNotificationType(
+            notification.notificationType,
+          ),
+        )
+        .toList();
+  }
+
+  List<Widget> _buildGroupedNotificationWidgets(
+    List<DiscourseNotification> notifications,
+  ) {
+    final sections = _groupNotificationsBySource(notifications);
+    final widgets = <Widget>[];
+
+    for (final section in sections) {
+      final isExpanded = _expandedSources.contains(section.source);
+      widgets.add(
+        _NotificationSourceHeader(
+          source: section.source,
+          totalCount: section.notifications.length,
+          unreadCount: section.notifications.where((item) => !item.read).length,
+          isExpanded: isExpanded,
+          onTap: () => _toggleSourceExpanded(section.source),
+        ),
+      );
+      if (isExpanded) {
+        widgets.addAll(
+          section.notifications.map(
+            (notification) => _NotificationItem(
+              key: ValueKey('notification_${notification.id}'),
+              notification: notification,
+              onTap: () => _handleNotificationTap(notification),
+              onDelete: () => _handleDeleteNotification(notification.id),
+              onMarkAsRead: () => _handleMarkAsRead(notification.id),
+              onMarkAsUnread: () => _handleMarkAsUnread(notification.id),
+            ),
+          ),
+        );
+      }
+    }
+
+    return widgets;
+  }
+
+  List<_NotificationSourceSection> _groupNotificationsBySource(
+    List<DiscourseNotification> notifications,
+  ) {
+    final grouped = <_NotificationSource, List<DiscourseNotification>>{};
+
+    for (final notification in notifications) {
+      final source = _resolveNotificationSource(notification.notificationType);
+      grouped
+          .putIfAbsent(source, () => <DiscourseNotification>[])
+          .add(notification);
+    }
+
+    return grouped.entries
+        .map(
+          (entry) => _NotificationSourceSection(
+            source: entry.key,
+            notifications: entry.value,
+          ),
+        )
+        .toList();
+  }
+
+  _NotificationSource _resolveNotificationSource(int notificationType) {
+    switch (notificationType) {
+      case DiscourseNotificationType.chatInvitation:
+      case DiscourseNotificationType.chatMention:
+      case DiscourseNotificationType.chatMessage:
+      case DiscourseNotificationType.chatQuoted:
+      case DiscourseNotificationType.chatWatchedThread:
+      case DiscourseNotificationType.chatGroupMention:
+        return _NotificationSource.chat;
+      case DiscourseNotificationType.invitedToPrivateMessage:
+      case DiscourseNotificationType.inviteeAccepted:
+      case DiscourseNotificationType.invitedToTopic:
+        return _NotificationSource.privateMessage;
+      case DiscourseNotificationType.mentioned:
+      case DiscourseNotificationType.groupMentioned:
+      case DiscourseNotificationType.posted:
+      case DiscourseNotificationType.quoted:
+      case DiscourseNotificationType.replied:
+      case DiscourseNotificationType.edited:
+      case DiscourseNotificationType.movedPost:
+      case DiscourseNotificationType.linked:
+      case DiscourseNotificationType.linkedConsolidated:
+      case DiscourseNotificationType.topicReminder:
+      case DiscourseNotificationType.watchingFirstPost:
+      case DiscourseNotificationType.watchingCategoryOrTag:
+      case DiscourseNotificationType.questionAnswerUserCommented:
+        return _NotificationSource.topic;
+      case DiscourseNotificationType.liked:
+      case DiscourseNotificationType.likedConsolidated:
+      case DiscourseNotificationType.reaction:
+      case DiscourseNotificationType.grantedBadge:
+      case DiscourseNotificationType.membershipRequestAccepted:
+      case DiscourseNotificationType.membershipRequestConsolidated:
+      case DiscourseNotificationType.following:
+      case DiscourseNotificationType.followingCreatedTopic:
+      case DiscourseNotificationType.followingReplied:
+      case DiscourseNotificationType.circlesActivity:
+        return _NotificationSource.social;
+      case DiscourseNotificationType.postApproved:
+      case DiscourseNotificationType.codeReviewCommitApproved:
+      case DiscourseNotificationType.custom:
+      case DiscourseNotificationType.votesReleased:
+      case DiscourseNotificationType.eventReminder:
+      case DiscourseNotificationType.eventInvitation:
+      case DiscourseNotificationType.assigned:
+      case DiscourseNotificationType.newFeatures:
+      case DiscourseNotificationType.adminProblems:
+      case DiscourseNotificationType.upcomingChangeAvailable:
+      case DiscourseNotificationType.upcomingChangeAutomaticallyPromoted:
+        return _NotificationSource.system;
+      default:
+        return _NotificationSource.other;
+    }
+  }
+
+  void _toggleSourceExpanded(_NotificationSource source) {
+    setState(() {
+      if (_expandedSources.contains(source)) {
+        _expandedSources.remove(source);
+      } else {
+        _expandedSources.add(source);
+      }
+    });
   }
 
   void _handleNotificationTap(DiscourseNotification notification) {
@@ -383,7 +512,11 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
       case DiscourseNotificationType.inviteeAccepted:
         if (notification.topicId != null) {
           // 跳转到 Feed 详情页，使用 push 带动画
-          _navigateToFeedDetail(notification.topicId.toString());
+          _navigateToFeedDetail(
+            notification.topicId.toString(),
+            postNumber: notification.postNumber,
+            postId: notification.data?.originalPostId,
+          );
         } else {
           context.push('/messages');
         }
@@ -393,20 +526,32 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
       default:
         if (notification.topicId != null) {
           // 跳转到 Feed 详情页，使用 push 带动画
-          _navigateToFeedDetail(notification.topicId.toString());
+          _navigateToFeedDetail(
+            notification.topicId.toString(),
+            postNumber: notification.postNumber,
+            postId: notification.data?.originalPostId,
+          );
         } else {
           // 如果没有 topicId，显示提示
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无法跳转到该通知')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('无法跳转到该通知')));
         }
     }
   }
 
   /// 跳转到 Feed 详情页，使用更流畅的动画
-  void _navigateToFeedDetail(String feedId) {
+  void _navigateToFeedDetail(String feedId, {int? postNumber, int? postId}) {
     // 使用 push 方法，路由配置中已定义了 CustomTransitionPage
-    context.push('/feed/$feedId');
+    final queryParameters = <String, String>{};
+    if (postNumber != null && postNumber > 0) {
+      queryParameters['postNumber'] = postNumber.toString();
+    }
+    if (postId != null && postId > 0) {
+      queryParameters['postId'] = postId.toString();
+    }
+    final uri = Uri(path: '/feed/$feedId', queryParameters: queryParameters);
+    context.push(uri.toString());
   }
 
   void _handleDeleteNotification(int notificationId) {
@@ -426,6 +571,125 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
     ref
         .read(notificationNotifierProvider.notifier)
         .markAsUnread(notificationId);
+  }
+}
+
+class _NotificationSourceSection {
+  final _NotificationSource source;
+  final List<DiscourseNotification> notifications;
+
+  const _NotificationSourceSection({
+    required this.source,
+    required this.notifications,
+  });
+}
+
+enum _NotificationSource { topic, privateMessage, chat, social, system, other }
+
+extension _NotificationSourceExtension on _NotificationSource {
+  String get label {
+    switch (this) {
+      case _NotificationSource.topic:
+        return '话题互动';
+      case _NotificationSource.privateMessage:
+        return '私信与邀请';
+      case _NotificationSource.chat:
+        return '聊天消息';
+      case _NotificationSource.social:
+        return '社区动态';
+      case _NotificationSource.system:
+        return '系统通知';
+      case _NotificationSource.other:
+        return '其他来源';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case _NotificationSource.topic:
+        return Icons.forum_outlined;
+      case _NotificationSource.privateMessage:
+        return Icons.mail_outline;
+      case _NotificationSource.chat:
+        return Icons.chat_bubble_outline;
+      case _NotificationSource.social:
+        return Icons.groups_outlined;
+      case _NotificationSource.system:
+        return Icons.settings_suggest_outlined;
+      case _NotificationSource.other:
+        return Icons.widgets_outlined;
+    }
+  }
+}
+
+class _NotificationSourceHeader extends StatelessWidget {
+  final _NotificationSource source;
+  final int totalCount;
+  final int unreadCount;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  const _NotificationSourceHeader({
+    required this.source,
+    required this.totalCount,
+    required this.unreadCount,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.35),
+        child: Row(
+          children: [
+            Icon(source.icon, size: 16, color: colorScheme.primary),
+            const SizedBox(width: 6),
+            Text(
+              source.label,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '$totalCount',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (unreadCount > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorScheme.error,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$unreadCount 未读',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onError,
+                  ),
+                ),
+              ),
+            ],
+            const Spacer(),
+            Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -736,12 +1000,42 @@ class _NotificationItem extends StatelessWidget {
   }
 
   String _getTitle() {
-    final username = notification.actingUserName ??
-        notification.displayUsername ??
-        notification.data?.displayUsername ??
-        '用户';
+    final username = _getActorName();
     final actionText = _getActionText(notification.notificationType);
     return '$username $actionText';
+  }
+
+  String _getActorName() {
+    final actor =
+        notification.actingUserName ??
+        notification.displayUsername ??
+        notification.data?.displayUsername;
+    if (actor != null && actor.trim().isNotEmpty) {
+      return actor;
+    }
+    if (_isSystemNotificationType(notification.notificationType)) {
+      return '系统';
+    }
+    return '用户';
+  }
+
+  bool _isSystemNotificationType(int notificationType) {
+    switch (notificationType) {
+      case DiscourseNotificationType.postApproved:
+      case DiscourseNotificationType.codeReviewCommitApproved:
+      case DiscourseNotificationType.custom:
+      case DiscourseNotificationType.votesReleased:
+      case DiscourseNotificationType.eventReminder:
+      case DiscourseNotificationType.eventInvitation:
+      case DiscourseNotificationType.assigned:
+      case DiscourseNotificationType.newFeatures:
+      case DiscourseNotificationType.adminProblems:
+      case DiscourseNotificationType.upcomingChangeAvailable:
+      case DiscourseNotificationType.upcomingChangeAutomaticallyPromoted:
+        return true;
+      default:
+        return false;
+    }
   }
 
   String _getContent() {
@@ -753,18 +1047,6 @@ class _NotificationItem extends StatelessWidget {
     return '点击查看详情';
   }
 
-  /// 去除HTML标签
-  String _stripHtmlTags(String htmlText) {
-    return htmlText
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .trim();
-  }
-
   String _getActionText(int notificationType) {
     switch (notificationType) {
       case DiscourseNotificationType.mentioned:
@@ -774,6 +1056,8 @@ class _NotificationItem extends StatelessWidget {
         return '回复了你的帖子';
       case DiscourseNotificationType.posted:
         return '在话题中回复了';
+      case DiscourseNotificationType.questionAnswerUserCommented:
+        return '评论了你关注的问答内容';
       case DiscourseNotificationType.quoted:
         return '引用了你的内容';
       case DiscourseNotificationType.liked:
@@ -801,6 +1085,8 @@ class _NotificationItem extends StatelessWidget {
         return '链接了你的帖子';
       case DiscourseNotificationType.movedPost:
         return '移动了你的帖子';
+      case DiscourseNotificationType.watchingCategoryOrTag:
+        return '你关注的分类或标签有新内容';
       case DiscourseNotificationType.chatMention:
         return '在聊天中提到了你';
       case DiscourseNotificationType.chatMessage:
@@ -819,10 +1105,26 @@ class _NotificationItem extends StatelessWidget {
         return '首帖更新';
       case DiscourseNotificationType.postApproved:
         return '你的帖子已通过审核';
+      case DiscourseNotificationType.codeReviewCommitApproved:
+        return '你的代码审查提交已通过';
       case DiscourseNotificationType.membershipRequestAccepted:
         return '你的成员请求已被接受';
+      case DiscourseNotificationType.membershipRequestConsolidated:
+        return '你的成员请求状态已更新';
+      case DiscourseNotificationType.votesReleased:
+        return '你的投票额度已释放';
       case DiscourseNotificationType.assigned:
         return '分配给你';
+      case DiscourseNotificationType.custom:
+        return '向你发送了系统通知';
+      case DiscourseNotificationType.newFeatures:
+        return '发布了新功能通知';
+      case DiscourseNotificationType.adminProblems:
+        return '发布了管理员问题提醒';
+      case DiscourseNotificationType.upcomingChangeAvailable:
+        return '有即将可用的变更';
+      case DiscourseNotificationType.upcomingChangeAutomaticallyPromoted:
+        return '变更已自动升级';
       default:
         return '通知了你';
     }

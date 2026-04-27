@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_quill/quill_delta.dart';
 import 'package:image_picker/image_picker.dart';
@@ -6,6 +7,7 @@ import 'package:markdown_quill/markdown_quill.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../core/services/image_upload_service.dart';
+import '../providers/settings_provider.dart';
 
 /// 评论输入栏组件
 ///
@@ -16,7 +18,7 @@ import '../../core/services/image_upload_service.dart';
 /// 参考设计：
 /// - 收起状态：左侧输入框提示"说说你的看法"，右侧评论、点赞、收藏、分享按钮
 /// - 展开状态：显示键盘，顶部有表情、图片、@、话题、+按钮，右侧绿色"发布"按钮
-class CommentInputBar extends StatefulWidget {
+class CommentInputBar extends ConsumerStatefulWidget {
   /// 是否已登录
   final bool isLoggedIn;
 
@@ -86,10 +88,10 @@ class CommentInputBar extends StatefulWidget {
   });
 
   @override
-  State<CommentInputBar> createState() => _CommentInputBarState();
+  ConsumerState<CommentInputBar> createState() => _CommentInputBarState();
 }
 
-class _CommentInputBarState extends State<CommentInputBar> {
+class _CommentInputBarState extends ConsumerState<CommentInputBar> {
   bool _isExpanded = false;
   String _currentContent = '';
 
@@ -143,10 +145,31 @@ class _CommentInputBarState extends State<CommentInputBar> {
     super.dispose();
   }
 
+  void _expandAndFocusEditor() {
+    if (!_isExpanded) {
+      setState(() {
+        _isExpanded = true;
+      });
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
   void _handleFocusChange() {
     if (_focusNode.hasFocus && !_isExpanded) {
       setState(() {
         _isExpanded = true;
+      });
+      return;
+    }
+
+    // 在输入框失焦且内容为空时自动收起，避免返回手势只关闭键盘但保留展开态。
+    if (!_focusNode.hasFocus && _isExpanded && _currentContent.trim().isEmpty) {
+      setState(() {
+        _isExpanded = false;
       });
     }
   }
@@ -161,7 +184,8 @@ class _CommentInputBarState extends State<CommentInputBar> {
       if (delta.isEmpty) {
         return Delta()..insert('\n');
       }
-      if (delta.last.data is String && !(delta.last.data as String).endsWith('\n')) {
+      if (delta.last.data is String &&
+          !(delta.last.data as String).endsWith('\n')) {
         delta.insert('\n');
       }
       return delta;
@@ -193,9 +217,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
     if (_isUploadingImage) return;
 
     try {
+      final quality = ref.read(imageQualityProvider).imagePickerQuality;
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
+        imageQuality: quality,
       );
 
       if (image == null) return;
@@ -205,9 +230,7 @@ class _CommentInputBarState extends State<CommentInputBar> {
       });
 
       final uploadService = ImageUploadService();
-      final result = await uploadService.uploadImage(
-        filePath: image.path,
-      );
+      final result = await uploadService.uploadImage(filePath: image.path);
 
       if (result.success && mounted) {
         final imageMarkdown = '\n![图片](${result.imageUrl})\n';
@@ -219,9 +242,9 @@ class _CommentInputBarState extends State<CommentInputBar> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('选择图片失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('选择图片失败: $e')));
       }
     } finally {
       if (mounted) {
@@ -335,10 +358,7 @@ class _CommentInputBarState extends State<CommentInputBar> {
               if (widget.onCommentTap != null) {
                 widget.onCommentTap!();
               }
-              setState(() {
-                _isExpanded = true;
-              });
-              _focusNode.requestFocus();
+              _expandAndFocusEditor();
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -378,10 +398,7 @@ class _CommentInputBarState extends State<CommentInputBar> {
             if (widget.onCommentTap != null) {
               widget.onCommentTap!();
             }
-            setState(() {
-              _isExpanded = true;
-            });
-            _focusNode.requestFocus();
+            _expandAndFocusEditor();
           },
           colorScheme: colorScheme,
         ),
@@ -424,10 +441,7 @@ class _CommentInputBarState extends State<CommentInputBar> {
       children: [
         // 编辑器
         Container(
-          constraints: const BoxConstraints(
-            minHeight: 80,
-            maxHeight: 200,
-          ),
+          constraints: const BoxConstraints(minHeight: 80, maxHeight: 200),
           decoration: BoxDecoration(
             color: colorScheme.surface,
             border: Border.all(color: colorScheme.outline.withOpacity(0.3)),
@@ -474,7 +488,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
                       color: colorScheme.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     ),
                     // 图片按钮
                     IconButton(
@@ -489,7 +506,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
                       color: colorScheme.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     ),
                     // @按钮
                     IconButton(
@@ -500,7 +520,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
                       color: colorScheme.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     ),
                     // 话题按钮
                     IconButton(
@@ -511,7 +534,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
                       color: colorScheme.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     ),
                     // 更多按钮
                     IconButton(
@@ -522,7 +548,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
                       color: colorScheme.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     ),
                   ],
                 ),
@@ -533,7 +562,10 @@ class _CommentInputBarState extends State<CommentInputBar> {
             GestureDetector(
               onTap: widget.isSending ? null : _handleSend,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: _currentContent.trim().isNotEmpty && !widget.isSending
                       ? colorScheme.primary
@@ -552,7 +584,9 @@ class _CommentInputBarState extends State<CommentInputBar> {
                     : Text(
                         '发布',
                         style: TextStyle(
-                          color: _currentContent.trim().isNotEmpty && !widget.isSending
+                          color:
+                              _currentContent.trim().isNotEmpty &&
+                                  !widget.isSending
                               ? Colors.white
                               : colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,

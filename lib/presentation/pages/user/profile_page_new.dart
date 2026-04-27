@@ -176,15 +176,25 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   ) {
     final textTheme = Theme.of(context).textTheme;
     final userState = ref.watch(userSpaceNotifierProvider(user.username));
-    final profile = userState.profile;
+    if (!userState.isLoadingSummary && userState.summary == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(userSpaceNotifierProvider(user.username).notifier)
+            .loadUserSummary();
+      });
+    }
+    final summary = userState.summary;
     final summaryAsync = ref.watch(userStatsSummaryProvider);
-    final summary = summaryAsync.when(
+    final dashboardSummary = summaryAsync.when(
       data: (value) => value,
       loading: () => null,
       error: (error, stackTrace) => null,
     );
-    final registerDays = summary?.registerDays ?? 1;
-    final displayName = _resolveDisplayName(user.username, summary?.screenName);
+    final registerDays = dashboardSummary?.registerDays ?? 1;
+    final displayName = _resolveDisplayName(
+      user.username,
+      dashboardSummary?.screenName,
+    );
 
     return Container(
       decoration: BoxDecoration(
@@ -269,18 +279,36 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               Expanded(
                 child: _buildStatItem(
                   context: context,
-                  label: '动态',
-                  count: profile?.feedCount ?? 0,
-                  onTap: () => _navigateToUserFeeds(context),
+                  label: '话题',
+                  count: summary?.topicCount ?? 0,
+                  onTap: () => _navigateToUserTopics(context),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: _buildStatItem(
                   context: context,
-                  label: '粉丝',
-                  count: profile?.fansCount ?? 0,
-                  onTap: () => _navigateToFollowers(context),
+                  label: '活动',
+                  count: summary?.postCount ?? 0,
+                  onTap: () => _navigateToUserActivities(context),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _buildStatItem(
+                  context: context,
+                  label: '赞',
+                  count: summary?.likesReceived ?? 0,
+                  onTap: () => _navigateToUserLikes(context),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _buildStatItem(
+                  context: context,
+                  label: '访问天数',
+                  count: summary?.daysVisited ?? 0,
+                  onTap: () => _navigateToUserSummary(context),
                 ),
               ),
             ],
@@ -784,23 +812,44 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     );
   }
 
-  /// 导航到用户动态
-  void _navigateToUserFeeds(BuildContext context) {
+  /// 导航到用户话题
+  void _navigateToUserTopics(BuildContext context) {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
-    // 跳转到用户主页，显示用户的帖子
     context.push(
-      RoutePaths.userProfile.replaceFirst(':uid', currentUser.username),
+      RoutePaths.userTopics.replaceFirst(':username', currentUser.username),
     );
   }
 
-  /// 导航到粉丝列表
-  void _navigateToFollowers(BuildContext context) {
+  /// 导航到用户活动页
+  void _navigateToUserActivities(BuildContext context) {
     final currentUser = ref.read(currentUserProvider);
     if (currentUser == null) return;
 
-    context.push(RoutePaths.fanList.replaceFirst(':uid', currentUser.username));
+    context.push(
+      '${RoutePaths.userProfile.replaceFirst(':uid', currentUser.username)}?tab=activity',
+    );
+  }
+
+  /// 导航到用户收到的赞
+  void _navigateToUserLikes(BuildContext context) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    context.push(
+      RoutePaths.userLikes.replaceFirst(':username', currentUser.username),
+    );
+  }
+
+  /// 导航到用户总结页（默认标签）
+  void _navigateToUserSummary(BuildContext context) {
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    context.push(
+      RoutePaths.userProfile.replaceFirst(':uid', currentUser.username),
+    );
   }
 }
 

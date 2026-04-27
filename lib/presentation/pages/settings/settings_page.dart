@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../config/constants.dart';
+import '../../../config/constants.dart' show RoutePaths;
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -138,9 +138,9 @@ class SettingsPage extends ConsumerWidget {
           _SettingItem(
             icon: Icons.image_outlined,
             title: '图片质量',
-            subtitle: '自动',
+            subtitle: appSettings.imageQuality.displayName,
             onTap: () {
-              _showImageQualityDialog(context);
+              _showImageQualityDialog(context, ref, appSettings.imageQuality);
             },
           ),
           _SwitchSettingItem(
@@ -229,42 +229,33 @@ class SettingsPage extends ConsumerWidget {
   /// 显示图片质量选择对话框
   ///
   /// [context] 构建上下文
-  void _showImageQualityDialog(BuildContext context) {
+  void _showImageQualityDialog(
+    BuildContext context,
+    WidgetRef ref,
+    ImageQuality currentQuality,
+  ) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('图片质量'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile(
-              title: const Text('自动'),
-              subtitle: const Text('根据网络自动选择'),
-              value: 'auto',
-              groupValue: 'auto',
-              onChanged: (value) {
-                Navigator.of(context).pop();
+          children: ImageQuality.values.map((quality) {
+            return RadioListTile<ImageQuality>(
+              title: Text(quality.displayName),
+              value: quality,
+              groupValue: currentQuality,
+              onChanged: (value) async {
+                if (value == null) return;
+                await ref
+                    .read(settingsNotifierProvider.notifier)
+                    .setImageQuality(value);
+                if (context.mounted) {
+                  Navigator.of(context).pop();
+                }
               },
-            ),
-            RadioListTile(
-              title: const Text('高清'),
-              subtitle: const Text('始终加载高清图片'),
-              value: 'high',
-              groupValue: 'auto',
-              onChanged: (value) {
-                Navigator.of(context).pop();
-              },
-            ),
-            RadioListTile(
-              title: const Text('标准'),
-              subtitle: const Text('节省流量'),
-              value: 'normal',
-              groupValue: 'auto',
-              onChanged: (value) {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
+            );
+          }).toList(),
         ),
         actions: [
           TextButton(
