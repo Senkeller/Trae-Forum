@@ -362,36 +362,29 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
     '🔍 [isAuthenticatedAsync] Discourse session cookie: $hasDiscourseCookie',
   );
 
-  // 4. 必须使用 current session 判定，避免"本地已登录/主站已登录"误判论坛登录
+  // 4. 使用 checkLoginStatus 验证登录状态
   try {
     final discourseApi = ref.read(discourseApiServiceProvider);
-    debugPrint('🔍 [isAuthenticatedAsync] 开始调用 getCurrentSession...');
-    final response = await discourseApi.getCurrentSession();
-    final data = response.data;
-    debugPrint('🔍 [isAuthenticatedAsync] getCurrentSession 响应: status=${response.statusCode}, data=$data');
+    debugPrint('🔍 [isAuthenticatedAsync] 开始调用 checkLoginStatus...');
+    final response = await discourseApi.checkLoginStatus();
+    debugPrint('🔍 [isAuthenticatedAsync] checkLoginStatus 响应: status=${response.statusCode}');
 
-    final currentUser = data is Map<String, dynamic>
-        ? data['current_user']
-        : null;
-    final username = currentUser is Map<String, dynamic>
-        ? (currentUser['username']?.toString().trim() ?? '')
-        : '';
-    if (response.statusCode == 200 && username.isNotEmpty) {
-      // 如果本地用户缺失或为占位，顺手回填，避免 UI 状态漂移
+    if (response.statusCode == 200) {
+      // 如果本地用户缺失或为占位，尝试从 WebView 恢复用户信息
       if (isPlaceholder) {
         await ref.read(authNotifierProvider.notifier).refreshFromSession();
       }
-      debugPrint('✅ [isAuthenticatedAsync] current session 命中，判定为已登录: $username');
+      debugPrint('✅ [isAuthenticatedAsync] 登录验证成功');
       return true;
     } else {
-      debugPrint('⚠️ [isAuthenticatedAsync] current session 响应异常: status=${response.statusCode}, username=$username, current_user=$currentUser');
+      debugPrint('⚠️ [isAuthenticatedAsync] 登录验证失败: status=${response.statusCode}');
     }
   } catch (e, stackTrace) {
-    debugPrint('❌ [isAuthenticatedAsync] getCurrentSession 调用失败: $e');
+    debugPrint('❌ [isAuthenticatedAsync] checkLoginStatus 调用失败: $e');
     debugPrint('❌ [isAuthenticatedAsync] 堆栈: $stackTrace');
   }
 
-  debugPrint('ℹ️ [isAuthenticatedAsync] current session 未命中，判定为未登录');
+  debugPrint('ℹ️ [isAuthenticatedAsync] 判定为未登录');
   return false;
 }
 

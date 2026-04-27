@@ -96,14 +96,36 @@ class DiscourseApiService {
   }
 
   Future<Response> getUserInfo(String username) async {
+    await _ensureForumSessionReady();
     return _dio.get('$_baseUrl/u/$username.json');
   }
 
-  /// 获取当前会话用户信息
+  /// 验证登录状态
   ///
-  /// 已登录时返回 current_user，未登录时通常为 null
+  /// 使用 /notifications 接口验证登录状态
+  /// 已登录时返回 200，未登录时返回 403
+  Future<Response> checkLoginStatus() async {
+    await _ensureForumSessionReady();
+    return _dio.get('$_baseUrl/notifications', queryParameters: {'limit': 1});
+  }
+
+  /// 获取当前会话用户信息（兼容旧版本）
+  ///
+  /// 尝试使用多种方式获取当前用户信息
+  /// 首先尝试 /session/current.json，如果不存在则返回 null
   Future<Response> getCurrentSession() async {
-    return _dio.get('$_baseUrl/session/current.json');
+    await _ensureForumSessionReady();
+    try {
+      // 尝试获取 session/current.json
+      return await _dio.get('$_baseUrl/session/current.json');
+    } catch (e) {
+      // 如果 404，返回空响应
+      return Response(
+        requestOptions: RequestOptions(path: '/session/current.json'),
+        statusCode: 404,
+        data: {},
+      );
+    }
   }
 
   Future<Response> getUserTopics(String username, {int page = 0}) async {
@@ -215,6 +237,9 @@ class DiscourseApiService {
     String? filterByTypes,
     int? offset,
   }) async {
+    // 确保论坛会话已就绪，同步 Cookie 和 CSRF Token
+    await _ensureForumSessionReady();
+
     final queryParams = <String, dynamic>{
       'limit': limit,
       'recent': recent,
@@ -233,21 +258,25 @@ class DiscourseApiService {
 
   /// 获取私信菜单数据
   Future<Response> getUserMenuPrivateMessages(String username) async {
+    await _ensureForumSessionReady();
     return _dio.get('$_baseUrl/u/$username/user-menu-private-messages');
   }
 
   /// 获取书签菜单数据
   Future<Response> getUserMenuBookmarks(String username) async {
+    await _ensureForumSessionReady();
     return _dio.get('$_baseUrl/u/$username/user-menu-bookmarks');
   }
 
   /// 获取私信话题列表
   Future<Response> getPrivateMessages(String username) async {
+    await _ensureForumSessionReady();
     return _dio.get('$_baseUrl/topics/private-messages/$username.json');
   }
 
   /// 获取私信追踪状态
   Future<Response> getPrivateMessageTrackingState(String username) async {
+    await _ensureForumSessionReady();
     return _dio.get(
       '$_baseUrl/u/$username/private-message-topic-tracking-state',
     );
@@ -255,6 +284,7 @@ class DiscourseApiService {
 
   /// 标记通知已读
   Future<Response> markNotificationsRead(List<int> notificationIds) async {
+    await _ensureForumSessionReady();
     return _dio.put(
       '$_baseUrl/notifications/mark-read',
       data: {'id': notificationIds},
@@ -263,11 +293,13 @@ class DiscourseApiService {
 
   /// 标记所有通知已读
   Future<Response> markAllNotificationsRead() async {
+    await _ensureForumSessionReady();
     return _dio.put('$_baseUrl/notifications/mark-read');
   }
 
   /// 删除通知
   Future<Response> deleteNotification(int notificationId) async {
+    await _ensureForumSessionReady();
     return _dio.delete('$_baseUrl/notifications/$notificationId');
   }
 
@@ -275,6 +307,7 @@ class DiscourseApiService {
 
   /// 获取当前用户聊天频道
   Future<Response> getChatChannels() async {
+    await _ensureForumSessionReady();
     return _dio.get('$_baseUrl/chat/api/me/channels');
   }
 

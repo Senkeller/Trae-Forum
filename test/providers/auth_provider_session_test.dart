@@ -24,8 +24,15 @@ void main() {
     when(() => mockDiscourseApi.getCurrentSession()).thenAnswer(
       (_) async => Response(
         requestOptions: RequestOptions(path: '/session/current.json'),
-        statusCode: 200,
-        data: {'current_user': null},
+        statusCode: 404,
+        data: {},
+      ),
+    );
+    when(() => mockDiscourseApi.checkLoginStatus()).thenAnswer(
+      (_) async => Response(
+        requestOptions: RequestOptions(path: '/notifications'),
+        statusCode: 401,
+        data: const {},
       ),
     );
     when(
@@ -59,15 +66,13 @@ void main() {
 
   group('AuthProvider 登录态恢复测试', () {
     test(
-      'isAuthenticatedAsync 在 Cookie 名称缺失时可通过 current session 判定已登录',
+      'isAuthenticatedAsync 在 Cookie 名称缺失时可通过 checkLoginStatus 判定已登录',
       () async {
-        when(() => mockDiscourseApi.getCurrentSession()).thenAnswer(
+        when(() => mockDiscourseApi.checkLoginStatus()).thenAnswer(
           (_) async => Response(
-            requestOptions: RequestOptions(path: '/session/current.json'),
+            requestOptions: RequestOptions(path: '/notifications'),
             statusCode: 200,
-            data: {
-              'current_user': {'username': 'session_user', 'id': 9527},
-            },
+            data: {'notifications': []},
           ),
         );
 
@@ -77,16 +82,8 @@ void main() {
 
         expect(isAuthenticated, isTrue);
         verify(
-          () => mockDiscourseApi.getCurrentSession(),
+          () => mockDiscourseApi.checkLoginStatus(),
         ).called(greaterThan(0));
-        verifyNever(
-          () => mockDiscourseApi.getNotifications(
-            limit: any(named: 'limit'),
-            recent: any(named: 'recent'),
-            bumpLastSeen: any(named: 'bumpLastSeen'),
-            filterByTypes: any(named: 'filterByTypes'),
-          ),
-        );
       },
     );
 
@@ -197,8 +194,8 @@ void main() {
         expect(uid, equals('12345'));
       }
 
-      // 验证没有调用会话恢复相关 API
-      verifyNever(() => mockDiscourseApi.getCurrentSession());
+      // 验证没有调用 checkLoginStatus（因为本地有有效用户）
+      verifyNever(() => mockDiscourseApi.checkLoginStatus());
     });
 
     test('占位用户数据应触发会话恢复尝试', () async {

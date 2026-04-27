@@ -488,12 +488,19 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       await Future.delayed(const Duration(milliseconds: 150));
 
       if (mounted) {
-        debugPrint('🚀 [WebViewLogin] 导航到首页');
-        if (widget.redirectPath != null) {
-          context.go(widget.redirectPath!);
-        } else {
-          context.go(RoutePaths.main);
-        }
+        debugPrint('🚀 [WebViewLogin] 登录成功，关闭页面并跳转');
+        // 先关闭当前 WebView 页面，再进行导航
+        // 使用 Navigator.of(context).pop() 返回，然后导航到目标页面
+        Navigator.of(context).pop();
+
+        // 在下一帧进行导航，确保页面已关闭
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (widget.redirectPath != null) {
+            context.go(widget.redirectPath!);
+          } else {
+            context.go(RoutePaths.main);
+          }
+        });
       }
     } finally {
       _isHandlingLoginSuccess = false;
@@ -502,33 +509,26 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
   Future<UserInfo?> _fetchCurrentSessionUser() async {
     try {
+      // 首先验证登录状态
       final response = await ref
           .read(discourseApiServiceProvider)
-          .getCurrentSession();
-      final data = response.data;
-      if (response.statusCode != 200 || data is! Map<String, dynamic>) {
+          .checkLoginStatus();
+      if (response.statusCode != 200) {
+        debugPrint('⚠️ [WebViewLogin] 登录状态验证失败: ${response.statusCode}');
         return null;
       }
 
-      final currentUser = data['current_user'];
-      if (currentUser is! Map<String, dynamic>) {
-        return null;
+      // 从页面中提取用户信息
+      final userInfo = await _extractUserInfo();
+      if (userInfo != null && userInfo['username'] != null) {
+        final username = userInfo['username'].toString().trim();
+        final uid = userInfo['id']?.toString() ?? username;
+        return UserInfo(uid: uid, username: username, avatar: '');
       }
 
-      final username = (currentUser['username']?.toString() ?? '').trim();
-      if (username.isEmpty) {
-        return null;
-      }
-      final uid = (currentUser['id']?.toString() ?? username).trim();
-      final avatarTemplate = (currentUser['avatar_template']?.toString() ?? '')
-          .trim();
-      final avatar = avatarTemplate.isNotEmpty
-          ? _formatAvatarUrl(username, avatarTemplate)
-          : '';
-
-      return UserInfo(uid: uid, username: username, avatar: avatar);
+      return null;
     } catch (e) {
-      debugPrint('⚠️ [WebViewLogin] 读取 session/current.json 失败: $e');
+      debugPrint('⚠️ [WebViewLogin] 获取当前会话用户失败: $e');
       return null;
     }
   }
