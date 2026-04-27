@@ -361,14 +361,66 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
   }
 
   void _navigateToNotificationDetail(DiscourseNotification notification) {
-    if (notification.topicId != null) {
-      final path = '/feed/${notification.topicId}';
-      if (notification.postNumber != null && notification.postNumber! > 1) {
-        context.push('$path?postNumber=${notification.postNumber}');
-      } else {
-        context.push(path);
-      }
+    // 根据通知类型跳转到不同页面
+    switch (notification.notificationType) {
+      // 聊天相关通知
+      case DiscourseNotificationType.chatMessage:
+      case DiscourseNotificationType.chatMention:
+      case DiscourseNotificationType.chatQuoted:
+      case DiscourseNotificationType.chatInvitation:
+      case DiscourseNotificationType.chatWatchedThread:
+      case DiscourseNotificationType.chatGroupMention:
+        if (notification.data?.chatChannelId != null) {
+          context.push('/chat/${notification.data!.chatChannelId}');
+        } else {
+          context.push('/chat');
+        }
+        return;
+
+      // 私信相关通知
+      case DiscourseNotificationType.invitedToPrivateMessage:
+      case DiscourseNotificationType.inviteeAccepted:
+        if (notification.topicId != null) {
+          _openDiscourseTopic(notification.topicId!, notification.slug,
+              postNumber: notification.postNumber,
+              title: notification.topicTitle ?? notification.fancyTitle ?? '话题详情');
+        } else {
+          context.push('/messages');
+        }
+        return;
+
+      // 普通话题通知
+      default:
+        if (notification.topicId != null) {
+          _openDiscourseTopic(notification.topicId!, notification.slug,
+              postNumber: notification.postNumber,
+              title: notification.topicTitle ?? notification.fancyTitle ?? '话题详情');
+        } else {
+          // 如果没有 topicId，显示提示
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法跳转到该通知')),
+          );
+        }
     }
+  }
+
+  /// 使用 WebView 打开 Discourse 话题
+  void _openDiscourseTopic(int topicId, String? slug, {int? postNumber, String? title}) {
+    // 构建 Discourse 话题 URL
+    // 格式: https://forum.trae.cn/t/{slug}/{topicId}/{postNumber}
+    final baseUrl = 'https://forum.trae.cn';
+    final topicSlug = slug ?? 'topic';
+    String url = '$baseUrl/t/$topicSlug/$topicId';
+
+    // 如果有特定楼层号，添加到 URL
+    if (postNumber != null && postNumber > 1) {
+      url = '$url/$postNumber';
+    }
+
+    // 使用 WebView 打开
+    context.push(
+      '/webview?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title ?? '话题详情')}',
+    );
   }
 
   void _handleDeleteNotification(int notificationId) {
@@ -697,22 +749,44 @@ class _NotificationItem extends StatelessWidget {
   }
 
   String _getTitle() {
-    final typeName = DiscourseNotificationType.getTypeName(
-      notification.notificationType,
-    );
-    final username =
-        notification.actingUserName ?? notification.displayUsername ?? '用户';
-    return '$username $typeName了你';
+    final username = notification.actingUserName ??
+        notification.displayUsername ??
+        notification.data?.displayUsername ??
+        '用户';
+    final actionText = _getActionText(notification.notificationType);
+    return '$username $actionText';
   }
 
   String _getContent() {
-    // 根据通知类型返回不同的内容描述
-    switch (notification.notificationType) {
+    // 显示话题标题
+    final topicTitle = notification.topicTitle ?? notification.fancyTitle;
+    if (topicTitle != null && topicTitle.isNotEmpty) {
+      return topicTitle;
+    }
+    return '点击查看详情';
+  }
+
+  /// 去除HTML标签
+  String _stripHtmlTags(String htmlText) {
+    return htmlText
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .trim();
+  }
+
+  String _getActionText(int notificationType) {
+    switch (notificationType) {
       case DiscourseNotificationType.mentioned:
       case DiscourseNotificationType.groupMentioned:
         return '在话题中提到了你';
       case DiscourseNotificationType.replied:
         return '回复了你的帖子';
+      case DiscourseNotificationType.posted:
+        return '在话题中回复了';
       case DiscourseNotificationType.quoted:
         return '引用了你的内容';
       case DiscourseNotificationType.liked:
@@ -722,9 +796,48 @@ class _NotificationItem extends StatelessWidget {
       case DiscourseNotificationType.reaction:
         return '对你的内容做出了回应';
       case DiscourseNotificationType.grantedBadge:
-        return '你获得了徽章：${notification.data?.badgeName ?? ''}';
+        return '你获得了徽章';
+      case DiscourseNotificationType.following:
+        return '关注了你';
+      case DiscourseNotificationType.followingCreatedTopic:
+        return '发布了新话题';
+      case DiscourseNotificationType.followingReplied:
+        return '回复了话题';
+      case DiscourseNotificationType.edited:
+        return '编辑了你的帖子';
+      case DiscourseNotificationType.invitedToPrivateMessage:
+        return '邀请你加入私信';
+      case DiscourseNotificationType.invitedToTopic:
+        return '邀请你参与话题';
+      case DiscourseNotificationType.linked:
+      case DiscourseNotificationType.linkedConsolidated:
+        return '链接了你的帖子';
+      case DiscourseNotificationType.movedPost:
+        return '移动了你的帖子';
+      case DiscourseNotificationType.chatMention:
+        return '在聊天中提到了你';
+      case DiscourseNotificationType.chatMessage:
+        return '发送了聊天消息';
+      case DiscourseNotificationType.chatQuoted:
+        return '在聊天中引用了你';
+      case DiscourseNotificationType.chatInvitation:
+        return '邀请你加入聊天';
+      case DiscourseNotificationType.eventInvitation:
+        return '邀请你参加活动';
+      case DiscourseNotificationType.eventReminder:
+        return '活动提醒';
+      case DiscourseNotificationType.topicReminder:
+        return '话题提醒';
+      case DiscourseNotificationType.watchingFirstPost:
+        return '首帖更新';
+      case DiscourseNotificationType.postApproved:
+        return '你的帖子已通过审核';
+      case DiscourseNotificationType.membershipRequestAccepted:
+        return '你的成员请求已被接受';
+      case DiscourseNotificationType.assigned:
+        return '分配给你';
       default:
-        return '点击查看详情';
+        return '通知了你';
     }
   }
 

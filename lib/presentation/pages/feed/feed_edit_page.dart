@@ -8,7 +8,7 @@ import '../../../data/models/feed.dart';
 import '../../../data/repositories/comment_repository.dart';
 import '../../../data/repositories/feed_repository.dart';
 import '../../providers/auth_provider.dart';
-import '../../widgets/editor/composer_editor.dart';
+import '../../widgets/editor/quill_composer_editor.dart';
 
 /// 编辑帖子页面
 ///
@@ -350,14 +350,11 @@ class _FeedEditPageState extends ConsumerState<FeedEditPage> {
         const Divider(height: 1),
         // 编辑器区域
         Expanded(
-          child: ComposerEditor(
+          child: QuillComposerEditor(
             initialText: _topicDetail!.message,
             hintText: '编辑帖子内容...',
             autofocus: true,
-            showPreview: true,
             showToolbar: true,
-            enableSplitView: true,
-            initialMode: ComposerEditorMode.edit,
             minHeight: 300,
             onTextChanged: (text) {
               setState(() {

@@ -9,8 +9,7 @@ import '../../../config/constants.dart';
 import '../../../data/repositories/comment_repository.dart';
 import '../../../data/repositories/feed_repository.dart';
 import '../../providers/auth_provider.dart';
-
-enum _ToolbarAction { heading, bold, italic, quote, codeBlock, list }
+import '../../widgets/editor/quill_composer_editor.dart';
 
 class _PreparedPublishContent {
   const _PreparedPublishContent({
@@ -35,9 +34,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   static const int _minBodyLength = 5;
 
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _bodyController = TextEditingController();
   final FocusNode _titleFocusNode = FocusNode();
-  final FocusNode _bodyFocusNode = FocusNode();
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isLoading = false;
@@ -94,24 +91,10 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     return '选择合适的板块会有更多的赞';
   }
 
-  Set<_ToolbarAction> get _activeToolbarActions {
-    final actions = <_ToolbarAction>{};
-    if (_isCurrentLinePrefixed('# ')) actions.add(_ToolbarAction.heading);
-    if (_isCurrentLinePrefixed('> ')) actions.add(_ToolbarAction.quote);
-    if (_isCurrentLineList()) actions.add(_ToolbarAction.list);
-    if (_hasInlineMarker('**')) actions.add(_ToolbarAction.bold);
-    if (_hasItalicMarker()) actions.add(_ToolbarAction.italic);
-    if (_isInCodeBlock()) actions.add(_ToolbarAction.codeBlock);
-    return actions;
-  }
-
   @override
   void initState() {
     super.initState();
     _titleController.addListener(_onInputChanged);
-    _bodyController.addListener(() {
-      _onEditorTextChanged(_bodyController.text);
-    });
     _loadDraft();
   }
 
@@ -119,9 +102,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   void dispose() {
     _titleController.removeListener(_onInputChanged);
     _titleController.dispose();
-    _bodyController.dispose();
     _titleFocusNode.dispose();
-    _bodyFocusNode.dispose();
     super.dispose();
   }
 
@@ -152,7 +133,6 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
       if (!mounted || draft == null || draft.content.isEmpty) return;
       setState(() {
         _editorContent = draft.content;
-        _bodyController.text = draft.content;
       });
     } catch (_) {
       // 忽略草稿加载错误
@@ -374,10 +354,6 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   void _focusInvalidField({required String title, required String content}) {
     if (title.runes.length < _minTitleLength) {
       _titleFocusNode.requestFocus();
-      return;
-    }
-    if (content.runes.length < _minBodyLength) {
-      _bodyFocusNode.requestFocus();
     }
   }
 
@@ -658,23 +634,19 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: TextField(
-        controller: _bodyController,
-        focusNode: _bodyFocusNode,
-        expands: true,
-        minLines: null,
-        maxLines: null,
-        textAlignVertical: TextAlignVertical.top,
-        decoration: InputDecoration(
-          hintText: '在此处输入。使用工具栏或 Markdown 进行格式化。',
-          hintStyle: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 20,
-          ),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: 200,
+          maxHeight: 400,
         ),
-        style: const TextStyle(fontSize: 20, height: 1.45),
+        child: QuillComposerEditor(
+          initialText: _editorContent,
+          hintText: '在此处输入。使用工具栏或 Markdown 进行格式化。',
+          onTextChanged: _onEditorTextChanged,
+          minHeight: 200,
+          maxHeight: 400,
+          showToolbar: false,
+        ),
       ),
     );
   }
@@ -753,68 +725,15 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
                   ),
                 ),
               ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildToolButton(
-                    icon: Icons.title,
-                    tooltip: '标题',
-                    active: _activeToolbarActions.contains(
-                      _ToolbarAction.heading,
-                    ),
-                    onTap: () => _toggleLinePrefix('# '),
-                  ),
-                  _buildToolButton(
-                    icon: Icons.format_bold,
-                    tooltip: '加粗',
-                    active: _activeToolbarActions.contains(_ToolbarAction.bold),
-                    onTap: () => _toggleInlineMarker('**'),
-                  ),
-                  _buildToolButton(
-                    icon: Icons.format_italic,
-                    tooltip: '斜体',
-                    active: _activeToolbarActions.contains(
-                      _ToolbarAction.italic,
-                    ),
-                    onTap: () => _toggleInlineMarker('*'),
-                  ),
-                  _buildToolButton(
-                    icon: Icons.format_quote,
-                    tooltip: '引用',
-                    active: _activeToolbarActions.contains(
-                      _ToolbarAction.quote,
-                    ),
-                    onTap: () => _toggleLinePrefix('> '),
-                  ),
-                  _buildToolButton(
-                    icon: Icons.code,
-                    tooltip: '代码块',
-                    active: _activeToolbarActions.contains(
-                      _ToolbarAction.codeBlock,
-                    ),
-                    onTap: _toggleCodeBlock,
-                  ),
-                  _buildToolButton(
-                    icon: Icons.link,
-                    tooltip: '链接',
-                    onTap: () =>
-                        _insertTemplate('[链接文本](https://)', cursorOffset: 1),
-                  ),
-                  _buildToolButton(
-                    icon: Icons.image_outlined,
-                    tooltip: '图片',
-                    active: _selectedImages.isNotEmpty,
-                    onTap: _pickImagesFromDevice,
-                  ),
-                  _buildToolButton(
-                    icon: Icons.format_list_bulleted,
-                    tooltip: '列表',
-                    active: _activeToolbarActions.contains(_ToolbarAction.list),
-                    onTap: () => _toggleLinePrefix('- '),
-                  ),
-                ],
-              ),
+            Row(
+              children: [
+                _buildToolButton(
+                  icon: Icons.image_outlined,
+                  tooltip: '图片',
+                  active: _selectedImages.isNotEmpty,
+                  onTap: _pickImagesFromDevice,
+                ),
+              ],
             ),
             if (_selectedImages.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -907,253 +826,6 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     );
   }
 
-  TextSelection _safeSelection() {
-    final selection = _bodyController.selection;
-    final textLength = _bodyController.text.length;
-    final start = selection.start.clamp(0, textLength);
-    final end = selection.end.clamp(0, textLength);
-    return TextSelection(baseOffset: start, extentOffset: end);
-  }
-
-  bool _isCurrentLinePrefixed(String prefix) {
-    final text = _bodyController.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection();
-    final cursor = selection.start;
-    final lineStart = text.lastIndexOf('\n', cursor - 1);
-    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
-    final lineEndRaw = text.indexOf('\n', cursor);
-    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
-    final line = text.substring(startIndex, lineEnd).trimLeft();
-    return line.startsWith(prefix);
-  }
-
-  bool _isCurrentLineList() {
-    final text = _bodyController.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection();
-    final cursor = selection.start;
-    final lineStart = text.lastIndexOf('\n', cursor - 1);
-    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
-    final lineEndRaw = text.indexOf('\n', cursor);
-    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
-    final line = text.substring(startIndex, lineEnd).trimLeft();
-    return line.startsWith('- ') ||
-        line.startsWith('* ') ||
-        RegExp(r'^\d+\.\s').hasMatch(line);
-  }
-
-  bool _hasInlineMarker(String marker) {
-    final text = _bodyController.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection();
-    final start = selection.start;
-    final end = selection.end;
-
-    if (start != end) {
-      if (start < marker.length || end + marker.length > text.length) {
-        return false;
-      }
-      final left = text.substring(start - marker.length, start);
-      final right = text.substring(end, end + marker.length);
-      return left == marker && right == marker;
-    }
-
-    final cursor = start;
-    final left = text.lastIndexOf(marker, cursor - 1);
-    if (left == -1) return false;
-    final right = text.indexOf(marker, left + marker.length);
-    if (right == -1 || right <= left + marker.length) return false;
-    final contentStart = left + marker.length;
-    return cursor >= contentStart && cursor <= right;
-  }
-
-  bool _hasItalicMarker() {
-    if (_hasInlineMarker('**')) return false;
-    return _hasInlineMarker('*');
-  }
-
-  bool _isInCodeBlock() {
-    final text = _bodyController.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection();
-    final cursor = selection.start;
-    final beforeCursor = text.substring(0, cursor);
-    final fenceCount = RegExp(r'```').allMatches(beforeCursor).length;
-    return fenceCount.isOdd;
-  }
-
-  void _wrapSelection(String prefix, String suffix) {
-    final original = _bodyController.text;
-    final selection = _safeSelection();
-    final start = selection.start;
-    final end = selection.end;
-    final safeStart = start.clamp(0, original.length);
-    final safeEnd = end.clamp(0, original.length);
-    final selected = original.substring(safeStart, safeEnd);
-    final replacement = '$prefix$selected$suffix';
-    final updated = original.replaceRange(safeStart, safeEnd, replacement);
-
-    if (safeStart == safeEnd) {
-      // 无选中文本时，优先把光标放在包裹语法中间，方便立即输入
-      final cursor = safeStart + prefix.length;
-      _updateBodyText(updated, cursor);
-      return;
-    }
-
-    final newStart = safeStart + prefix.length;
-    final newEnd = newStart + selected.length;
-    _updateBodyText(
-      updated,
-      newEnd,
-      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
-    );
-  }
-
-  void _toggleInlineMarker(String marker) {
-    if (_tryUnwrapInlineMarker(marker)) return;
-    _wrapSelection(marker, marker);
-  }
-
-  bool _tryUnwrapInlineMarker(String marker) {
-    final original = _bodyController.text;
-    if (original.isEmpty) return false;
-    final selection = _safeSelection();
-    final start = selection.start;
-    final end = selection.end;
-
-    if (start != end) {
-      if (start < marker.length || end + marker.length > original.length) {
-        return false;
-      }
-      final left = original.substring(start - marker.length, start);
-      final right = original.substring(end, end + marker.length);
-      if (left != marker || right != marker) return false;
-
-      final removedRight = original.replaceRange(end, end + marker.length, '');
-      final updated = removedRight.replaceRange(
-        start - marker.length,
-        start,
-        '',
-      );
-      final newStart = start - marker.length;
-      final selectedLen = end - start;
-      _updateBodyText(
-        updated,
-        newStart + selectedLen,
-        selection: TextSelection(
-          baseOffset: newStart,
-          extentOffset: newStart + selectedLen,
-        ),
-      );
-      return true;
-    }
-
-    final cursor = start;
-    final leftMarker = original.lastIndexOf(marker, cursor - 1);
-    if (leftMarker == -1) return false;
-    final rightMarker = original.indexOf(marker, leftMarker + marker.length);
-    if (rightMarker == -1 || rightMarker <= leftMarker + marker.length) {
-      return false;
-    }
-    final contentStart = leftMarker + marker.length;
-    if (cursor < contentStart || cursor > rightMarker) return false;
-
-    final removedRight = original.replaceRange(
-      rightMarker,
-      rightMarker + marker.length,
-      '',
-    );
-    final updated = removedRight.replaceRange(
-      leftMarker,
-      leftMarker + marker.length,
-      '',
-    );
-    final newCursor = (cursor - marker.length).clamp(0, updated.length);
-    _updateBodyText(updated, newCursor);
-    return true;
-  }
-
-  void _toggleLinePrefix(String prefix) {
-    final original = _bodyController.text;
-    final selection = _safeSelection();
-    final start = selection.start;
-    final end = selection.end;
-
-    final lineStartRaw = original.lastIndexOf('\n', start - 1);
-    final lineStart = lineStartRaw == -1 ? 0 : lineStartRaw + 1;
-    final lineEndRaw = original.indexOf('\n', end);
-    final lineEnd = lineEndRaw == -1 ? original.length : lineEndRaw;
-    final line = original.substring(lineStart, lineEnd);
-    final indentLength = line.length - line.trimLeft().length;
-    final prefixStart = lineStart + indentLength;
-    final trimmed = line.trimLeft();
-
-    if (trimmed.startsWith(prefix)) {
-      final updated = original.replaceRange(
-        prefixStart,
-        prefixStart + prefix.length,
-        '',
-      );
-      final newStart = (start - prefix.length).clamp(0, updated.length);
-      final newEnd = (end - prefix.length).clamp(0, updated.length);
-      _updateBodyText(
-        updated,
-        newEnd,
-        selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
-      );
-      return;
-    }
-
-    final updated = original.replaceRange(prefixStart, prefixStart, prefix);
-    final newStart = (start + prefix.length).clamp(0, updated.length);
-    final newEnd = (end + prefix.length).clamp(0, updated.length);
-    _updateBodyText(
-      updated,
-      newEnd,
-      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
-    );
-  }
-
-  void _toggleCodeBlock() {
-    if (_isInCodeBlock()) {
-      _removeCurrentCodeBlockFence();
-      return;
-    }
-    _wrapSelection('\n```\n', '\n```\n');
-  }
-
-  void _removeCurrentCodeBlockFence() {
-    final original = _bodyController.text;
-    if (original.isEmpty) return;
-    final selection = _safeSelection();
-    final cursor = selection.start;
-
-    final leftFence = original.lastIndexOf('```', cursor);
-    if (leftFence == -1) return;
-    final rightFence = original.indexOf('```', cursor);
-    if (rightFence == -1 || rightFence <= leftFence) return;
-
-    final removedRight = original.replaceRange(rightFence, rightFence + 3, '');
-    final updated = removedRight.replaceRange(leftFence, leftFence + 3, '');
-    final newCursor = (cursor - 3).clamp(0, updated.length);
-    _updateBodyText(updated, newCursor);
-  }
-
-  void _insertTemplate(String template, {int? cursorOffset}) {
-    final original = _bodyController.text;
-    final selection = _bodyController.selection;
-    final start = selection.start < 0 ? original.length : selection.start;
-    final end = selection.end < 0 ? original.length : selection.end;
-    final safeStart = start.clamp(0, original.length);
-    final safeEnd = end.clamp(0, original.length);
-    final updated = original.replaceRange(safeStart, safeEnd, template);
-    final cursor = cursorOffset != null
-        ? (safeStart + cursorOffset).clamp(0, updated.length)
-        : safeStart + template.length;
-    _updateBodyText(updated, cursor);
-  }
-
   Future<void> _pickImagesFromDevice() async {
     if (_isPickingImage) return;
     _isPickingImage = true;
@@ -1184,21 +856,5 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     setState(() {
       _selectedImages.removeAt(index);
     });
-  }
-
-  void _updateBodyText(
-    String value,
-    int cursorOffset, {
-    TextSelection? selection,
-  }) {
-    final safeCursor = cursorOffset.clamp(0, value.length);
-    final nextSelection =
-        selection ?? TextSelection.collapsed(offset: safeCursor);
-    _bodyController.value = TextEditingValue(
-      text: value,
-      selection: nextSelection,
-    );
-    _onEditorTextChanged(value);
-    _bodyFocusNode.requestFocus();
   }
 }

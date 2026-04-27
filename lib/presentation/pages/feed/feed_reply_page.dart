@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/reply_provider.dart';
+import '../../widgets/editor/quill_composer_editor.dart';
 
 class FeedReplyPage extends ConsumerStatefulWidget {
   final String feedId;
@@ -19,26 +20,10 @@ class FeedReplyPage extends ConsumerStatefulWidget {
 }
 
 class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
-  final TextEditingController _replyController = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
+  final QuillComposerEditorController _editorController = QuillComposerEditorController();
 
   bool _isReplyingToFloor = false;
   String? _replyingToUsername;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _replyController.dispose();
-    _focusNode.dispose();
-    super.dispose();
-  }
 
   Future<void> _sendReply() async {
     final currentUser = ref.read(currentUserProvider);
@@ -55,7 +40,7 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
       return;
     }
 
-    final content = _replyController.text.trim();
+    final content = _editorController.getMarkdown().trim();
     final topicId = int.tryParse(widget.feedId);
     if (topicId == null || topicId <= 0) {
       // 使用 ReplyProvider 的状态管理 - 通过调用方法来设置错误状态
@@ -85,7 +70,7 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
 
   /// 重试发送回复
   Future<void> _retrySendReply() async {
-    final content = _replyController.text.trim();
+    final content = _editorController.getMarkdown().trim();
     final topicId = int.tryParse(widget.feedId);
     if (topicId == null) return;
 
@@ -112,11 +97,11 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
       if (username != null) {
         _isReplyingToFloor = true;
         _replyingToUsername = username;
-        _replyController.text = '>@$username\n';
-        _focusNode.requestFocus();
+        _editorController.setMarkdown('>@$username\n');
       } else {
         _isReplyingToFloor = false;
         _replyingToUsername = null;
+        _editorController.setMarkdown('');
       }
     });
   }
@@ -263,79 +248,19 @@ class _FeedReplyPageState extends ConsumerState<FeedReplyPage> {
               ),
             ),
 
-          // 输入区域
+          // 编辑器区域
           Expanded(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _replyController,
-                focusNode: _focusNode,
-                decoration: const InputDecoration(
-                  hintText: '输入回复内容...',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                keyboardType: TextInputType.multiline,
+              child: QuillComposerEditor(
+                controller: _editorController,
+                hintText: '输入回复内容...',
+                autofocus: true,
+                maxLength: 10000,
               ),
             ),
           ),
-          _buildBottomBar(colorScheme),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBottomBar(ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.2)),
-        ),
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.format_bold),
-              onPressed: () {},
-              tooltip: '加粗',
-            ),
-            IconButton(
-              icon: const Icon(Icons.format_italic),
-              onPressed: () {},
-              tooltip: '斜体',
-            ),
-            IconButton(
-              icon: const Icon(Icons.code),
-              onPressed: () {},
-              tooltip: '代码',
-            ),
-            IconButton(
-              icon: const Icon(Icons.link),
-              onPressed: () {},
-              tooltip: '链接',
-            ),
-            IconButton(
-              icon: const Icon(Icons.image_outlined),
-              onPressed: () {},
-              tooltip: '图片',
-            ),
-            const Spacer(),
-            Text(
-              '${_replyController.text.length}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            Text(
-              ' / 10000',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
       ),
     );
   }

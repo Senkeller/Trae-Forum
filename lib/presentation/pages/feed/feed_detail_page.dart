@@ -27,6 +27,7 @@ import '../../widgets/detail/table_of_contents.dart';
 import '../../widgets/detail/toc_progress_bar.dart';
 import '../../widgets/detail/topic_magazine_renderer.dart';
 import '../../widgets/editor/composer_editor.dart';
+import '../../widgets/editor/quill_composer_editor.dart';
 
 class FeedDetailPage extends ConsumerStatefulWidget {
   final String feedId;
@@ -38,8 +39,6 @@ class FeedDetailPage extends ConsumerStatefulWidget {
 }
 
 class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
-  final TextEditingController _commentController = TextEditingController();
-  final FocusNode _commentFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -78,8 +77,6 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
   @override
   void dispose() {
-    _commentController.dispose();
-    _commentFocusNode.dispose();
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
@@ -417,18 +414,9 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       // 使用 reply id 进行楼中楼回复
       _replyToPostNumber = int.tryParse(reply.id);
     });
-
-    final prefix = '@$username ';
-    if (!_commentController.text.trim().startsWith(prefix.trim())) {
-      _commentController.value = TextEditingValue(
-        text: prefix,
-        selection: TextSelection.collapsed(offset: prefix.length),
-      );
-    }
-    _commentFocusNode.requestFocus();
   }
 
-  Future<void> _sendComment() async {
+  Future<void> _sendComment(String content) async {
     final hasSession = await ref.read(isAuthenticatedAsyncProvider.future);
     if (!hasSession) {
       if (!mounted) {
@@ -446,8 +434,8 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
       return;
     }
 
-    final content = _commentController.text.trim();
-    if (content.isEmpty || _isSendingComment) {
+    final trimmedContent = content.trim();
+    if (trimmedContent.isEmpty || _isSendingComment) {
       return;
     }
 
@@ -465,7 +453,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
       final response = await commentRepository.createComment(
         topicId: topicId,
-        content: content,
+        content: trimmedContent,
         replyToPostNumber: _replyToPostNumber,
       );
 
@@ -475,7 +463,6 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
 
       if (response.success) {
         setState(() {
-          _commentController.clear();
           _replyToUsername = null;
           _replyToPostNumber = null;
           if (_topicDetail != null) {
@@ -573,20 +560,20 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
         return;
       }
 
-      final oldText = _commentController.text.trimRight();
-      final appendText = markdowns.join('\n');
-      final merged = oldText.isEmpty ? appendText : '$oldText\n$appendText';
-      _commentController.value = TextEditingValue(
-        text: merged,
-        selection: TextSelection.collapsed(offset: merged.length),
+      // 图片上传成功，提示用户手动粘贴 Markdown 到编辑器
+      final markdownText = markdowns.join('\n');
+      await Clipboard.setData(ClipboardData(text: markdownText));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已复制 ${markdowns.length} 张图片的 Markdown 到剪贴板，请粘贴到编辑器中'),
+        ),
       );
-      _commentFocusNode.requestFocus();
 
       final failedCount = files.length - markdowns.length;
       if (failedCount > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('已添加 ${markdowns.length} 张图片，$failedCount 张上传失败。'),
+            content: Text('$failedCount 张图片上传失败。'),
           ),
         );
       }
@@ -729,8 +716,6 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
             visible: _tocItems.length >= 2,
           ),
           _BottomCommentBar(
-            controller: _commentController,
-            focusNode: _commentFocusNode,
             isLoggedIn: isLoggedIn,
             isSending: _isSendingComment,
             isUploadingImage: _isUploadingCommentImage,
@@ -741,7 +726,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
                 _replyToPostNumber = null;
               });
             },
-            onSend: _sendComment,
+            onSend: (content) => _sendComment(content),
             onPickImage: _pickImagesForComment,
             onLoginTap: () => context.push(RoutePaths.login),
           ),
@@ -1894,23 +1879,17 @@ class _CommentAvatar extends StatelessWidget {
   }
 }
 
-enum _ReplyToolbarAction { heading, bold, italic, quote, codeBlock, list }
-
 class _BottomCommentBar extends StatefulWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
   final bool isLoggedIn;
   final bool isSending;
   final bool isUploadingImage;
   final String? replyingToUsername;
   final VoidCallback? onCancelReply;
-  final Future<void> Function() onSend;
+  final Future<void> Function(String content) onSend;
   final Future<void> Function() onPickImage;
   final VoidCallback onLoginTap;
 
   const _BottomCommentBar({
-    required this.controller,
-    required this.focusNode,
     required this.isLoggedIn,
     required this.isSending,
     required this.isUploadingImage,
@@ -1926,287 +1905,31 @@ class _BottomCommentBar extends StatefulWidget {
 }
 
 class _BottomCommentBarState extends State<_BottomCommentBar> {
-  Set<_ReplyToolbarAction> _activeActionsFor(TextEditingValue value) {
-    final actions = <_ReplyToolbarAction>{};
-    if (_isCurrentLinePrefixed(value, '# ')) {
-      actions.add(_ReplyToolbarAction.heading);
-    }
-    if (_isCurrentLinePrefixed(value, '> ')) {
-      actions.add(_ReplyToolbarAction.quote);
-    }
-    if (_isCurrentLineList(value)) {
-      actions.add(_ReplyToolbarAction.list);
-    }
-    if (_hasInlineMarker(value, '**')) {
-      actions.add(_ReplyToolbarAction.bold);
-    }
-    if (_hasItalicMarker(value)) {
-      actions.add(_ReplyToolbarAction.italic);
-    }
-    if (_isInCodeBlock(value)) {
-      actions.add(_ReplyToolbarAction.codeBlock);
-    }
-    return actions;
+  String _currentContent = '';
+  final TextEditingController _textController = TextEditingController();
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
   }
 
-  TextSelection _safeSelection(TextEditingValue value) {
-    final textLength = value.text.length;
-    final start = value.selection.start.clamp(0, textLength);
-    final end = value.selection.end.clamp(0, textLength);
-    return TextSelection(baseOffset: start, extentOffset: end);
-  }
-
-  bool _isCurrentLinePrefixed(TextEditingValue value, String prefix) {
-    final text = value.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection(value);
-    final cursor = selection.start;
-    final lineStart = text.lastIndexOf('\n', cursor - 1);
-    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
-    final lineEndRaw = text.indexOf('\n', cursor);
-    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
-    final line = text.substring(startIndex, lineEnd).trimLeft();
-    return line.startsWith(prefix);
-  }
-
-  bool _isCurrentLineList(TextEditingValue value) {
-    final text = value.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection(value);
-    final cursor = selection.start;
-    final lineStart = text.lastIndexOf('\n', cursor - 1);
-    final startIndex = lineStart == -1 ? 0 : lineStart + 1;
-    final lineEndRaw = text.indexOf('\n', cursor);
-    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
-    final line = text.substring(startIndex, lineEnd).trimLeft();
-    return line.startsWith('- ') ||
-        line.startsWith('* ') ||
-        RegExp(r'^\d+\.\s').hasMatch(line);
-  }
-
-  bool _hasInlineMarker(TextEditingValue value, String marker) {
-    final text = value.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection(value);
-    final start = selection.start;
-    final end = selection.end;
-
-    if (start != end) {
-      if (start < marker.length || end + marker.length > text.length) {
-        return false;
-      }
-      final left = text.substring(start - marker.length, start);
-      final right = text.substring(end, end + marker.length);
-      return left == marker && right == marker;
-    }
-
-    final cursor = start;
-    final left = text.lastIndexOf(marker, cursor - 1);
-    if (left == -1) return false;
-    final right = text.indexOf(marker, left + marker.length);
-    if (right == -1 || right <= left + marker.length) return false;
-    final contentStart = left + marker.length;
-    return cursor >= contentStart && cursor <= right;
-  }
-
-  bool _hasItalicMarker(TextEditingValue value) {
-    if (_hasInlineMarker(value, '**')) return false;
-    return _hasInlineMarker(value, '*');
-  }
-
-  bool _isInCodeBlock(TextEditingValue value) {
-    final text = value.text;
-    if (text.isEmpty) return false;
-    final selection = _safeSelection(value);
-    final beforeCursor = text.substring(0, selection.start);
-    final fenceCount = RegExp(r'```').allMatches(beforeCursor).length;
-    return fenceCount.isOdd;
-  }
-
-  bool _canEdit() {
-    return widget.isLoggedIn && !widget.isSending && !widget.isUploadingImage;
-  }
-
-  void _updateText(String value, {int? cursor, TextSelection? selection}) {
-    final safeCursor = (cursor ?? value.length).clamp(0, value.length);
-    widget.controller.value = TextEditingValue(
-      text: value,
-      selection: selection ?? TextSelection.collapsed(offset: safeCursor),
-    );
-    widget.focusNode.requestFocus();
-  }
-
-  void _wrapSelection(String prefix, String suffix) {
-    if (!_canEdit()) return;
-    final oldValue = widget.controller.value;
-    final selection = _safeSelection(oldValue);
-    final text = oldValue.text;
-    final start = selection.start;
-    final end = selection.end;
-    final selected = text.substring(start, end);
-    final replacement = '$prefix$selected$suffix';
-    final updated = text.replaceRange(start, end, replacement);
-
-    if (start == end) {
-      _updateText(updated, cursor: start + prefix.length);
-      return;
-    }
-    final newStart = start + prefix.length;
-    final newEnd = newStart + selected.length;
-    _updateText(
-      updated,
-      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
-    );
-  }
-
-  void _toggleInlineMarker(String marker) {
-    if (!_canEdit()) return;
-    if (_tryUnwrapInlineMarker(marker)) return;
-    _wrapSelection(marker, marker);
-  }
-
-  bool _tryUnwrapInlineMarker(String marker) {
-    final oldValue = widget.controller.value;
-    final selection = _safeSelection(oldValue);
-    final text = oldValue.text;
-    final start = selection.start;
-    final end = selection.end;
-
-    if (start != end) {
-      if (start < marker.length || end + marker.length > text.length) {
-        return false;
-      }
-      final left = text.substring(start - marker.length, start);
-      final right = text.substring(end, end + marker.length);
-      if (left != marker || right != marker) {
-        return false;
-      }
-
-      final removedRight = text.replaceRange(end, end + marker.length, '');
-      final updated = removedRight.replaceRange(
-        start - marker.length,
-        start,
-        '',
-      );
-      final newStart = start - marker.length;
-      final selectedLen = end - start;
-      _updateText(
-        updated,
-        selection: TextSelection(
-          baseOffset: newStart,
-          extentOffset: newStart + selectedLen,
-        ),
-      );
-      return true;
-    }
-
-    final cursor = start;
-    final leftMarker = text.lastIndexOf(marker, cursor - 1);
-    if (leftMarker == -1) {
-      return false;
-    }
-    final rightMarker = text.indexOf(marker, leftMarker + marker.length);
-    if (rightMarker == -1 || rightMarker <= leftMarker + marker.length) {
-      return false;
-    }
-    final contentStart = leftMarker + marker.length;
-    if (cursor < contentStart || cursor > rightMarker) return false;
-
-    final removedRight = text.replaceRange(
-      rightMarker,
-      rightMarker + marker.length,
-      '',
-    );
-    final updated = removedRight.replaceRange(
-      leftMarker,
-      leftMarker + marker.length,
-      '',
-    );
-    final newCursor = (cursor - marker.length).clamp(0, updated.length);
-    _updateText(updated, cursor: newCursor);
-    return true;
-  }
-
-  void _toggleLinePrefix(String prefix) {
-    if (!_canEdit()) return;
-    final oldValue = widget.controller.value;
-    final selection = _safeSelection(oldValue);
-    final text = oldValue.text;
-    final start = selection.start;
-    final end = selection.end;
-
-    final lineStartRaw = text.lastIndexOf('\n', start - 1);
-    final lineStart = lineStartRaw == -1 ? 0 : lineStartRaw + 1;
-    final lineEndRaw = text.indexOf('\n', end);
-    final lineEnd = lineEndRaw == -1 ? text.length : lineEndRaw;
-    final line = text.substring(lineStart, lineEnd);
-    final indentLength = line.length - line.trimLeft().length;
-    final prefixStart = lineStart + indentLength;
-    final trimmed = line.trimLeft();
-
-    if (trimmed.startsWith(prefix)) {
-      final updated = text.replaceRange(
-        prefixStart,
-        prefixStart + prefix.length,
-        '',
-      );
-      final newStart = (start - prefix.length).clamp(0, updated.length);
-      final newEnd = (end - prefix.length).clamp(0, updated.length);
-      _updateText(
-        updated,
-        selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
-      );
+  Future<void> _handleSend() async {
+    if (!widget.isLoggedIn) {
+      widget.onLoginTap();
       return;
     }
 
-    final updated = text.replaceRange(prefixStart, prefixStart, prefix);
-    final newStart = (start + prefix.length).clamp(0, updated.length);
-    final newEnd = (end + prefix.length).clamp(0, updated.length);
-    _updateText(
-      updated,
-      selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
-    );
-  }
-
-  void _toggleCodeBlock() {
-    if (!_canEdit()) return;
-    final value = widget.controller.value;
-    if (_isInCodeBlock(value)) {
-      _removeCurrentCodeBlockFence();
+    final content = _currentContent.trim();
+    if (content.isEmpty || widget.isSending) {
       return;
     }
-    _wrapSelection('\n```\n', '\n```\n');
-  }
 
-  void _removeCurrentCodeBlockFence() {
-    final oldValue = widget.controller.value;
-    final text = oldValue.text;
-    if (text.isEmpty) return;
-    final selection = _safeSelection(oldValue);
-    final cursor = selection.start;
-    final leftFence = text.lastIndexOf('```', cursor);
-    if (leftFence == -1) return;
-    final rightFence = text.indexOf('```', cursor);
-    if (rightFence == -1 || rightFence <= leftFence) return;
-
-    final removedRight = text.replaceRange(rightFence, rightFence + 3, '');
-    final updated = removedRight.replaceRange(leftFence, leftFence + 3, '');
-    final newCursor = (cursor - 3).clamp(0, updated.length);
-    _updateText(updated, cursor: newCursor);
-  }
-
-  void _insertTemplate(String template, {int? cursorOffset}) {
-    if (!_canEdit()) return;
-    final oldValue = widget.controller.value;
-    final selection = _safeSelection(oldValue);
-    final text = oldValue.text;
-    final start = selection.start;
-    final end = selection.end;
-    final updated = text.replaceRange(start, end, template);
-    final cursor = cursorOffset != null
-        ? (start + cursorOffset).clamp(0, updated.length)
-        : start + template.length;
-    _updateText(updated, cursor: cursor);
+    await widget.onSend(content);
+    // 发送成功后清空内容
+    setState(() {
+      _currentContent = '';
+    });
   }
 
   @override
@@ -2257,200 +1980,92 @@ class _BottomCommentBarState extends State<_BottomCommentBar> {
                   ],
                 ),
               ),
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: widget.controller,
-              builder: (context, value, _) {
-                final hasText = value.text.trim().isNotEmpty;
-                final activeActions = _activeActionsFor(value);
-
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: widget.isSending || widget.isUploadingImage
-                              ? null
-                              : (widget.isLoggedIn
-                                    ? widget.onPickImage
-                                    : widget.onLoginTap),
-                          icon: widget.isUploadingImage
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Icon(
-                                  widget.isLoggedIn
-                                      ? Icons.image_outlined
-                                      : Icons.login_rounded,
-                                ),
-                          tooltip: widget.isLoggedIn ? '从设备选择图片' : '登录后上传图片',
-                          color: colorScheme.primary,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                IconButton(
+                  onPressed: widget.isSending || widget.isUploadingImage
+                      ? null
+                      : (widget.isLoggedIn
+                            ? widget.onPickImage
+                            : widget.onLoginTap),
+                  icon: widget.isUploadingImage
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          widget.isLoggedIn
+                              ? Icons.image_outlined
+                              : Icons.login_rounded,
                         ),
-                        Expanded(
-                          child: TextField(
-                            controller: widget.controller,
-                            focusNode: widget.focusNode,
-                            enabled: widget.isLoggedIn && !widget.isSending,
-                            decoration: InputDecoration(
-                              hintText: widget.isLoggedIn
-                                  ? '写下你的回复（支持 Markdown）...'
-                                  : '登录后参与回复',
-                              filled: true,
-                              fillColor: colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.6),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                                borderSide: BorderSide.none,
-                              ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
+                  tooltip: widget.isLoggedIn ? '从设备选择图片' : '登录后上传图片',
+                  color: colorScheme.primary,
+                ),
+                Expanded(
+                  child: widget.isLoggedIn
+                      ? QuillComposerEditor(
+                          initialText: _currentContent,
+                          hintText: '写下你的回复...',
+                          onTextChanged: (text) {
+                            setState(() {
+                              _currentContent = text;
+                            });
+                          },
+                          onSubmit: (text) => _handleSend(),
+                          showToolbar: true,
+                          minHeight: 80,
+                          maxHeight: 200,
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '登录后参与回复',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
                             ),
-                            minLines: 1,
-                            maxLines: 4,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) {
-                              if (widget.isLoggedIn &&
-                                  hasText &&
-                                  !widget.isSending) {
-                                widget.onSend();
-                              } else if (!widget.isLoggedIn) {
-                                widget.onLoginTap();
-                              }
-                            },
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: widget.isSending || widget.isUploadingImage
-                              ? null
-                              : (widget.isLoggedIn
-                                    ? (hasText ? widget.onSend : null)
-                                    : widget.onLoginTap),
-                          icon: widget.isSending
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Icon(
-                                  widget.isLoggedIn
-                                      ? Icons.send_rounded
-                                      : Icons.login_rounded,
-                                ),
-                          color: colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: widget.isSending || widget.isUploadingImage
+                      ? null
+                      : (widget.isLoggedIn
+                            ? (_currentContent.trim().isNotEmpty
+                                ? _handleSend
+                                : null)
+                            : widget.onLoginTap),
+                  icon: widget.isSending
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(
+                          widget.isLoggedIn
+                              ? Icons.send_rounded
+                              : Icons.login_rounded,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildToolButton(
-                            icon: Icons.title,
-                            tooltip: '标题',
-                            active: activeActions.contains(
-                              _ReplyToolbarAction.heading,
-                            ),
-                            onTap: () => _toggleLinePrefix('# '),
-                          ),
-                          _buildToolButton(
-                            icon: Icons.format_bold,
-                            tooltip: '加粗',
-                            active: activeActions.contains(
-                              _ReplyToolbarAction.bold,
-                            ),
-                            onTap: () => _toggleInlineMarker('**'),
-                          ),
-                          _buildToolButton(
-                            icon: Icons.format_italic,
-                            tooltip: '斜体',
-                            active: activeActions.contains(
-                              _ReplyToolbarAction.italic,
-                            ),
-                            onTap: () => _toggleInlineMarker('*'),
-                          ),
-                          _buildToolButton(
-                            icon: Icons.format_quote,
-                            tooltip: '引用',
-                            active: activeActions.contains(
-                              _ReplyToolbarAction.quote,
-                            ),
-                            onTap: () => _toggleLinePrefix('> '),
-                          ),
-                          _buildToolButton(
-                            icon: Icons.code,
-                            tooltip: '代码块',
-                            active: activeActions.contains(
-                              _ReplyToolbarAction.codeBlock,
-                            ),
-                            onTap: _toggleCodeBlock,
-                          ),
-                          _buildToolButton(
-                            icon: Icons.link,
-                            tooltip: '链接',
-                            onTap: () => _insertTemplate(
-                              '[链接文本](https://)',
-                              cursorOffset: 1,
-                            ),
-                          ),
-                          _buildToolButton(
-                            icon: Icons.format_list_bulleted,
-                            tooltip: '列表',
-                            active: activeActions.contains(
-                              _ReplyToolbarAction.list,
-                            ),
-                            onTap: () => _toggleLinePrefix('- '),
-                          ),
-                          _buildToolButton(
-                            icon: Icons.horizontal_rule_rounded,
-                            tooltip: '分割线',
-                            onTap: () => _insertTemplate('\n---\n'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
+                  color: colorScheme.primary,
+                ),
+              ],
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildToolButton({
-    required IconData icon,
-    required String tooltip,
-    bool active = false,
-    required VoidCallback onTap,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: IconButton(
-        onPressed: onTap,
-        tooltip: tooltip,
-        visualDensity: VisualDensity.compact,
-        style: IconButton.styleFrom(
-          backgroundColor: active
-              ? const Color(0xFFDFF4E8)
-              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          foregroundColor: active
-              ? const Color(0xFF0B8A6A)
-              : colorScheme.onSurfaceVariant,
-          minimumSize: const Size(32, 32),
-        ),
-        icon: Icon(icon, size: 17),
       ),
     );
   }

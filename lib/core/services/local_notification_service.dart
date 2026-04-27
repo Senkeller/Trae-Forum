@@ -115,15 +115,75 @@ class LocalNotificationService {
   }
 
   String _buildTitle(DiscourseNotification notification) {
-    final typeName = DiscourseNotificationType.getTypeName(
-      notification.notificationType,
-    );
     final username =
         notification.actingUserName ??
         notification.displayUsername ??
         notification.data?.displayUsername ??
         '论坛通知';
-    return '$username · $typeName';
+    final actionText = _getActionText(notification.notificationType);
+    return '$username $actionText';
+  }
+
+  String _getActionText(int notificationType) {
+    switch (notificationType) {
+      case DiscourseNotificationType.mentioned:
+      case DiscourseNotificationType.groupMentioned:
+        return '在话题中提到了你';
+      case DiscourseNotificationType.replied:
+        return '回复了你的帖子';
+      case DiscourseNotificationType.posted:
+        return '在话题中回复了';
+      case DiscourseNotificationType.quoted:
+        return '引用了你的内容';
+      case DiscourseNotificationType.liked:
+      case DiscourseNotificationType.likedConsolidated:
+        return '赞了你';
+      case DiscourseNotificationType.reaction:
+        return '回应了你';
+      case DiscourseNotificationType.grantedBadge:
+        return '你获得了徽章';
+      case DiscourseNotificationType.following:
+        return '关注了你';
+      case DiscourseNotificationType.followingCreatedTopic:
+        return '发布了新话题';
+      case DiscourseNotificationType.followingReplied:
+        return '回复了话题';
+      case DiscourseNotificationType.edited:
+        return '编辑了你的帖子';
+      case DiscourseNotificationType.invitedToPrivateMessage:
+        return '邀请你加入私信';
+      case DiscourseNotificationType.invitedToTopic:
+        return '邀请你参与话题';
+      case DiscourseNotificationType.linked:
+      case DiscourseNotificationType.linkedConsolidated:
+        return '链接了你的帖子';
+      case DiscourseNotificationType.movedPost:
+        return '移动了你的帖子';
+      case DiscourseNotificationType.chatMention:
+        return '在聊天中提到了你';
+      case DiscourseNotificationType.chatMessage:
+        return '发送了聊天消息';
+      case DiscourseNotificationType.chatQuoted:
+        return '在聊天中引用了你';
+      case DiscourseNotificationType.chatInvitation:
+        return '邀请你加入聊天';
+      case DiscourseNotificationType.eventInvitation:
+        return '邀请你参加活动';
+      case DiscourseNotificationType.eventReminder:
+        return '活动提醒';
+      case DiscourseNotificationType.topicReminder:
+        return '话题提醒';
+      case DiscourseNotificationType.watchingFirstPost:
+        return '首帖更新';
+      case DiscourseNotificationType.postApproved:
+        return '你的帖子已通过审核';
+      case DiscourseNotificationType.membershipRequestAccepted:
+        return '你的成员请求已被接受';
+      case DiscourseNotificationType.assigned:
+        return '分配给你';
+      default:
+        return '通知了你';
+    }
   }
 
   String _buildBody(DiscourseNotification notification) {

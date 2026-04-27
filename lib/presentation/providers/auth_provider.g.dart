@@ -50,7 +50,7 @@ final isAuthenticatedProvider = AutoDisposeProvider<bool>.internal(
 // ignore: unused_element
 typedef IsAuthenticatedRef = AutoDisposeProviderRef<bool>;
 String _$isAuthenticatedAsyncHash() =>
-    r'3c874b944d64182b6ef09fb091d69a675b8a8a92';
+    r'f97054a3d54734b56f15ccfa0ad4231090752243';
 
 /// 是否已登录 Provider（异步版本）
 ///

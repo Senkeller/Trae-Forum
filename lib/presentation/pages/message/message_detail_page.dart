@@ -133,14 +133,66 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
       ref.read(notificationNotifierProvider.notifier).markAsRead(notification.id);
     }
 
-    if (notification.topicId != null) {
-      final path = '/feed/${notification.topicId}';
-      if (notification.postNumber != null && notification.postNumber! > 1) {
-        context.push('$path?postNumber=${notification.postNumber}');
-      } else {
-        context.push(path);
-      }
+    // 根据通知类型跳转到不同页面
+    switch (notification.notificationType) {
+      // 聊天相关通知
+      case DiscourseNotificationType.chatMessage:
+      case DiscourseNotificationType.chatMention:
+      case DiscourseNotificationType.chatQuoted:
+      case DiscourseNotificationType.chatInvitation:
+      case DiscourseNotificationType.chatWatchedThread:
+      case DiscourseNotificationType.chatGroupMention:
+        if (notification.data?.chatChannelId != null) {
+          context.push('/chat/${notification.data!.chatChannelId}');
+        } else {
+          context.push('/chat');
+        }
+        return;
+
+      // 私信相关通知
+      case DiscourseNotificationType.invitedToPrivateMessage:
+      case DiscourseNotificationType.inviteeAccepted:
+        if (notification.topicId != null) {
+          _openDiscourseTopic(notification.topicId!, notification.slug,
+              postNumber: notification.postNumber,
+              title: notification.topicTitle ?? notification.fancyTitle);
+        } else {
+          context.push('/messages');
+        }
+        return;
+
+      // 普通话题通知
+      default:
+        if (notification.topicId != null) {
+          _openDiscourseTopic(notification.topicId!, notification.slug,
+              postNumber: notification.postNumber,
+              title: notification.topicTitle ?? notification.fancyTitle);
+        } else {
+          // 如果没有 topicId，显示提示
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('无法跳转到该通知')),
+          );
+        }
     }
+  }
+
+  /// 使用 WebView 打开 Discourse 话题
+  void _openDiscourseTopic(int topicId, String? slug, {int? postNumber, String? title}) {
+    // 构建 Discourse 话题 URL
+    // 格式: https://forum.trae.cn/t/{slug}/{topicId}/{postNumber}
+    const baseUrl = 'https://forum.trae.cn';
+    final topicSlug = slug ?? 'topic';
+    String url = '$baseUrl/t/$topicSlug/$topicId';
+
+    // 如果有特定楼层号，添加到 URL
+    if (postNumber != null && postNumber > 1) {
+      url = '$url/$postNumber';
+    }
+
+    // 使用 WebView 打开
+    context.push(
+      '/webview?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title ?? '话题详情')}',
+    );
   }
 
   @override
@@ -532,32 +584,24 @@ class _MessageCard extends StatelessWidget {
   }
 
   String _getContent() {
-    final typeName = DiscourseNotificationType.getTypeName(
-      notification.notificationType,
-    );
-    final username = notification.actingUserName ??
-        notification.displayUsername ??
-        '用户';
-
-    switch (notification.notificationType) {
-      case DiscourseNotificationType.mentioned:
-      case DiscourseNotificationType.groupMentioned:
-        return '$username 在话题中提到了你';
-      case DiscourseNotificationType.replied:
-        return '$username 回复了你的帖子';
-      case DiscourseNotificationType.quoted:
-        return '$username 引用了你的内容';
-      case DiscourseNotificationType.liked:
-      case DiscourseNotificationType.likedConsolidated:
-        final count = notification.data?.count ?? 1;
-        return count > 1 ? '等$count人赞了你' : '$username 赞了你';
-      case DiscourseNotificationType.reaction:
-        return '$username 对你的内容做出了回应';
-      case DiscourseNotificationType.grantedBadge:
-        return '你获得了徽章：${notification.data?.badgeName ?? ''}';
-      default:
-        return username == '用户' ? typeName : '$username $typeName';
+    // 显示话题标题
+    final topicTitle = notification.topicTitle ?? notification.fancyTitle;
+    if (topicTitle != null && topicTitle.isNotEmpty) {
+      return topicTitle;
     }
+    return '点击查看详情';
+  }
+
+  /// 去除HTML标签
+  String _stripHtmlTags(String htmlText) {
+    return htmlText
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .trim();
   }
 
   String _formatTime(String? timeString) {
