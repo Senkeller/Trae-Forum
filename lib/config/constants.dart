@@ -159,6 +159,7 @@ class RoutePaths {
   static const String accountSecurity = '/settings/account-security';
   static const String blacklist = '/settings/blacklist';
   static const String about = '/settings/about';
+  static const String appInfo = '/settings/app-info';
 
   // 登录
   static const String login = '/login';

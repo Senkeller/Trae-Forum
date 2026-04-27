@@ -220,64 +220,38 @@ class _PostReplyItemState extends State<PostReplyItem> {
   /// 是否需要折叠（内容是否超过最大行数）
   bool _needsCollapse = false;
 
-  /// 内容容器的 GlobalKey，用于测量高度
-  final GlobalKey _contentKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    // 延迟测量内容是否需要折叠
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkNeedsCollapse();
-    });
-  }
-
-  @override
-  void didUpdateWidget(PostReplyItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 内容变化时重置状态
-    if (oldWidget.post.cooked != widget.post.cooked) {
-      setState(() {
-        _isExpanded = false;
-        _needsCollapse = false;
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkNeedsCollapse();
-      });
-    }
-  }
-
-  /// 检查内容是否需要折叠
-  ///
-  /// 通过比较内容高度与预估的6行文本高度来判断
-  void _checkNeedsCollapse() {
-    if (widget.post.cooked == null || widget.post.cooked!.isEmpty) return;
-
-    final context = _contentKey.currentContext;
-    if (context == null) return;
-
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) return;
-
-    final contentHeight = renderBox.size.height;
-
-    // 估算6行文本的高度（基于字体大小和行高）
-    final textTheme = Theme.of(context).textTheme;
-    final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
-    final lineHeight = 1.5;
-    final estimatedLineHeight = fontSize * lineHeight;
-    final maxHeight = estimatedLineHeight * widget.maxLines;
-
-    setState(() {
-      _needsCollapse = contentHeight > maxHeight;
-    });
-  }
-
-  /// 切换展开/折叠状态
+  /// 切换展开/收起状态
   void _toggleExpanded() {
     setState(() {
       _isExpanded = !_isExpanded;
     });
+  }
+
+  /// 检查内容是否需要折叠
+  ///
+  /// 通过测量实际渲染后的内容高度来判断
+  void _checkNeedsCollapse(BuildContext context, double contentHeight) {
+    if (widget.post.cooked == null || widget.post.cooked!.isEmpty) {
+      setState(() {
+        _needsCollapse = false;
+      });
+      return;
+    }
+
+    // 计算最大高度（6行文本 + 段落间距）
+    final textTheme = Theme.of(context).textTheme;
+    final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
+    const lineHeight = 1.5;
+    final estimatedLineHeight = fontSize * lineHeight;
+    // 6行高度 + 段落间距(每段底部8px，最多5段) + 代码块/引用块额外高度
+    final maxHeight = estimatedLineHeight * widget.maxLines + 40;
+
+    final newNeedsCollapse = contentHeight > maxHeight;
+    if (_needsCollapse != newNeedsCollapse) {
+      setState(() {
+        _needsCollapse = newNeedsCollapse;
+      });
+    }
   }
 
   @override
@@ -386,88 +360,135 @@ class _PostReplyItemState extends State<PostReplyItem> {
   Widget _buildContent(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    // 折叠状态下的内容容器
-    Widget contentContainer = Container(
-      key: _contentKey,
-      child: Html(
-        data: widget.post.cooked,
-        style: {
-          'body': Style(
-            margin: Margins.zero,
-            padding: HtmlPaddings.zero,
-            fontSize: FontSize(14),
-            color: colorScheme.onSurface,
-          ),
-          'p': Style(
-            margin: Margins.only(bottom: 8),
-          ),
-          'blockquote': Style(
-            margin: Margins.only(left: 8, bottom: 8),
-            padding: HtmlPaddings.only(left: 12),
-            border: Border(
-              left: BorderSide(
-                color: colorScheme.outline.withOpacity(0.5),
-                width: 3,
-              ),
-            ),
-            color: colorScheme.onSurfaceVariant,
-          ),
-          'a': Style(
-            color: colorScheme.primary,
-            textDecoration: TextDecoration.none,
-          ),
-          'img': Style(
-            width: Width.auto(),
-            height: Height.auto(),
-          ),
-          'pre': Style(
-            backgroundColor: colorScheme.surfaceVariant,
-            padding: HtmlPaddings.all(12),
-          ),
-          'code': Style(
-            backgroundColor: colorScheme.surfaceVariant,
-            padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
-            fontFamily: 'monospace',
-          ),
-        },
-        extensions: [
-          // 自定义图片渲染，限制表情包尺寸
-          ImageExtension(
-            builder: (extensionContext) {
-              final imageUrl = DiscourseImageUrlResolver.resolveFromAttributes(
-                extensionContext.attributes,
-              );
-              if (imageUrl == null) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 在布局构建时检查内容高度
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final renderBox = context.findRenderObject() as RenderBox?;
+            if (renderBox != null) {
+              _checkNeedsCollapse(context, renderBox.size.height);
+            }
+          }
+        });
+        return _buildContentWithFold(context, colorScheme, constraints);
+      },
+    );
+  }
 
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 120,
-                    maxHeight: 120,
-                  ),
-                  child: CachedImage(
-                    imageUrl: imageUrl,
-                    fit: BoxFit.contain,
-                    memCacheWidth: 240,
-                    memCacheHeight: 240,
-                  ),
-                ),
-              );
-            },
+  /// 构建带折叠功能的内容
+  Widget _buildContentWithFold(
+    BuildContext context,
+    ColorScheme colorScheme,
+    BoxConstraints constraints,
+  ) {
+    // 构建 HTML 内容
+    Widget htmlContent = Html(
+      data: widget.post.cooked,
+      style: {
+        'body': Style(
+          margin: Margins.zero,
+          padding: HtmlPaddings.zero,
+          fontSize: FontSize(14),
+          color: colorScheme.onSurface,
+          lineHeight: LineHeight(1.5),
+        ),
+        'p': Style(
+          margin: Margins.only(bottom: 8),
+          lineHeight: LineHeight(1.5),
+        ),
+        'blockquote': Style(
+          margin: Margins.only(left: 8, bottom: 8),
+          padding: HtmlPaddings.only(left: 12),
+          border: Border(
+            left: BorderSide(
+              color: colorScheme.outline.withOpacity(0.5),
+              width: 3,
+            ),
           ),
-        ],
-      ),
+          color: colorScheme.onSurfaceVariant,
+          lineHeight: LineHeight(1.5),
+        ),
+        'a': Style(
+          color: colorScheme.primary,
+          textDecoration: TextDecoration.none,
+        ),
+        'img': Style(
+          width: Width.auto(),
+          height: Height.auto(),
+        ),
+        'pre': Style(
+          backgroundColor: colorScheme.surfaceVariant,
+          padding: HtmlPaddings.all(12),
+          margin: Margins.only(bottom: 8),
+        ),
+        'code': Style(
+          backgroundColor: colorScheme.surfaceVariant,
+          padding: HtmlPaddings.symmetric(horizontal: 4, vertical: 2),
+          fontFamily: 'monospace',
+        ),
+        'h1': Style(
+          fontSize: FontSize(18),
+          fontWeight: FontWeight.bold,
+          margin: Margins.only(bottom: 8),
+        ),
+        'h2': Style(
+          fontSize: FontSize(16),
+          fontWeight: FontWeight.bold,
+          margin: Margins.only(bottom: 8),
+        ),
+        'h3': Style(
+          fontSize: FontSize(15),
+          fontWeight: FontWeight.bold,
+          margin: Margins.only(bottom: 8),
+        ),
+        'ul': Style(
+          margin: Margins.only(left: 16, bottom: 8),
+        ),
+        'ol': Style(
+          margin: Margins.only(left: 16, bottom: 8),
+        ),
+        'li': Style(
+          margin: Margins.only(bottom: 4),
+        ),
+      },
+      extensions: [
+        // 自定义图片渲染，限制表情包尺寸
+        ImageExtension(
+          builder: (extensionContext) {
+            final imageUrl = DiscourseImageUrlResolver.resolveFromAttributes(
+              extensionContext.attributes,
+            );
+            if (imageUrl == null) return const SizedBox.shrink();
+
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 120,
+                  maxHeight: 120,
+                ),
+                child: CachedImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  memCacheWidth: 240,
+                  memCacheHeight: 240,
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
 
-    // 如果需要折叠，添加折叠逻辑
+    // 如果需要折叠且未展开，限制高度
     if (_needsCollapse && !_isExpanded) {
-      contentContainer = ClipRect(
+      htmlContent = ClipRect(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxHeight: _calculateMaxHeight(context),
+            maxHeight: _calculateFoldedHeight(context),
           ),
-          child: contentContainer,
+          child: htmlContent,
         ),
       );
     }
@@ -476,18 +497,34 @@ class _PostReplyItemState extends State<PostReplyItem> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        contentContainer,
+        // 内容区域
+        htmlContent,
         // 展开/收起按钮
         if (_needsCollapse) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           GestureDetector(
             onTap: _toggleExpanded,
-            child: Text(
-              _isExpanded ? '收起' : '展开',
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.primary,
-                fontWeight: FontWeight.w600,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _isExpanded ? '收起' : '展开',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Icon(
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                ],
               ),
             ),
           ),
@@ -500,14 +537,14 @@ class _PostReplyItemState extends State<PostReplyItem> {
   ///
   /// [context] 构建上下文
   /// @return 最大高度值
-  double _calculateMaxHeight(BuildContext context) {
+  double _calculateFoldedHeight(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final fontSize = textTheme.bodyMedium?.fontSize ?? 14;
     const lineHeight = 1.5;
     final estimatedLineHeight = fontSize * lineHeight;
 
-    // 6行文本的高度 + 段落间距（估算）
-    return estimatedLineHeight * widget.maxLines + 24;
+    // 6行文本高度 + 段落间距(每段8px，最多5段) + 边距
+    return estimatedLineHeight * widget.maxLines + 40 + 16;
   }
 
   /// 构建徽章

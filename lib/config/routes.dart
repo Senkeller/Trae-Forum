@@ -25,6 +25,7 @@ import '../presentation/pages/settings/theme_settings_page.dart';
 import '../presentation/pages/settings/font_settings_page.dart';
 import '../presentation/pages/settings/blacklist_page.dart';
 import '../presentation/pages/settings/about_page.dart';
+import '../presentation/pages/settings/app_info_page.dart';
 import '../presentation/pages/auth/register_page.dart';
 import '../presentation/pages/auth/forgot_password_page.dart';
 import '../presentation/pages/topic/topic_list_page.dart';
@@ -73,6 +74,7 @@ class AppRouter {
     RoutePaths.traeDashboard,
     RoutePaths.settings,
     RoutePaths.about,
+    RoutePaths.appInfo,
     RoutePaths.themeSettings,
     RoutePaths.fontSettings,
   ];
@@ -359,6 +361,12 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.about,
         builder: (context, state) => const AboutPage(),
+      ),
+
+      // 应用信息
+      GoRoute(
+        path: RoutePaths.appInfo,
+        builder: (context, state) => const AppInfoPage(),
       ),
 
       // 登录

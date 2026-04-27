@@ -181,6 +181,14 @@ class SettingsPage extends ConsumerWidget {
             },
           ),
           _SettingItem(
+            icon: Icons.apps_outlined,
+            title: '应用信息',
+            subtitle: '项目特性、技术栈、开源信息',
+            onTap: () {
+              context.push(RoutePaths.appInfo);
+            },
+          ),
+          _SettingItem(
             icon: Icons.description_outlined,
             title: '用户协议',
             onTap: () {
