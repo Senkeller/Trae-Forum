@@ -802,6 +802,8 @@ class ApiService extends _$ApiService {
       excerpt: draft['title'] ?? draft['draft_key'] ?? '',
       createdAt: draft['created_at'],
       username: '',
+      draftKey: draft['draft_key']?.toString(),
+      draftData: draft['data']?.toString(),
     );
   }
 
@@ -1581,6 +1583,8 @@ class UserActivity {
   final String? excerpt;
   final String? postUrl;
   final Map<String, dynamic>? replyToUser;
+  final String? draftKey;
+  final String? draftData;
 
   UserActivity({
     this.id = 0,
@@ -1605,6 +1609,8 @@ class UserActivity {
     this.excerpt,
     this.postUrl,
     this.replyToUser,
+    this.draftKey,
+    this.draftData,
   });
 
   factory UserActivity.fromJson(Map<String, dynamic> json) {
@@ -1631,6 +1637,8 @@ class UserActivity {
       excerpt: json['excerpt'],
       postUrl: json['post_url'],
       replyToUser: json['reply_to_user'] as Map<String, dynamic>?,
+      draftKey: json['draft_key']?.toString(),
+      draftData: json['data']?.toString(),
     );
   }
 }

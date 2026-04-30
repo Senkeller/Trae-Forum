@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 
 /// 用户话题列表页面
@@ -152,9 +153,7 @@ class _UserTopicsPageState extends ConsumerState<UserTopicsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('话题'),
-      ),
+      appBar: AppBar(title: const Text('话题')),
       body: _buildBody(),
     );
   }
@@ -238,9 +237,7 @@ class _TopicCard extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (topic.topicId > 0) {
-            context.push(
-              '/feed/${topic.topicId}',
-            );
+            context.push('/feed/${topic.topicId}');
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -254,9 +251,9 @@ class _TopicCard extends StatelessWidget {
                 topic.excerpt ?? '话题 #${topic.topicId}',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 12),
               // 底部信息栏：时间、回复数、浏览数
@@ -331,27 +328,7 @@ class _TopicCard extends StatelessWidget {
   /// [isoTime] ISO 8601 格式的时间字符串
   /// 返回相对时间描述（如：2小时前、3天前）
   String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 365) {
-        return '${diff.inDays ~/ 365} 年前';
-      } else if (diff.inDays > 30) {
-        return '${diff.inDays ~/ 30} 个月前';
-      } else if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
+    return RelativeTimeUtil.fromIso(isoTime);
   }
 }
 

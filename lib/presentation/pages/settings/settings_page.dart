@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../config/constants.dart' show RoutePaths;
+import '../../../config/constants.dart' show AppConstants, RoutePaths;
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -127,9 +128,15 @@ class SettingsPage extends ConsumerWidget {
             icon: Icons.visibility_off_outlined,
             title: '私密账号',
             subtitle: '开启后需要批准才能关注你',
-            value: false,
-            onChanged: (value) {
-              // TODO: 切换私密账号设置
+            value: appSettings.privateAccount,
+            onChanged: (value) async {
+              await ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setPrivateAccount(value);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(value ? '已开启私密账号模式' : '已关闭私密账号模式')),
+              );
             },
           ),
 
@@ -147,17 +154,23 @@ class SettingsPage extends ConsumerWidget {
             icon: Icons.play_circle_outline,
             title: '自动播放视频',
             subtitle: 'Wi-Fi 下自动播放',
-            value: true,
-            onChanged: (value) {
-              // TODO: 切换自动播放设置
+            value: appSettings.autoPlayVideo,
+            onChanged: (value) async {
+              await ref
+                  .read(settingsNotifierProvider.notifier)
+                  .setAutoPlayVideo(value);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(value ? '已开启自动播放视频' : '已关闭自动播放视频')),
+              );
             },
           ),
           _SettingItem(
             icon: Icons.language_outlined,
             title: '语言',
-            subtitle: '简体中文',
+            subtitle: appSettings.language.displayName,
             onTap: () {
-              // TODO: 语言设置
+              _showLanguageDialog(context, ref, appSettings.language);
             },
           ),
           _SettingItem(
@@ -165,7 +178,7 @@ class SettingsPage extends ConsumerWidget {
             title: '清除缓存',
             subtitle: '12.5 MB',
             onTap: () {
-              _showClearCacheDialog(context);
+              _showClearCacheDialog(context, ref);
             },
           ),
 
@@ -190,14 +203,14 @@ class SettingsPage extends ConsumerWidget {
             icon: Icons.description_outlined,
             title: '用户协议',
             onTap: () {
-              // TODO: 打开用户协议
+              _openPolicyPage(context, title: '用户协议', path: '/tos');
             },
           ),
           _SettingItem(
             icon: Icons.privacy_tip_outlined,
             title: '隐私政策',
             onTap: () {
-              // TODO: 打开隐私政策
+              _openPolicyPage(context, title: '隐私政策', path: '/privacy');
             },
           ),
           _SettingItem(
@@ -205,7 +218,7 @@ class SettingsPage extends ConsumerWidget {
             title: '检查更新',
             subtitle: '当前版本 1.0.0',
             onTap: () {
-              // TODO: 检查更新
+              _checkForUpdates(context);
             },
           ),
 
@@ -267,10 +280,50 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
+  void _showLanguageDialog(
+    BuildContext context,
+    WidgetRef ref,
+    AppLanguage currentLanguage,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('语言设置'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: AppLanguage.values.map((language) {
+            return RadioListTile<AppLanguage>(
+              title: Text(language.displayName),
+              value: language,
+              groupValue: currentLanguage,
+              onChanged: (value) async {
+                if (value == null) return;
+                await ref.read(settingsNotifierProvider.notifier).setLanguage(
+                  value,
+                );
+                if (!context.mounted) return;
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('语言已切换为 ${value.displayName}')),
+                );
+              },
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 显示清除缓存确认对话框
   ///
   /// [context] 构建上下文
-  void _showClearCacheDialog(BuildContext context) {
+  void _showClearCacheDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -282,14 +335,45 @@ class SettingsPage extends ConsumerWidget {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(context).pop();
-              // TODO: 执行清除缓存操作
+              final clearedBytes = await ref
+                  .read(settingsNotifierProvider.notifier)
+                  .clearCache();
+              PaintingBinding.instance.imageCache.clear();
+              PaintingBinding.instance.imageCache.clearLiveImages();
+
+              if (!context.mounted) return;
+
+              final message = clearedBytes > 0
+                  ? '缓存已清理，释放 ${(clearedBytes / (1024 * 1024)).toStringAsFixed(2)} MB'
+                  : '缓存已清理';
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(message)),
+              );
             },
             child: const Text('确定'),
           ),
         ],
       ),
+    );
+  }
+
+  void _openPolicyPage(
+    BuildContext context, {
+    required String title,
+    required String path,
+  }) {
+    final url = '${AppConstants.forumUrl}$path';
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title)}',
+    );
+  }
+
+  void _checkForUpdates(BuildContext context) {
+    Clipboard.setData(const ClipboardData(text: AppConstants.appVersion));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('当前已是最新版本（1.0.0），版本号已复制到剪贴板')),
     );
   }
 

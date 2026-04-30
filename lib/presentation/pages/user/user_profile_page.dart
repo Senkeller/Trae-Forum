@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/html_text_util.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
@@ -850,24 +852,7 @@ class _SummaryTopicItem extends StatelessWidget {
   }
 
   String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime).toLocal();
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      }
-      if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      }
-      if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      }
-      return '刚刚';
-    } catch (_) {
-      return isoTime;
-    }
+    return RelativeTimeUtil.fromIso(isoTime);
   }
 }
 
@@ -1130,33 +1115,11 @@ class _ActivityCard extends StatelessWidget {
   }
 
   String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 0) {
-        return '$diff.inDays 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
+    return RelativeTimeUtil.fromIso(isoTime);
   }
 
   String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .trim();
+    return HtmlTextUtil.stripHtml(htmlString);
   }
 }
 
@@ -1415,13 +1378,7 @@ class _FeedCard extends StatelessWidget {
   }
 
   String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .trim();
+    return HtmlTextUtil.stripHtml(htmlString);
   }
 
   String _formatTime(String value) {
@@ -1445,12 +1402,7 @@ class _FeedCard extends StatelessWidget {
   }
 
   String _relativeTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-    if (diff.inDays > 0) return '${diff.inDays} 天前';
-    if (diff.inHours > 0) return '${diff.inHours} 小时前';
-    if (diff.inMinutes > 0) return '${diff.inMinutes} 分钟前';
-    return '刚刚';
+    return RelativeTimeUtil.fromIso(dateTime.toIso8601String());
   }
 }
 

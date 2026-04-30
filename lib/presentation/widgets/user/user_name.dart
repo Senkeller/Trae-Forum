@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../config/constants.dart';
 
 /// 用户等级枚举
 enum UserLevel {
@@ -269,8 +271,11 @@ class UserName extends StatelessWidget {
   /// 跳转到用户主页
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
-      // TODO: 使用路由跳转到用户主页
-      // context.push('/user/$userId');
+      final path = RoutePaths.userProfile.replaceFirst(
+        ':uid',
+        Uri.encodeComponent(userId!),
+      );
+      context.push(path);
     }
   }
 }
@@ -345,8 +350,11 @@ class UserNameSimple extends StatelessWidget {
   /// 跳转到用户主页
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
-      // TODO: 使用路由跳转到用户主页
-      // context.push('/user/$userId');
+      final path = RoutePaths.userProfile.replaceFirst(
+        ':uid',
+        Uri.encodeComponent(userId!),
+      );
+      context.push(path);
     }
   }
 }
@@ -436,8 +444,11 @@ class UserNameWithInfo extends StatelessWidget {
   /// 跳转到用户主页
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
-      // TODO: 使用路由跳转到用户主页
-      // context.push('/user/$userId');
+      final path = RoutePaths.userProfile.replaceFirst(
+        ':uid',
+        Uri.encodeComponent(userId!),
+      );
+      context.push(path);
     }
   }
 }

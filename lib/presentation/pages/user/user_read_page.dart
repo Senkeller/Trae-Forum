@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/html_text_util.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 
 /// 用户已读内容页面
@@ -152,9 +154,7 @@ class _UserReadPageState extends ConsumerState<UserReadPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('已读'),
-      ),
+      appBar: AppBar(title: const Text('已读')),
       body: _buildBody(),
     );
   }
@@ -238,9 +238,7 @@ class _ReadItemCard extends StatelessWidget {
       child: InkWell(
         onTap: () {
           if (item.topicId > 0) {
-            context.push(
-              '/feed/${item.topicId}',
-            );
+            context.push('/feed/${item.topicId}');
           }
         },
         borderRadius: BorderRadius.circular(12),
@@ -271,7 +269,7 @@ class _ReadItemCard extends StatelessWidget {
                         ),
                         if (item.createdAt != null)
                           Text(
-                            _formatTime(item.createdAt!),
+                            RelativeTimeUtil.fromIso(item.createdAt!),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: Theme.of(
@@ -291,27 +289,27 @@ class _ReadItemCard extends StatelessWidget {
                   item.excerpt!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 )
               else if (item.cooked != null && item.cooked!.isNotEmpty)
                 Text(
-                  _stripHtml(item.cooked!),
+                  HtmlTextUtil.stripHtml(item.cooked!),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 )
               else
                 Text(
                   '话题 #${item.topicId}',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 ),
               const SizedBox(height: 12),
               // 底部信息栏
@@ -326,7 +324,7 @@ class _ReadItemCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     item.createdAt != null
-                        ? _formatTime(item.createdAt!)
+                        ? RelativeTimeUtil.fromIso(item.createdAt!)
                         : '未知时间',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -392,47 +390,6 @@ class _ReadItemCard extends StatelessWidget {
     return 'https://forum.trae.cn${template.replaceAll('{size}', '60')}';
   }
 
-  /// 格式化时间显示
-  ///
-  /// [isoTime] ISO 8601 格式的时间字符串
-  /// 返回相对时间描述（如：2小时前、3天前）
-  String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 365) {
-        return '${diff.inDays ~/ 365} 年前';
-      } else if (diff.inDays > 30) {
-        return '${diff.inDays ~/ 30} 个月前';
-      } else if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
-  }
-
-  /// 去除 HTML 标签
-  ///
-  /// [htmlString] 包含 HTML 标签的字符串
-  /// 返回纯文本字符串
-  String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .trim();
-  }
 }
 
 /// 状态视图组件

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../config/theme.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/discourse/discourse_post.dart';
+import '../../../data/repositories/comment_repository.dart';
 import '../../../presentation/providers/reply_provider.dart';
 import '../../widgets/common/cached_image.dart';
 import '../../widgets/user/user_avatar.dart';
@@ -187,7 +189,7 @@ class _PostReplyListState extends ConsumerState<PostReplyList> {
 ///
 /// 显示单个回复的内容，包括用户信息、内容、操作按钮等
 /// 支持内容折叠展开功能，当内容超过6行时显示"展开"按钮
-class PostReplyItem extends StatefulWidget {
+class PostReplyItem extends ConsumerStatefulWidget {
   /// 帖子数据
   final DiscoursePost post;
 
@@ -210,10 +212,10 @@ class PostReplyItem extends StatefulWidget {
   });
 
   @override
-  State<PostReplyItem> createState() => _PostReplyItemState();
+  ConsumerState<PostReplyItem> createState() => _PostReplyItemState();
 }
 
-class _PostReplyItemState extends State<PostReplyItem> {
+class _PostReplyItemState extends ConsumerState<PostReplyItem> {
   /// 是否已展开
   bool _isExpanded = false;
 
@@ -770,7 +772,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
                 title: const Text('复制内容'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  // TODO: 实现复制功能
+                  _copyContent(context);
                 },
               ),
               ListTile(
@@ -778,7 +780,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
                 title: const Text('举报'),
                 onTap: () {
                   Navigator.of(context).pop();
-                  // TODO: 实现举报功能
+                  _reportPost(context);
                 },
               ),
               if (widget.post.canEdit == true)
@@ -787,7 +789,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
                   title: const Text('编辑'),
                   onTap: () {
                     Navigator.of(context).pop();
-                    // TODO: 实现编辑功能
+                    _editPost(context);
                   },
                 ),
               if (widget.post.canDelete == true)
@@ -796,7 +798,7 @@ class _PostReplyItemState extends State<PostReplyItem> {
                   title: Text('删除', style: TextStyle(color: colorScheme.error)),
                   onTap: () {
                     Navigator.of(context).pop();
-                    // TODO: 实现删除功能
+                    _confirmDelete(context);
                   },
                 ),
             ],
@@ -838,6 +840,229 @@ class _PostReplyItemState extends State<PostReplyItem> {
       return '刚刚';
     }
   }
+
+  void _copyContent(BuildContext context) {
+    final cooked = widget.post.cooked ?? '';
+    final plainText = cooked.replaceAll(RegExp(r'<[^>]*>'), '').trim();
+    if (plainText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('没有可复制的内容')),
+      );
+      return;
+    }
+
+    Clipboard.setData(ClipboardData(text: plainText));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已复制回复内容')),
+    );
+  }
+
+  void _reportPost(BuildContext context) {
+    _showReportDialog(context);
+  }
+
+  void _showReportDialog(BuildContext context) {
+    _ReportReason selectedReason = _ReportReason.inappropriate;
+    final detailController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('举报回复'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ..._ReportReason.values.map(
+                  (reason) => RadioListTile<_ReportReason>(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(reason.label),
+                    subtitle: Text(reason.description),
+                    value: reason,
+                    groupValue: selectedReason,
+                    onChanged: isSubmitting
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            setDialogState(() => selectedReason = value);
+                          },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: detailController,
+                  enabled: !isSubmitting,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: '补充说明（可选）',
+                    hintText: '请输入补充信息，帮助管理员更快处理',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final navigator = Navigator.of(dialogContext);
+                      final messenger = ScaffoldMessenger.of(dialogContext);
+                      setDialogState(() => isSubmitting = true);
+                      final result = await ref
+                          .read(commentRepositoryProvider)
+                          .reportPost(
+                            postId: widget.post.id,
+                            postActionTypeId: selectedReason.actionTypeId,
+                            message: detailController.text,
+                          );
+                      if (!mounted) return;
+                      if (dialogContext.mounted) {
+                        navigator.pop();
+                      }
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(result.success ? '举报已提交，感谢你的反馈' : (result.errorMessage ?? '举报提交失败')),
+                        ),
+                      );
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('提交举报'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editPost(BuildContext context) {
+    final origin = (widget.post.cooked ?? '')
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .trim();
+    final controller = TextEditingController(text: origin);
+
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('编辑回复'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            hintText: '输入修改后的内容',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              final editedContent = controller.text.trim();
+              if (editedContent.isEmpty) {
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('回复内容不能为空')),
+                );
+                return;
+              }
+
+              final result = await ref
+                  .read(replyNotifierProvider.notifier)
+                  .editReply(postId: widget.post.id, content: editedContent);
+
+              navigator.pop();
+
+              if (!mounted) return;
+
+              if (result.success) {
+                ref.read(replyListRefreshProvider.notifier).refresh();
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('回复编辑成功')),
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(content: Text(result.errorMessage ?? '编辑失败')),
+                );
+              }
+            },
+            child: const Text('提交'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除回复'),
+        content: const Text('确认删除该回复吗？该操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              final result = await ref
+                  .read(replyNotifierProvider.notifier)
+                  .deleteReply(widget.post.id);
+              navigator.pop();
+
+              if (!mounted) return;
+
+              if (result.success) {
+                ref.read(replyListRefreshProvider.notifier).refresh();
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('回复已删除')),
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(content: Text(result.errorMessage ?? '删除失败')),
+                );
+              }
+            },
+            child: const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _ReportReason {
+  offTopic(3, '离题', '该内容与当前话题无关'),
+  inappropriate(4, '不当内容', '包含攻击、辱骂或不适宜内容'),
+  spam(8, '垃圾广告', '重复灌水、广告或恶意推广'),
+  ;
+
+  final int actionTypeId;
+  final String label;
+  final String description;
+
+  const _ReportReason(this.actionTypeId, this.label, this.description);
 }
 
 /// 回复列表骨架屏

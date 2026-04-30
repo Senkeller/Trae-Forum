@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/html_text_util.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 
 /// 用户回复列表页
@@ -13,10 +15,7 @@ class UserRepliesPage extends ConsumerStatefulWidget {
   /// 用户名（Discourse username），从路由参数获取
   final String username;
 
-  const UserRepliesPage({
-    super.key,
-    required this.username,
-  });
+  const UserRepliesPage({super.key, required this.username});
 
   @override
   ConsumerState<UserRepliesPage> createState() => _UserRepliesPageState();
@@ -204,9 +203,7 @@ class _UserRepliesPageState extends ConsumerState<UserRepliesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('回复'),
-      ),
+      appBar: AppBar(title: const Text('回复')),
       body: _buildBody(),
     );
   }
@@ -309,18 +306,17 @@ class _ReplyCard extends StatelessWidget {
                       children: [
                         Text(
                           reply.username,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
+                          style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         if (reply.createdAt != null)
                           Text(
-                            _formatTime(reply.createdAt!),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
+                            RelativeTimeUtil.fromIso(reply.createdAt!),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
                           ),
                       ],
@@ -331,7 +327,7 @@ class _ReplyCard extends StatelessWidget {
               if (reply.cooked != null && reply.cooked!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  _stripHtml(reply.cooked!),
+                  HtmlTextUtil.stripHtml(reply.cooked!),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -351,9 +347,8 @@ class _ReplyCard extends StatelessWidget {
                   child: Text(
                     '话题 #${reply.topicSlug}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color:
-                              Theme.of(context).colorScheme.onPrimaryContainer,
-                        ),
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
               ],
@@ -375,43 +370,6 @@ class _ReplyCard extends StatelessWidget {
     return 'https://forum.trae.cn${template.replaceAll('{size}', '60')}';
   }
 
-  /// 格式化时间
-  ///
-  /// [isoTime] ISO 8601 格式的时间字符串
-  /// 返回相对时间描述（如：2小时前、3天前）
-  String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
-  }
-
-  /// 去除 HTML 标签
-  ///
-  /// [htmlString] 包含 HTML 标签的字符串
-  /// 返回纯文本内容
-  String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .trim();
-  }
 }
 
 /// 状态视图组件

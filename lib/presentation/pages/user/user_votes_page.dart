@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/html_text_util.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 
 /// 用户投票页面
@@ -13,10 +15,7 @@ class UserVotesPage extends ConsumerStatefulWidget {
   /// 用户名（Discourse username）
   final String username;
 
-  const UserVotesPage({
-    super.key,
-    required this.username,
-  });
+  const UserVotesPage({super.key, required this.username});
 
   @override
   ConsumerState<UserVotesPage> createState() => _UserVotesPageState();
@@ -36,9 +35,6 @@ class _UserVotesPageState extends ConsumerState<UserVotesPage> {
 
   /// 是否还有更多数据
   bool _hasMore = true;
-
-  /// 当前页码
-  int _currentPage = 0;
 
   /// 错误信息
   String? _errorMessage;
@@ -97,10 +93,8 @@ class _UserVotesPageState extends ConsumerState<UserVotesPage> {
         setState(() {
           if (refresh) {
             _votes = newVotes;
-            _currentPage = 1;
           } else {
             _votes.addAll(newVotes);
-            _currentPage++;
           }
           _hasMore = newVotes.length >= AppConstants.pageSize;
           _isLoading = false;
@@ -127,9 +121,7 @@ class _UserVotesPageState extends ConsumerState<UserVotesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('投票'),
-      ),
+      appBar: AppBar(title: const Text('投票')),
       body: _buildBody(),
     );
   }
@@ -250,19 +242,14 @@ class _VoteCard extends StatelessWidget {
                       children: [
                         Text(
                           '参与了投票',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                         if (vote.createdAt != null)
                           Text(
-                            _formatTime(vote.createdAt!),
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+                            RelativeTimeUtil.fromIso(vote.createdAt!),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                       ],
                     ),
@@ -275,20 +262,20 @@ class _VoteCard extends StatelessWidget {
                   vote.topicSlug!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ],
               if (vote.excerpt != null && vote.excerpt!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  _stripHtml(vote.excerpt!),
+                  HtmlTextUtil.stripHtml(vote.excerpt!),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ],
@@ -298,43 +285,6 @@ class _VoteCard extends StatelessWidget {
     );
   }
 
-  /// 格式化时间显示
-  ///
-  /// [isoTime] ISO 8601 格式的时间字符串
-  /// 返回相对时间描述（如 "2 小时前"、"3 天前"）
-  String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
-  }
-
-  /// 去除 HTML 标签
-  ///
-  /// [htmlString] 包含 HTML 标签的字符串
-  /// 返回纯文本内容
-  String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .trim();
-  }
 }
 
 /// 状态视图组件

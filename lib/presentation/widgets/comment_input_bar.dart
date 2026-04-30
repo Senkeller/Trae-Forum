@@ -262,6 +262,75 @@ class _CommentInputBarState extends ConsumerState<CommentInputBar> {
     _controller.replaceText(index, length, text, null);
   }
 
+  Future<void> _showEmojiPicker() async {
+    final emojis = ['😀', '😂', '😍', '🤔', '👍', '🎉', '🔥', '🙏', '💡', '🚀'];
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: GridView.builder(
+          shrinkWrap: true,
+          padding: const EdgeInsets.all(16),
+          itemCount: emojis.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+          ),
+          itemBuilder: (context, index) {
+            final emoji = emojis[index];
+            return InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => Navigator.of(context).pop(emoji),
+              child: Center(
+                child: Text(emoji, style: const TextStyle(fontSize: 28)),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      _insertText(selected);
+      _focusNode.requestFocus();
+    }
+  }
+
+  Future<void> _showMoreOptions() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.format_quote),
+              title: const Text('插入引用'),
+              onTap: () => Navigator.of(context).pop('> 引用内容\n'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.code),
+              title: const Text('插入代码块'),
+              onTap: () =>
+                  Navigator.of(context).pop('\n```text\n在这里输入代码\n```\n'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.format_list_bulleted),
+              title: const Text('插入无序列表'),
+              onTap: () =>
+                  Navigator.of(context).pop('\n- 列表项1\n- 列表项2\n'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected != null && mounted) {
+      _insertText(selected);
+      _focusNode.requestFocus();
+    }
+  }
+
   /// 处理发送
   Future<void> _handleSend() async {
     if (!widget.isLoggedIn) {
@@ -481,9 +550,7 @@ class _CommentInputBarState extends ConsumerState<CommentInputBar> {
                   children: [
                     // 表情按钮
                     IconButton(
-                      onPressed: () {
-                        // TODO: 显示表情选择器
-                      },
+                      onPressed: _showEmojiPicker,
                       icon: const Icon(Icons.emoji_emotions_outlined, size: 22),
                       color: colorScheme.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,
@@ -541,9 +608,7 @@ class _CommentInputBarState extends ConsumerState<CommentInputBar> {
                     ),
                     // 更多按钮
                     IconButton(
-                      onPressed: () {
-                        // TODO: 显示更多选项
-                      },
+                      onPressed: _showMoreOptions,
                       icon: const Icon(Icons.add_circle_outline, size: 22),
                       color: colorScheme.onSurfaceVariant,
                       visualDensity: VisualDensity.compact,

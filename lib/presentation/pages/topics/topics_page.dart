@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/network/discourse_api_service.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../data/models/tag_group.dart';
 import '../../widgets/common/main_top_app_bar_title.dart';
@@ -35,6 +36,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
 
   /// 动画控制器
   late AnimationController _animationController;
+  final Map<String, int> _tagTopicCounts = {};
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
       duration: const Duration(milliseconds: 300),
     );
     _animationController.forward();
+    _loadTagTopicCounts();
   }
 
   @override
@@ -267,7 +270,11 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
                     ),
                   );
                 },
-                child: _TagCard(tag: tag, onTap: () => _onTagTap(tag)),
+                child: _TagCard(
+                  tag: tag,
+                  displayedCount: _resolveTagCount(tag),
+                  onTap: () => _onTagTap(tag),
+                ),
               );
             }, childCount: tags.length),
           ),
@@ -315,6 +322,62 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     final sanitizedTag = rawTag.replaceAll('%', '%25');
     final encodedTag = Uri.encodeComponent(sanitizedTag);
     context.push(RoutePaths.tagDetail.replaceFirst(':tag', encodedTag));
+  }
+
+  Future<void> _loadTagTopicCounts() async {
+    try {
+      final discourseApi = ref.read(discourseApiServiceProvider);
+      final response = await discourseApi.getTags();
+      final data = response.data;
+      if (data is! Map) {
+        return;
+      }
+
+      final tags = (data['tags'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+      final counts = <String, int>{};
+
+      for (final tag in tags) {
+        final name = (tag['name'] ?? '').toString().trim().toLowerCase();
+        if (name.isEmpty) {
+          continue;
+        }
+        counts[name] = _parseCount(tag['topic_count'] ?? tag['count']);
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _tagTopicCounts
+          ..clear()
+          ..addAll(counts);
+      });
+    } catch (_) {
+      // 读取实时标签数失败时回退本地静态数据，避免影响页面可用性。
+    }
+  }
+
+  int _parseCount(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  int _resolveTagCount(TagItem tag) {
+    final normalizedName = tag.name.trim().toLowerCase();
+    if (normalizedName.isNotEmpty &&
+        _tagTopicCounts.containsKey(normalizedName)) {
+      return _tagTopicCounts[normalizedName]!;
+    }
+    return tag.count;
   }
 }
 
@@ -402,12 +465,17 @@ class _CategoryNavItem extends StatelessWidget {
 class _TagCard extends StatelessWidget {
   /// 标签数据
   final TagItem tag;
+  final int displayedCount;
 
   /// 点击回调
   final VoidCallback onTap;
 
   /// 构造函数
-  const _TagCard({required this.tag, required this.onTap});
+  const _TagCard({
+    required this.tag,
+    required this.displayedCount,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -495,7 +563,7 @@ class _TagCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 2),
                         Text(
-                          _formatCount(tag.count),
+                          _formatCount(displayedCount),
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,

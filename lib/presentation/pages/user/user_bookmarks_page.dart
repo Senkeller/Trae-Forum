@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
 import '../../../core/network/api_service.dart';
 import '../../../core/network/discourse_api_service.dart';
+import '../../../core/utils/html_text_util.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 
 /// 用户书签页面
@@ -14,10 +16,7 @@ class UserBookmarksPage extends ConsumerStatefulWidget {
   /// 用户名（Discourse username）
   final String username;
 
-  const UserBookmarksPage({
-    super.key,
-    required this.username,
-  });
+  const UserBookmarksPage({super.key, required this.username});
 
   @override
   ConsumerState<UserBookmarksPage> createState() => _UserBookmarksPageState();
@@ -193,13 +192,8 @@ class _UserBookmarksPageState extends ConsumerState<UserBookmarksPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('书签'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refreshBookmarks,
-        child: _buildBody(),
-      ),
+      appBar: AppBar(title: const Text('书签')),
+      body: RefreshIndicator(onRefresh: _refreshBookmarks, child: _buildBody()),
     );
   }
 
@@ -294,14 +288,14 @@ class _BookmarkCard extends StatelessWidget {
                 bookmark.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               if (bookmark.excerpt != null && bookmark.excerpt!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
-                  _stripHtml(bookmark.excerpt!),
+                  HtmlTextUtil.stripHtml(bookmark.excerpt!),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -319,7 +313,7 @@ class _BookmarkCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    _formatTime(bookmark.createdAt),
+                    RelativeTimeUtil.fromIso(bookmark.createdAt),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
@@ -338,7 +332,9 @@ class _BookmarkCard extends StatelessWidget {
                       child: Text(
                         '#${bookmark.postNumber}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
@@ -352,47 +348,6 @@ class _BookmarkCard extends StatelessWidget {
     );
   }
 
-  /// 格式化时间显示
-  ///
-  /// 将 ISO 8601 格式的时间转换为相对时间（如"2小时前"）
-  String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 365) {
-        return '${diff.inDays ~/ 365} 年前';
-      } else if (diff.inDays > 30) {
-        return '${diff.inDays ~/ 30} 个月前';
-      } else if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
-  }
-
-  /// 去除 HTML 标签
-  ///
-  /// 将 HTML 内容转换为纯文本
-  String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#39;', "'")
-        .trim();
-  }
 }
 
 /// 状态视图组件
@@ -514,14 +469,11 @@ class UserBookmarksResponse {
   /// 书签列表
   final List<UserBookmark> data;
 
-  UserBookmarksResponse({
-    this.status,
-    this.message,
-    this.data = const [],
-  });
+  UserBookmarksResponse({this.status, this.message, this.data = const []});
 
   factory UserBookmarksResponse.fromJson(Map<String, dynamic> json) {
-    final List<dynamic> bookmarksJson = json['user_bookmark_list']?['bookmarks'] ?? [];
+    final List<dynamic> bookmarksJson =
+        json['user_bookmark_list']?['bookmarks'] ?? [];
     return UserBookmarksResponse(
       status: json['status'],
       message: json['message'],
@@ -549,7 +501,8 @@ extension ApiServiceBookmarks on ApiService {
       final response = await discourseApi.getUserBookmarks(page: page);
       final Map<String, dynamic> data = response.data;
 
-      final List<dynamic> bookmarksJson = data['user_bookmark_list']?['bookmarks'] ?? [];
+      final List<dynamic> bookmarksJson =
+          data['user_bookmark_list']?['bookmarks'] ?? [];
       final bookmarks = bookmarksJson
           .map((item) => UserBookmark.fromJson(item as Map<String, dynamic>))
           .toList();

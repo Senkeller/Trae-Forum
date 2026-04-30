@@ -1,10 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/constants.dart';
 
 class RegisterPage extends StatelessWidget {
   const RegisterPage({super.key});
+
+  static final Uri _registerUri = Uri.parse('${AppConstants.forumUrl}/signup');
+
+  void _openInWebView(BuildContext context) {
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(_registerUri.toString())}&title=${Uri.encodeComponent('注册')}',
+    );
+  }
+
+  Future<void> _openExternal(BuildContext context) async {
+    final launched = await launchUrl(
+      _registerUri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!context.mounted) return;
+    if (!launched) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无法打开浏览器，请稍后重试')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +74,7 @@ class RegisterPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('正在跳转到注册页面...')),
-                    );
-                  },
+                  onPressed: () => _openExternal(context),
                   icon: const Icon(Icons.open_in_browser),
                   label: const Text('前往注册页面'),
                 ),
@@ -65,11 +83,7 @@ class RegisterPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('WebView 注册功能开发中')),
-                    );
-                  },
+                  onPressed: () => _openInWebView(context),
                   icon: const Icon(Icons.web),
                   label: const Text('在应用内打开'),
                 ),

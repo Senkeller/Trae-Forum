@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/html_text_util.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 
 /// 用户已解决页面
@@ -16,10 +18,7 @@ class UserSolvedPage extends ConsumerStatefulWidget {
   /// 构造函数
   ///
   /// [username] 用户名（必填）
-  const UserSolvedPage({
-    super.key,
-    required this.username,
-  });
+  const UserSolvedPage({super.key, required this.username});
 
   @override
   ConsumerState<UserSolvedPage> createState() => _UserSolvedPageState();
@@ -201,9 +200,7 @@ class _UserSolvedPageState extends ConsumerState<UserSolvedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('已解决'),
-      ),
+      appBar: AppBar(title: const Text('已解决')),
       body: _buildBody(),
     );
   }
@@ -335,8 +332,8 @@ class _SolvedCard extends StatelessWidget {
                           ? '话题 #${activity.topicSlug}'
                           : '话题 #${activity.topicId}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -345,7 +342,7 @@ class _SolvedCard extends StatelessWidget {
               if (activity.cooked != null && activity.cooked!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text(
-                  _stripHtml(activity.cooked!),
+                  HtmlTextUtil.stripHtml(activity.cooked!),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium,
@@ -362,21 +359,20 @@ class _SolvedCard extends StatelessWidget {
                         _formatAvatarUrl(activity.avatarTemplate!),
                       ),
                     ),
-                  if (activity.avatarTemplate != null)
-                    const SizedBox(width: 8),
+                  if (activity.avatarTemplate != null) const SizedBox(width: 8),
                   Text(
                     activity.username,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const Spacer(),
                   if (activity.createdAt != null)
                     Text(
-                      _formatTime(activity.createdAt!),
+                      RelativeTimeUtil.fromIso(activity.createdAt!),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                 ],
               ),
@@ -398,43 +394,6 @@ class _SolvedCard extends StatelessWidget {
     return 'https://forum.trae.cn${template.replaceAll('{size}', '60')}';
   }
 
-  /// 格式化时间
-  ///
-  /// [isoTime] ISO 格式的时间字符串
-  /// 返回相对时间描述（如：2小时前、3天前）
-  String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
-  }
-
-  /// 去除 HTML 标签
-  ///
-  /// [htmlString] 包含 HTML 标签的字符串
-  /// 返回纯文本内容
-  String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .trim();
-  }
 }
 
 /// 状态视图组件

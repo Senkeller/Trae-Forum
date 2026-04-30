@@ -483,9 +483,10 @@ class CommentRepository {
     int? replyToPostNumber,
   }) async {
     try {
-      final draftKey = replyToPostNumber != null
-          ? 'topic_${topicId}_$replyToPostNumber'
-          : 'topic_$topicId';
+      final draftKey = _resolveDraftKey(
+        topicId: topicId,
+        replyToPostNumber: replyToPostNumber,
+      );
 
       final response = await _discourseApi.saveDraft(
         draftKey: draftKey,
@@ -509,9 +510,10 @@ class CommentRepository {
     int? replyToPostNumber,
   }) async {
     try {
-      final draftKey = replyToPostNumber != null
-          ? 'topic_${topicId}_$replyToPostNumber'
-          : 'topic_$topicId';
+      final draftKey = _resolveDraftKey(
+        topicId: topicId,
+        replyToPostNumber: replyToPostNumber,
+      );
 
       final response = await _discourseApi.getDraft(draftKey);
 
@@ -542,9 +544,10 @@ class CommentRepository {
     int? replyToPostNumber,
   }) async {
     try {
-      final draftKey = replyToPostNumber != null
-          ? 'topic_${topicId}_$replyToPostNumber'
-          : 'topic_$topicId';
+      final draftKey = _resolveDraftKey(
+        topicId: topicId,
+        replyToPostNumber: replyToPostNumber,
+      );
 
       await _discourseApi.deleteDraft(
         draftKey: draftKey,
@@ -553,6 +556,16 @@ class CommentRepository {
     } catch (e) {
       // 忽略删除错误
     }
+  }
+
+  String _resolveDraftKey({required int topicId, int? replyToPostNumber}) {
+    if (replyToPostNumber != null) {
+      return DraftKey.nestedReply(topicId, replyToPostNumber);
+    }
+    if (topicId <= 0) {
+      return DraftKey.newTopic();
+    }
+    return DraftKey.topicReply(topicId);
   }
 
   // ==================== 编辑相关方法 ====================
@@ -675,6 +688,43 @@ class CommentRepository {
       return _handleDioError(e);
     } catch (e) {
       return CommentResult.failure('取消点赞时发生错误: $e');
+    }
+  }
+
+  /// 举报帖子
+  ///
+  /// [postId] 帖子ID
+  /// [postActionTypeId] 举报类型（3=离题, 4=不当内容, 8=垃圾广告）
+  /// [message] 补充说明（可选）
+  Future<CommentResult> reportPost({
+    required int postId,
+    required int postActionTypeId,
+    String? message,
+  }) async {
+    try {
+      final response = await _discourseApi.reportPost(
+        postId: postId,
+        postActionTypeId: postActionTypeId,
+        message: message,
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return CommentResult.success();
+      }
+      if (response.statusCode == 403) {
+        return CommentResult.failure('权限不足，无法举报此内容');
+      }
+      if (response.statusCode == 422) {
+        return CommentResult.failure('举报参数无效，请检查后重试');
+      }
+      if (response.statusCode == 429) {
+        return CommentResult.failure('操作过于频繁，请稍后再试');
+      }
+      return CommentResult.failure('举报失败: HTTP ${response.statusCode}');
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      return CommentResult.failure('举报时发生错误: $e');
     }
   }
 }

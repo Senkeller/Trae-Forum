@@ -1,10 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/constants.dart';
 
 class ForgotPasswordPage extends StatelessWidget {
   const ForgotPasswordPage({super.key});
+
+  static final Uri _forgotPasswordUri = Uri.parse(
+    '${AppConstants.forumUrl}/password-reset',
+  );
+
+  void _openInWebView(BuildContext context) {
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(_forgotPasswordUri.toString())}&title=${Uri.encodeComponent('找回密码')}',
+    );
+  }
+
+  Future<void> _openExternal(BuildContext context) async {
+    final launched = await launchUrl(
+      _forgotPasswordUri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!context.mounted) return;
+    if (!launched) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('无法打开浏览器，请稍后重试')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,11 +76,7 @@ class ForgotPasswordPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('正在跳转到找回密码页面...')),
-                    );
-                  },
+                  onPressed: () => _openExternal(context),
                   icon: const Icon(Icons.open_in_browser),
                   label: const Text('前往找回密码'),
                 ),
@@ -65,11 +85,7 @@ class ForgotPasswordPage extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('WebView 找回密码功能开发中')),
-                    );
-                  },
+                  onPressed: () => _openInWebView(context),
                   icon: const Icon(Icons.web),
                   label: const Text('在应用内打开'),
                 ),

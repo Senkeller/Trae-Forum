@@ -140,7 +140,6 @@ class _MessagePageState extends ConsumerState<MessagePage>
             icon: const Icon(Icons.settings),
             tooltip: '消息设置',
             onPressed: () {
-              // TODO: 跳转到消息设置页面
               context.push(RoutePaths.notificationSettings);
             },
           ),

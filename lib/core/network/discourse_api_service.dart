@@ -71,6 +71,13 @@ class DiscourseApiService {
     return _dio.get('$_baseUrl/categories.json');
   }
 
+  /// 获取标签列表（包含话题数量）
+  ///
+  /// 调用 Discourse GET /tags.json API
+  Future<Response> getTags() async {
+    return _dio.get('$_baseUrl/tags.json');
+  }
+
   /// 基础搜索 - 仅关键词
   Future<Response> searchTopics(String query) async {
     return _dio.get('$_baseUrl/search.json', queryParameters: {'q': query});
@@ -628,6 +635,41 @@ class DiscourseApiService {
     }
 
     return response;
+  }
+
+  /// 举报帖子
+  ///
+  /// [postId] 帖子ID
+  /// [postActionTypeId] 举报类型（3=离题, 4=不当内容, 8=垃圾广告）
+  /// [message] 补充说明（可选）
+  Future<Response> reportPost({
+    required int postId,
+    required int postActionTypeId,
+    String? message,
+  }) async {
+    await DiscourseCsrfToken.ensureValid(_dio);
+    final csrfToken = DiscourseCsrfToken.token;
+
+    final payload = <String, dynamic>{
+      'id': postId,
+      'post_action_type_id': postActionTypeId,
+    };
+    if (message != null && message.trim().isNotEmpty) {
+      payload['message'] = message.trim();
+    }
+
+    return _dio.post(
+      '$_baseUrl/post_actions',
+      data: payload,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
   }
 
   /// 获取帖子详情（包含点赞状态）

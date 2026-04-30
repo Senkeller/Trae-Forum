@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../config/constants.dart';
 import '../../core/network/discourse_api_service.dart';
+import '../../core/utils/html_text_util.dart';
 
 part 'bookmark_repository.g.dart';
 
@@ -36,10 +37,7 @@ class BookmarkResult {
   }
 
   factory BookmarkResult.failure(String message) {
-    return BookmarkResult(
-      success: false,
-      errorMessage: message,
-    );
+    return BookmarkResult(success: false, errorMessage: message);
   }
 }
 
@@ -315,7 +313,8 @@ class BookmarkRepository {
     final nestedUser = toMap(map['user']) ?? toMap(map['last_poster']);
     final bookmarkableType = toStringOrNull(map['bookmarkable_type']);
 
-    final topicId = toInt(map['bookmarkable_id']) ??
+    final topicId =
+        toInt(map['bookmarkable_id']) ??
         toInt(map['topic_id']) ??
         toInt(nestedTopic?['id']);
     if (topicId == null || topicId <= 0) {
@@ -328,7 +327,8 @@ class BookmarkRepository {
       return null;
     }
 
-    final title = toStringOrNull(map['topic_title']) ??
+    final title =
+        toStringOrNull(map['topic_title']) ??
         toStringOrNull(map['fancy_title']) ??
         toStringOrNull(map['title']) ??
         toStringOrNull(nestedTopic?['fancy_title']) ??
@@ -342,33 +342,38 @@ class BookmarkRepository {
           '',
     );
 
-    final username = toStringOrNull(map['username']) ??
+    final username =
+        toStringOrNull(map['username']) ??
         toStringOrNull(map['last_poster_username']) ??
         toStringOrNull(nestedUser?['username']) ??
         toStringOrNull(nestedTopic?['last_poster_username']);
 
-    final avatarTemplate = toStringOrNull(map['avatar_template']) ??
+    final avatarTemplate =
+        toStringOrNull(map['avatar_template']) ??
         toStringOrNull(map['last_poster_avatar_template']) ??
         toStringOrNull(nestedUser?['avatar_template']);
 
     final bookmarkId = toInt(map['bookmark_id']) ?? toInt(map['id']);
-    final createdAt = toStringOrNull(map['bookmarked_at']) ??
+    final createdAt =
+        toStringOrNull(map['bookmarked_at']) ??
         toStringOrNull(map['created_at']) ??
         toStringOrNull(map['last_posted_at']) ??
         toStringOrNull(nestedTopic?['last_posted_at']);
-    final bookmarkedAt = toStringOrNull(map['bookmarked_at']) ??
+    final bookmarkedAt =
+        toStringOrNull(map['bookmarked_at']) ??
         toStringOrNull(map['created_at']);
-    final lastPostedAt = toStringOrNull(map['last_posted_at']) ??
+    final lastPostedAt =
+        toStringOrNull(map['last_posted_at']) ??
         toStringOrNull(nestedTopic?['last_posted_at']);
 
-    final likeCount = toInt(map['like_count']) ??
+    final likeCount =
+        toInt(map['like_count']) ??
         toInt(map['op_like_count']) ??
         toInt(nestedTopic?['like_count']) ??
         0;
 
-    final replyCount = toInt(map['reply_count']) ??
-        toInt(nestedTopic?['reply_count']) ??
-        0;
+    final replyCount =
+        toInt(map['reply_count']) ?? toInt(nestedTopic?['reply_count']) ?? 0;
 
     return BookmarkTopicItem(
       topicId: topicId,
@@ -402,12 +407,17 @@ class BookmarkRepository {
       title: pickString(current.title, incoming.title),
       excerpt: pickString(current.excerpt, incoming.excerpt),
       username: pickNullable(current.username, incoming.username),
-      avatarTemplate: pickNullable(current.avatarTemplate, incoming.avatarTemplate),
+      avatarTemplate: pickNullable(
+        current.avatarTemplate,
+        incoming.avatarTemplate,
+      ),
       createdAt: pickNullable(current.createdAt, incoming.createdAt),
       bookmarkedAt: pickNullable(current.bookmarkedAt, incoming.bookmarkedAt),
       lastPostedAt: pickNullable(current.lastPostedAt, incoming.lastPostedAt),
       likeCount: current.likeCount > 0 ? current.likeCount : incoming.likeCount,
-      replyCount: current.replyCount > 0 ? current.replyCount : incoming.replyCount,
+      replyCount: current.replyCount > 0
+          ? current.replyCount
+          : incoming.replyCount,
     );
   }
 
@@ -428,12 +438,11 @@ class BookmarkRepository {
 
   String _stripHtml(String raw) {
     if (raw.isEmpty) return '';
-    return raw
-        .replaceAll(RegExp(r'<[^>]*>'), ' ')
-        .replaceAll(RegExp(r'&nbsp;|&#160;'), ' ')
-        .replaceAll(RegExp(r'&amp;'), '&')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return HtmlTextUtil.stripHtml(
+      raw,
+      tagReplacement: ' ',
+      collapseWhitespace: true,
+    );
   }
 }
 
@@ -469,8 +478,5 @@ class BookmarkTopicPageResult {
   final List<BookmarkTopicItem> items;
   final bool hasMore;
 
-  const BookmarkTopicPageResult({
-    required this.items,
-    required this.hasMore,
-  });
+  const BookmarkTopicPageResult({required this.items, required this.hasMore});
 }

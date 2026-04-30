@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../config/constants.dart';
 import '../../../core/network/api_service.dart';
+import '../../../core/utils/draft_normalizer.dart';
+import '../../../core/utils/html_text_util.dart';
+import '../../../core/utils/relative_time_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 
 /// 用户草稿列表页面
@@ -23,6 +27,7 @@ class UserDraftsPage extends ConsumerStatefulWidget {
 }
 
 class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
+  static const int _pageSize = 30;
   final ScrollController _scrollController = ScrollController();
 
   /// 滚动加载守卫，用于管理列表的触底加载逻辑
@@ -38,7 +43,7 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
   bool _hasMore = true;
 
   /// 当前页码
-  int _currentPage = 0;
+  int _currentOffset = 0;
 
   /// 错误信息
   String? _errorMessage;
@@ -85,19 +90,13 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      // 使用通用的 getUserActivity API，在客户端筛选草稿类型
-      final response = await apiService.getUserActivity(
-        username: widget.username,
-        page: 0,
-      );
+      final response = await apiService.getUserActivityDrafts(offset: 0);
 
       if (response.status == 200) {
-        // 筛选草稿类型的活动（根据 Discourse 的数据结构，草稿通常有特定的标识）
-        final drafts = _filterDrafts(response.data);
         setState(() {
-          _drafts = drafts;
-          _hasMore = response.data.length >= 30;
-          _currentPage = 0;
+          _drafts = response.data;
+          _hasMore = response.data.length >= _pageSize;
+          _currentOffset = response.data.length;
         });
       } else {
         setState(() {
@@ -127,18 +126,16 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
 
     try {
       final apiService = ref.read(apiServiceProvider);
-      final nextPage = _currentPage + 1;
-      final response = await apiService.getUserActivity(
-        username: widget.username,
-        page: nextPage,
+      final response = await apiService.getUserActivityDrafts(
+        offset: _currentOffset,
       );
 
       if (response.status == 200) {
-        final drafts = _filterDrafts(response.data);
+        final drafts = response.data;
         setState(() {
           _drafts.addAll(drafts);
-          _hasMore = response.data.length >= 30;
-          _currentPage = nextPage;
+          _hasMore = drafts.length >= _pageSize;
+          _currentOffset += drafts.length;
         });
       } else {
         setState(() {
@@ -156,18 +153,6 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
     }
   }
 
-  /// 筛选草稿类型的活动
-  ///
-  /// [activities] 用户活动列表
-  /// 返回筛选后的草稿列表
-  ///
-  /// 注意：Discourse 的草稿数据可能需要根据具体的 API 响应结构调整筛选逻辑
-  List<UserActivity> _filterDrafts(List<UserActivity> activities) {
-    // 目前返回所有活动，实际项目中可能需要根据 draft_key 或其他字段筛选
-    // 例如：activities.where((a) => a.draftKey != null).toList();
-    return activities;
-  }
-
   /// 下拉刷新
   ///
   /// 重新加载第一页数据
@@ -180,19 +165,59 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
   /// [draft] 要编辑的草稿对象
   /// 跳转到编辑页面或打开编辑器
   void _editDraft(UserActivity draft) {
-    // TODO: 实现编辑草稿逻辑，跳转到编辑器页面
-    // 例如：context.push('/editor/draft/${draft.id}');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('编辑草稿: ${draft.topicId}')),
+    final content = _extractDraftContent(draft);
+    final title = _extractDraftTitle(draft);
+    final encodedTitle = Uri.encodeComponent(title);
+    final encodedContent = Uri.encodeComponent(content);
+    context.push(
+      '${RoutePaths.feedCreate}?title=$encodedTitle&content=$encodedContent',
     );
+  }
+
+  String _extractDraftTitle(UserActivity draft) {
+    final normalized = DraftNormalizer.normalize(draft.draftData);
+    final parsedTitle = normalized.title;
+    if (parsedTitle != null && parsedTitle.isNotEmpty) {
+      return parsedTitle;
+    }
+    if (draft.excerpt != null && draft.excerpt!.trim().isNotEmpty) {
+      return _stripHtml(draft.excerpt!);
+    }
+    if (draft.topicSlug != null && draft.topicSlug!.trim().isNotEmpty) {
+      return draft.topicSlug!.trim();
+    }
+    return '草稿 ${draft.id}';
+  }
+
+  String _extractDraftContent(UserActivity draft) {
+    final normalized = DraftNormalizer.normalize(draft.draftData);
+    final parsedContent = normalized.content;
+    if (parsedContent != null && parsedContent.trim().isNotEmpty) {
+      return parsedContent.trim();
+    }
+
+    final rawData = draft.draftData?.trim();
+    if (rawData != null && rawData.isNotEmpty) {
+      return rawData;
+    }
+
+    if (draft.cooked != null && draft.cooked!.trim().isNotEmpty) {
+      return _stripHtml(draft.cooked!);
+    }
+    if (draft.excerpt != null && draft.excerpt!.trim().isNotEmpty) {
+      return _stripHtml(draft.excerpt!);
+    }
+    return '';
+  }
+
+  String _stripHtml(String htmlString) {
+    return HtmlTextUtil.stripHtml(htmlString);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('草稿'),
-      ),
+      appBar: AppBar(title: const Text('草稿')),
       body: _buildBody(),
     );
   }
@@ -245,10 +270,7 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
         itemBuilder: (context, index) {
           if (index < _drafts.length) {
             final draft = _drafts[index];
-            return _DraftCard(
-              draft: draft,
-              onEdit: () => _editDraft(draft),
-            );
+            return _DraftCard(draft: draft, onEdit: () => _editDraft(draft));
           } else {
             // 底部加载指示器
             if (_isLoading) {
@@ -303,11 +325,7 @@ class _DraftCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 草稿图标
-                  Icon(
-                    Icons.edit_note,
-                    size: 20,
-                    color: colorScheme.primary,
-                  ),
+                  Icon(Icons.edit_note, size: 20, color: colorScheme.primary),
                   const SizedBox(width: 12),
                   // 标题内容
                   Expanded(
@@ -319,18 +337,16 @@ class _DraftCard extends StatelessWidget {
                           _getDraftTitle(),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w500),
                         ),
                         const SizedBox(height: 8),
                         // 创建时间
                         if (draft.createdAt != null)
                           Text(
                             _formatTime(draft.createdAt!),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
                       ],
                     ),
@@ -400,7 +416,9 @@ class _DraftCard extends StatelessWidget {
     }
     if (draft.cooked != null && draft.cooked!.isNotEmpty) {
       final stripped = _stripHtml(draft.cooked!);
-      return stripped.length > 50 ? '${stripped.substring(0, 50)}...' : stripped;
+      return stripped.length > 50
+          ? '${stripped.substring(0, 50)}...'
+          : stripped;
     }
     return '草稿 #${draft.id}';
   }
@@ -410,27 +428,7 @@ class _DraftCard extends StatelessWidget {
   /// [isoTime] ISO 8601 格式的时间字符串
   /// 返回相对时间描述（如：2小时前、3天前）
   String _formatTime(String isoTime) {
-    try {
-      final dateTime = DateTime.parse(isoTime);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
-
-      if (diff.inDays > 365) {
-        return '${diff.inDays ~/ 365} 年前';
-      } else if (diff.inDays > 30) {
-        return '${diff.inDays ~/ 30} 个月前';
-      } else if (diff.inDays > 0) {
-        return '${diff.inDays} 天前';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours} 小时前';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes} 分钟前';
-      } else {
-        return '刚刚';
-      }
-    } catch (e) {
-      return isoTime;
-    }
+    return RelativeTimeUtil.fromIso(isoTime);
   }
 
   /// 去除 HTML 标签
@@ -438,13 +436,7 @@ class _DraftCard extends StatelessWidget {
   /// [htmlString] 包含 HTML 标签的字符串
   /// 返回纯文本字符串
   String _stripHtml(String htmlString) {
-    return htmlString
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .trim();
+    return HtmlTextUtil.stripHtml(htmlString);
   }
 }
 

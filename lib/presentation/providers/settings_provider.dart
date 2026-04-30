@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -70,6 +69,9 @@ class AppSettings {
   /// 是否开启省流量模式
   final bool dataSaverMode;
 
+  /// 是否私密账号（仅本地展示开关）
+  final bool privateAccount;
+
   /// 是否开启推送通知
   final bool pushNotification;
 
@@ -107,6 +109,7 @@ class AppSettings {
     this.autoPlayVideo = false,
     this.autoPlayVideoOnlyOnWifi = true,
     this.dataSaverMode = false,
+    this.privateAccount = false,
     this.pushNotification = true,
     this.soundEnabled = true,
     this.vibrationEnabled = true,
@@ -143,6 +146,7 @@ class AppSettings {
       autoPlayVideo: json['autoPlayVideo'] ?? false,
       autoPlayVideoOnlyOnWifi: json['autoPlayVideoOnlyOnWifi'] ?? true,
       dataSaverMode: json['dataSaverMode'] ?? false,
+      privateAccount: json['privateAccount'] ?? false,
       pushNotification: json['pushNotification'] ?? true,
       soundEnabled: json['soundEnabled'] ?? true,
       vibrationEnabled: json['vibrationEnabled'] ?? true,
@@ -165,6 +169,7 @@ class AppSettings {
       'autoPlayVideo': autoPlayVideo,
       'autoPlayVideoOnlyOnWifi': autoPlayVideoOnlyOnWifi,
       'dataSaverMode': dataSaverMode,
+      'privateAccount': privateAccount,
       'pushNotification': pushNotification,
       'soundEnabled': soundEnabled,
       'vibrationEnabled': vibrationEnabled,
@@ -186,6 +191,7 @@ class AppSettings {
     bool? autoPlayVideo,
     bool? autoPlayVideoOnlyOnWifi,
     bool? dataSaverMode,
+    bool? privateAccount,
     bool? pushNotification,
     bool? soundEnabled,
     bool? vibrationEnabled,
@@ -205,6 +211,7 @@ class AppSettings {
       autoPlayVideoOnlyOnWifi:
           autoPlayVideoOnlyOnWifi ?? this.autoPlayVideoOnlyOnWifi,
       dataSaverMode: dataSaverMode ?? this.dataSaverMode,
+      privateAccount: privateAccount ?? this.privateAccount,
       pushNotification: pushNotification ?? this.pushNotification,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
@@ -344,6 +351,13 @@ class SettingsNotifier extends _$SettingsNotifier {
     await updateSettings(newSettings);
   }
 
+  /// 设置私密账号（仅本地展示开关）
+  Future<void> setPrivateAccount(bool enabled) async {
+    final currentSettings = _getCurrentSettings();
+    final newSettings = currentSettings.copyWith(privateAccount: enabled);
+    await updateSettings(newSettings);
+  }
+
   /// 设置推送通知
   ///
   /// [enabled] 是否开启
@@ -445,8 +459,15 @@ class SettingsNotifier extends _$SettingsNotifier {
   ///
   /// 返回清除的缓存大小（字节）
   Future<int> clearCache() async {
-    // 这里应该实现实际的缓存清理逻辑
-    // 返回清理的缓存大小
+    // 清理设置中记录的图片缓存开关以外的运行时缓存
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('cached_webview_data');
+    } catch (_) {
+      // 忽略本地清理失败
+    }
+
+    // 运行时图片缓存清理由调用方处理，字节统计暂不可准确获取
     return 0;
   }
 }

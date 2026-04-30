@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../../config/constants.dart';
 import '../common/cached_image.dart';
 
 /// 用户头像组件
@@ -331,8 +333,11 @@ class UserAvatar extends StatelessWidget {
   /// 跳转到用户主页
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
-      // TODO: 使用路由跳转到用户主页
-      // context.push('/user/$userId');
+      final path = RoutePaths.userProfile.replaceFirst(
+        ':uid',
+        Uri.encodeComponent(userId!),
+      );
+      context.push(path);
     }
   }
 }

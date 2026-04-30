@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/utils/draft_normalizer.dart';
 import '../../../data/repositories/comment_repository.dart';
 import '../../../data/repositories/feed_repository.dart';
 import '../../providers/auth_provider.dart';
@@ -24,7 +26,10 @@ class _PreparedPublishContent {
 
 /// Feed 创建页面（参考线性发帖布局）
 class FeedCreatePage extends ConsumerStatefulWidget {
-  const FeedCreatePage({super.key});
+  final String? initialTitle;
+  final String? initialContent;
+
+  const FeedCreatePage({super.key, this.initialTitle, this.initialContent});
 
   @override
   ConsumerState<FeedCreatePage> createState() => _FeedCreatePageState();
@@ -96,7 +101,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   void initState() {
     super.initState();
     _titleController.addListener(_onInputChanged);
-    _loadDraft();
+    _applyInitialPayloadOrLoadDraft();
   }
 
   @override
@@ -105,6 +110,24 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     _titleController.dispose();
     _titleFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _applyInitialPayloadOrLoadDraft() async {
+    final initialTitle = widget.initialTitle?.trim();
+    final initialContent = widget.initialContent?.trim();
+    if ((initialTitle?.isNotEmpty ?? false) ||
+        (initialContent?.isNotEmpty ?? false)) {
+      setState(() {
+        if (initialTitle != null && initialTitle.isNotEmpty) {
+          _titleController.text = initialTitle;
+        }
+        if (initialContent != null && initialContent.isNotEmpty) {
+          _editorContent = initialContent;
+        }
+      });
+      return;
+    }
+    await _loadDraft();
   }
 
   void _onInputChanged() {
@@ -132,8 +155,11 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
       );
 
       if (!mounted || draft == null || draft.content.isEmpty) return;
+      final normalized = DraftNormalizer.normalize(draft.content);
+      final normalizedContent = normalized.content?.trim();
+      if (normalizedContent == null || normalizedContent.isEmpty) return;
       setState(() {
-        _editorContent = draft.content;
+        _editorContent = normalizedContent;
       });
     } catch (_) {
       // 忽略草稿加载错误
@@ -442,10 +468,29 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
     });
   }
 
-  void _showNotReadyMessage(String feature) {
+  Future<void> _importFromClipboard() async {
+    final clipboardData = await Clipboard.getData('text/plain');
+    final text = clipboardData?.text?.trim() ?? '';
+    if (text.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('剪贴板暂无可导入文本')));
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      if (_editorContent.trim().isEmpty) {
+        _editorContent = text;
+      } else {
+        _editorContent = '${_editorContent.trimRight()}\n\n$text';
+      }
+      _draftSaved = false;
+    });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('$feature 功能开发中')));
+    ).showSnackBar(const SnackBar(content: Text('已从剪贴板导入内容')));
   }
 
   @override
@@ -654,8 +699,8 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
           _buildSettingItem(
             icon: Icons.upload_file_outlined,
             title: '导入文档',
-            value: '金山文档',
-            onTap: () => _showNotReadyMessage('导入文档'),
+            value: '剪贴板',
+            onTap: _importFromClipboard,
           ),
         ],
       ),

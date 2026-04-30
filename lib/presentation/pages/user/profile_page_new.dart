@@ -438,6 +438,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                   context: context,
                   label: '动态',
                   count: 0,
+                  displayText: '--',
                   onTap: () => context.push(RoutePaths.login),
                 ),
               ),
@@ -447,6 +448,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                   context: context,
                   label: '粉丝',
                   count: 0,
+                  displayText: '--',
                   onTap: () => context.push(RoutePaths.login),
                 ),
               ),
@@ -490,6 +492,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     required String label,
     required int count,
     required VoidCallback onTap,
+    String? displayText,
   }) {
     final textTheme = Theme.of(context).textTheme;
 
@@ -508,7 +511,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
           child: Column(
             children: [
               Text(
-                _formatCount(count),
+                displayText ?? _formatCount(count),
                 style: textTheme.titleLarge?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,

@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../core/utils/draft_normalizer.dart';
 import '../../data/models/reply_result.dart';
 import '../../data/models/draft_model.dart';
 import '../../data/models/comment.dart';
@@ -14,12 +15,16 @@ part 'reply_provider.g.dart';
 enum ReplyOperationType {
   /// 发送回复
   send,
+
   /// 编辑回复
   edit,
+
   /// 删除回复
   delete,
+
   /// 保存草稿
   saveDraft,
+
   /// 加载草稿
   loadDraft,
 }
@@ -30,12 +35,16 @@ enum ReplyOperationType {
 enum LoadingState {
   /// 空闲状态
   idle,
+
   /// 正在加载
   loading,
+
   /// 加载成功
   success,
+
   /// 加载失败
   error,
+
   /// 正在重试
   retrying,
 }
@@ -194,8 +203,17 @@ class ReplyNotifier extends _$ReplyNotifier {
     if (statusCodeMatch != null) {
       final code = statusCodeMatch.group(1);
       if (code != null &&
-          ['401', '403', '404', '422', '429', '500', '502', '503', '504']
-              .contains(code)) {
+          [
+            '401',
+            '403',
+            '404',
+            '422',
+            '429',
+            '500',
+            '502',
+            '503',
+            '504',
+          ].contains(code)) {
         return code;
       }
     }
@@ -321,9 +339,7 @@ class ReplyNotifier extends _$ReplyNotifier {
           );
 
           // 指数退避策略
-          await Future.delayed(
-            Duration(milliseconds: 500 * attempts),
-          );
+          await Future.delayed(Duration(milliseconds: 500 * attempts));
           continue;
         }
 
@@ -347,8 +363,7 @@ class ReplyNotifier extends _$ReplyNotifier {
     }
 
     // 服务器错误（5xx）可重试
-    if (errorCode != null &&
-        ['500', '502', '503', '504'].contains(errorCode)) {
+    if (errorCode != null && ['500', '502', '503', '504'].contains(errorCode)) {
       return true;
     }
 
@@ -448,12 +463,19 @@ class ReplyNotifier extends _$ReplyNotifier {
         topicId: topicId,
         replyToPostNumber: replyToPostNumber,
       );
+      final normalizedDraft = draft == null
+          ? null
+          : draft.copyWith(
+              content:
+                  DraftNormalizer.normalize(draft.content).content?.trim() ??
+                  draft.content,
+            );
 
       state = state.copyWith(
         isLoading: false,
         loadingState: LoadingState.success,
       );
-      return draft;
+      return normalizedDraft;
     } catch (e) {
       final errorCode = _extractErrorCode(e);
       final userMessage = _mapErrorToUserMessage(e, errorCode: errorCode);
@@ -641,10 +663,7 @@ class ReplyNotifier extends _$ReplyNotifier {
         break;
       case ReplyOperationType.edit:
         if (postId != null && content != null) {
-          return editReply(
-            postId: postId,
-            content: content,
-          );
+          return editReply(postId: postId, content: content);
         }
         break;
       case ReplyOperationType.delete:
@@ -662,10 +681,7 @@ class ReplyNotifier extends _$ReplyNotifier {
         }
         break;
       case ReplyOperationType.loadDraft:
-        await loadDraft(
-          topicId: topicId,
-          replyToPostNumber: replyToPostNumber,
-        );
+        await loadDraft(topicId: topicId, replyToPostNumber: replyToPostNumber);
         break;
     }
     return null;

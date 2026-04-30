@@ -110,7 +110,7 @@ final notificationStateProvider =
 // ignore: unused_element
 typedef NotificationStateRef = AutoDisposeProviderRef<NotificationState>;
 String _$notificationNotifierHash() =>
-    r'2725aa97633a580552319c7580ea2e4fe317bdb9';
+    r'5820844369de9038f0afae9adc4082cf926a9e42';
 
 /// 通知状态 Notifier
 ///

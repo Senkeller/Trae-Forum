@@ -175,7 +175,10 @@ class AppRouter {
       // 创建 Feed
       GoRoute(
         path: RoutePaths.feedCreate,
-        builder: (context, state) => const FeedCreatePage(),
+        builder: (context, state) => FeedCreatePage(
+          initialTitle: state.uri.queryParameters['title'],
+          initialContent: state.uri.queryParameters['content'],
+        ),
       ),
 
       // Feed 详情 - 使用自定义转场动画使跳转更流畅
