@@ -10,6 +10,7 @@ import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
+import '../../providers/user_badges_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
 
@@ -1111,7 +1112,7 @@ class _ActivityCard extends StatelessWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends ConsumerWidget {
   final UserProfile profile;
   final bool isOwnProfile;
   final VoidCallback onEditProfile;
@@ -1129,7 +1130,7 @@ class _ProfileHeader extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1182,6 +1183,9 @@ class _ProfileHeader extends StatelessWidget {
             profile.bio.isNotEmpty ? profile.bio : '这个用户还没有填写简介。',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
+          // 徽章展示区域
+          const SizedBox(height: 12),
+          _buildUserBadgesSection(context, ref, profile.username),
           const SizedBox(height: 16),
           if (isOwnProfile) ...[
             SizedBox(
@@ -1222,6 +1226,156 @@ class _ProfileHeader extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  /// 构建用户徽章展示区域
+  Widget _buildUserBadgesSection(BuildContext context, WidgetRef ref, String username) {
+    final badgesAsync = ref.watch(userBadgesProvider(username));
+
+    return badgesAsync.when(
+      data: (badges) {
+        if (badges.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 徽章标题和数量
+            Row(
+              children: [
+                Icon(
+                  Icons.workspace_premium_outlined,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '徽章',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${badges.length}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 徽章列表
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: badges.take(6).map((badge) => _buildBadgeItem(context, badge)).toList(),
+            ),
+            // 查看更多按钮（如果徽章数量超过6个）
+            if (badges.length > 6) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _navigateToUserBadges(context, username),
+                child: Text(
+                  '查看全部 ${badges.length} 个徽章 →',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+
+  /// 构建单个徽章项
+  Widget _buildBadgeItem(BuildContext context, UserBadgeInfo badge) {
+    return Tooltip(
+      message: badge.description ?? badge.name,
+      child: GestureDetector(
+        onTap: () => _navigateToBadgeDetail(context, badge),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 徽章图标
+              if (badge.imageUrl != null && badge.imageUrl!.isNotEmpty)
+                Image.network(
+                  badge.imageUrl!,
+                  width: 16,
+                  height: 16,
+                  errorBuilder: (_, _, _) => _buildDefaultBadgeIcon(),
+                )
+              else
+                _buildDefaultBadgeIcon(),
+              const SizedBox(width: 6),
+              // 徽章名称
+              Flexible(
+                child: Text(
+                  badge.name,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建默认徽章图标
+  Widget _buildDefaultBadgeIcon() {
+    return const Icon(
+      Icons.emoji_events_outlined,
+      size: 16,
+      color: Color(0xFFFFB800),
+    );
+  }
+
+  /// 导航到徽章详情页
+  void _navigateToBadgeDetail(BuildContext context, UserBadgeInfo badge) {
+    final baseUri = Uri.parse(AppConstants.forumUrl);
+    final badgeUri = baseUri.replace(
+      pathSegments: ['badges', badge.id.toString(), badge.slug],
+    );
+
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(badgeUri.toString())}&title=${Uri.encodeComponent(badge.name)}',
+    );
+  }
+
+  /// 导航到用户徽章列表页
+  void _navigateToUserBadges(BuildContext context, String username) {
+    final baseUri = Uri.parse(AppConstants.forumUrl);
+    final badgesUri = baseUri.replace(
+      pathSegments: ['u', username, 'badges'],
+    );
+
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(badgesUri.toString())}&title=${Uri.encodeComponent('徽章')}',
     );
   }
 }
