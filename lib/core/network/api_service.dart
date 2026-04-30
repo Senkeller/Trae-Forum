@@ -1449,6 +1449,9 @@ class UserSummary {
   final int postsReadCount;
   final int daysVisited;
   final int timeRead;
+  final int recentTimeRead;
+  final int topicsEntered;
+  final int solvedCount;
   final List<UserSummaryTopic> topics;
   final List<UserSummaryReply> replies;
 
@@ -1460,6 +1463,9 @@ class UserSummary {
     this.postsReadCount = 0,
     this.daysVisited = 0,
     this.timeRead = 0,
+    this.recentTimeRead = 0,
+    this.topicsEntered = 0,
+    this.solvedCount = 0,
     this.topics = const [],
     this.replies = const [],
   });
@@ -1473,6 +1479,9 @@ class UserSummary {
       postsReadCount: json['posts_read_count'] ?? 0,
       daysVisited: json['days_visited'] ?? 0,
       timeRead: json['time_read'] ?? 0,
+      recentTimeRead: json['recent_time_read'] ?? 0,
+      topicsEntered: json['topics_entered'] ?? 0,
+      solvedCount: json['solved_count'] ?? 0,
       topics:
           (json['topics'] as List<dynamic>?)
               ?.map((e) => UserSummaryTopic.fromJson(e as Map<String, dynamic>))

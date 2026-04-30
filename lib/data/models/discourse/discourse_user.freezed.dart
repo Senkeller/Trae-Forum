@@ -3443,6 +3443,10 @@ mixin _$DiscourseUserSummary {
   int get postsReadCount => throw _privateConstructorUsedError;
   @JsonKey(name: 'days_visited')
   int get daysVisited => throw _privateConstructorUsedError;
+  @JsonKey(name: 'time_read')
+  int get timeRead => throw _privateConstructorUsedError;
+  @JsonKey(name: 'recent_time_read')
+  int get recentTimeRead => throw _privateConstructorUsedError;
   @JsonKey(name: 'solved_count')
   int get solvedCount => throw _privateConstructorUsedError;
   @JsonKey(name: 'topic_ids')
@@ -3493,6 +3497,8 @@ abstract class $DiscourseUserSummaryCopyWith<$Res> {
     @JsonKey(name: 'post_count') int postCount,
     @JsonKey(name: 'posts_read_count') int postsReadCount,
     @JsonKey(name: 'days_visited') int daysVisited,
+    @JsonKey(name: 'time_read') int timeRead,
+    @JsonKey(name: 'recent_time_read') int recentTimeRead,
     @JsonKey(name: 'solved_count') int solvedCount,
     @JsonKey(name: 'topic_ids') List<int> topicIds,
     @JsonKey(name: 'replies') List<DiscourseUserSummaryItem> replies,
@@ -3533,6 +3539,8 @@ class _$DiscourseUserSummaryCopyWithImpl<
     Object? postCount = null,
     Object? postsReadCount = null,
     Object? daysVisited = null,
+    Object? timeRead = null,
+    Object? recentTimeRead = null,
     Object? solvedCount = null,
     Object? topicIds = null,
     Object? replies = null,
@@ -3572,6 +3580,14 @@ class _$DiscourseUserSummaryCopyWithImpl<
             daysVisited: null == daysVisited
                 ? _value.daysVisited
                 : daysVisited // ignore: cast_nullable_to_non_nullable
+                      as int,
+            timeRead: null == timeRead
+                ? _value.timeRead
+                : timeRead // ignore: cast_nullable_to_non_nullable
+                      as int,
+            recentTimeRead: null == recentTimeRead
+                ? _value.recentTimeRead
+                : recentTimeRead // ignore: cast_nullable_to_non_nullable
                       as int,
             solvedCount: null == solvedCount
                 ? _value.solvedCount
@@ -3632,6 +3648,8 @@ abstract class _$$DiscourseUserSummaryImplCopyWith<$Res>
     @JsonKey(name: 'post_count') int postCount,
     @JsonKey(name: 'posts_read_count') int postsReadCount,
     @JsonKey(name: 'days_visited') int daysVisited,
+    @JsonKey(name: 'time_read') int timeRead,
+    @JsonKey(name: 'recent_time_read') int recentTimeRead,
     @JsonKey(name: 'solved_count') int solvedCount,
     @JsonKey(name: 'topic_ids') List<int> topicIds,
     @JsonKey(name: 'replies') List<DiscourseUserSummaryItem> replies,
@@ -3668,6 +3686,8 @@ class __$$DiscourseUserSummaryImplCopyWithImpl<$Res>
     Object? postCount = null,
     Object? postsReadCount = null,
     Object? daysVisited = null,
+    Object? timeRead = null,
+    Object? recentTimeRead = null,
     Object? solvedCount = null,
     Object? topicIds = null,
     Object? replies = null,
@@ -3707,6 +3727,14 @@ class __$$DiscourseUserSummaryImplCopyWithImpl<$Res>
         daysVisited: null == daysVisited
             ? _value.daysVisited
             : daysVisited // ignore: cast_nullable_to_non_nullable
+                  as int,
+        timeRead: null == timeRead
+            ? _value.timeRead
+            : timeRead // ignore: cast_nullable_to_non_nullable
+                  as int,
+        recentTimeRead: null == recentTimeRead
+            ? _value.recentTimeRead
+            : recentTimeRead // ignore: cast_nullable_to_non_nullable
                   as int,
         solvedCount: null == solvedCount
             ? _value.solvedCount
@@ -3760,6 +3788,8 @@ class _$DiscourseUserSummaryImpl implements _DiscourseUserSummary {
     @JsonKey(name: 'post_count') this.postCount = 0,
     @JsonKey(name: 'posts_read_count') this.postsReadCount = 0,
     @JsonKey(name: 'days_visited') this.daysVisited = 0,
+    @JsonKey(name: 'time_read') this.timeRead = 0,
+    @JsonKey(name: 'recent_time_read') this.recentTimeRead = 0,
     @JsonKey(name: 'solved_count') this.solvedCount = 0,
     @JsonKey(name: 'topic_ids') final List<int> topicIds = const [],
     @JsonKey(name: 'replies')
@@ -3808,6 +3838,12 @@ class _$DiscourseUserSummaryImpl implements _DiscourseUserSummary {
   @override
   @JsonKey(name: 'days_visited')
   final int daysVisited;
+  @override
+  @JsonKey(name: 'time_read')
+  final int timeRead;
+  @override
+  @JsonKey(name: 'recent_time_read')
+  final int recentTimeRead;
   @override
   @JsonKey(name: 'solved_count')
   final int solvedCount;
@@ -3887,7 +3923,7 @@ class _$DiscourseUserSummaryImpl implements _DiscourseUserSummary {
 
   @override
   String toString() {
-    return 'DiscourseUserSummary(likesGiven: $likesGiven, likesReceived: $likesReceived, topicsEntered: $topicsEntered, topicCount: $topicCount, postCount: $postCount, postsReadCount: $postsReadCount, daysVisited: $daysVisited, solvedCount: $solvedCount, topicIds: $topicIds, replies: $replies, links: $links, mostRepliedToUsers: $mostRepliedToUsers, mostLikedByUsers: $mostLikedByUsers, mostLikedUsers: $mostLikedUsers, badges: $badges, topCategories: $topCategories)';
+    return 'DiscourseUserSummary(likesGiven: $likesGiven, likesReceived: $likesReceived, topicsEntered: $topicsEntered, topicCount: $topicCount, postCount: $postCount, postsReadCount: $postsReadCount, daysVisited: $daysVisited, timeRead: $timeRead, recentTimeRead: $recentTimeRead, solvedCount: $solvedCount, topicIds: $topicIds, replies: $replies, links: $links, mostRepliedToUsers: $mostRepliedToUsers, mostLikedByUsers: $mostLikedByUsers, mostLikedUsers: $mostLikedUsers, badges: $badges, topCategories: $topCategories)';
   }
 
   @override
@@ -3909,6 +3945,10 @@ class _$DiscourseUserSummaryImpl implements _DiscourseUserSummary {
                 other.postsReadCount == postsReadCount) &&
             (identical(other.daysVisited, daysVisited) ||
                 other.daysVisited == daysVisited) &&
+            (identical(other.timeRead, timeRead) ||
+                other.timeRead == timeRead) &&
+            (identical(other.recentTimeRead, recentTimeRead) ||
+                other.recentTimeRead == recentTimeRead) &&
             (identical(other.solvedCount, solvedCount) ||
                 other.solvedCount == solvedCount) &&
             const DeepCollectionEquality().equals(other._topicIds, _topicIds) &&
@@ -3944,6 +3984,8 @@ class _$DiscourseUserSummaryImpl implements _DiscourseUserSummary {
     postCount,
     postsReadCount,
     daysVisited,
+    timeRead,
+    recentTimeRead,
     solvedCount,
     const DeepCollectionEquality().hash(_topicIds),
     const DeepCollectionEquality().hash(_replies),
@@ -3982,6 +4024,8 @@ abstract class _DiscourseUserSummary implements DiscourseUserSummary {
     @JsonKey(name: 'post_count') final int postCount,
     @JsonKey(name: 'posts_read_count') final int postsReadCount,
     @JsonKey(name: 'days_visited') final int daysVisited,
+    @JsonKey(name: 'time_read') final int timeRead,
+    @JsonKey(name: 'recent_time_read') final int recentTimeRead,
     @JsonKey(name: 'solved_count') final int solvedCount,
     @JsonKey(name: 'topic_ids') final List<int> topicIds,
     @JsonKey(name: 'replies') final List<DiscourseUserSummaryItem> replies,
@@ -4021,6 +4065,12 @@ abstract class _DiscourseUserSummary implements DiscourseUserSummary {
   @override
   @JsonKey(name: 'days_visited')
   int get daysVisited;
+  @override
+  @JsonKey(name: 'time_read')
+  int get timeRead;
+  @override
+  @JsonKey(name: 'recent_time_read')
+  int get recentTimeRead;
   @override
   @JsonKey(name: 'solved_count')
   int get solvedCount;

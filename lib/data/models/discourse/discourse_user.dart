@@ -222,6 +222,8 @@ class DiscourseUserSummary with _$DiscourseUserSummary {
     @JsonKey(name: 'post_count') @Default(0) int postCount,
     @JsonKey(name: 'posts_read_count') @Default(0) int postsReadCount,
     @JsonKey(name: 'days_visited') @Default(0) int daysVisited,
+    @JsonKey(name: 'time_read') @Default(0) int timeRead,
+    @JsonKey(name: 'recent_time_read') @Default(0) int recentTimeRead,
     @JsonKey(name: 'solved_count') @Default(0) int solvedCount,
     @JsonKey(name: 'topic_ids') @Default([]) List<int> topicIds,
     @JsonKey(name: 'replies') @Default([]) List<DiscourseUserSummaryItem> replies,

@@ -17,6 +17,20 @@ _$UserInfoImpl _$$UserInfoImplFromJson(Map<String, dynamic> json) =>
       follow: (json['follow'] as num?)?.toInt() ?? 0,
       verifyTitle: json['verify_title'] as String?,
       isDeveloper: json['is_developer'] as bool? ?? false,
+      title: json['title'] as String?,
+      location: json['location'] as String?,
+      website: json['website'] as String?,
+      createdAt: json['created_at'] as String?,
+      lastPostedAt: json['last_posted_at'] as String?,
+      lastSeenAt: json['last_seen_at'] as String?,
+      profileViewCount: (json['profile_view_count'] as num?)?.toInt() ?? 0,
+      trustLevel: (json['trust_level'] as num?)?.toInt() ?? 0,
+      groups:
+          (json['groups'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const [],
+      gamificationScore: (json['gamification_score'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$$UserInfoImplToJson(_$UserInfoImpl instance) =>
@@ -30,6 +44,16 @@ Map<String, dynamic> _$$UserInfoImplToJson(_$UserInfoImpl instance) =>
       'follow': instance.follow,
       'verify_title': instance.verifyTitle,
       'is_developer': instance.isDeveloper,
+      'title': instance.title,
+      'location': instance.location,
+      'website': instance.website,
+      'created_at': instance.createdAt,
+      'last_posted_at': instance.lastPostedAt,
+      'last_seen_at': instance.lastSeenAt,
+      'profile_view_count': instance.profileViewCount,
+      'trust_level': instance.trustLevel,
+      'groups': instance.groups,
+      'gamification_score': instance.gamificationScore,
     };
 
 _$UserActionImpl _$$UserActionImplFromJson(Map<String, dynamic> json) =>

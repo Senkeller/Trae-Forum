@@ -263,6 +263,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
           SliverToBoxAdapter(
             child: _ProfileHeader(
               profile: profile,
+              summary: userState.summary,
               isOwnProfile: isOwnProfile,
               onEditProfile: () {
                 _openForumProfilePreferences(context);
@@ -679,26 +680,75 @@ class _SummarySection extends StatelessWidget {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+          const SizedBox(height: 16),
+          // 第一行统计：访问天数、阅读时间、最近阅读时间、浏览话题
+          Wrap(
+            spacing: 16,
+            runSpacing: 12,
             children: [
-              _SummaryStatItem(
-                value: summary.topicCount.toString(),
-                label: '话题',
-              ),
-              _SummaryStatItem(
-                value: summary.postCount.toString(),
-                label: '回复',
-              ),
-              _SummaryStatItem(
-                value: summary.likesReceived.toString(),
-                label: '收到赞',
-              ),
               _SummaryStatItem(
                 value: summary.daysVisited.toString(),
                 label: '访问天数',
               ),
+              _SummaryStatItem(
+                value: _formatDuration(summary.timeRead),
+                label: '阅读时间',
+              ),
+              _SummaryStatItem(
+                value: _formatDuration(summary.recentTimeRead),
+                label: '最近阅读时间',
+              ),
+              _SummaryStatItem(
+                value: _formatCount(summary.topicsEntered),
+                label: '浏览的话题',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 第二行统计：已读帖子、已送出赞、已收到赞
+          Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            children: [
+              _SummaryStatItem(
+                value: _formatCount(summary.postsReadCount),
+                label: '已读帖子',
+              ),
+              _SummaryStatItem(
+                value: summary.likesGiven.toString(),
+                label: '已送出',
+                icon: Icons.favorite,
+                iconColor: Colors.pink,
+              ),
+              _SummaryStatItem(
+                value: summary.likesReceived.toString(),
+                label: '已收到',
+                icon: Icons.favorite,
+                iconColor: Colors.pink,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // 第三行统计：创建的话题、创建的帖子、解决方案
+          Wrap(
+            spacing: 16,
+            runSpacing: 12,
+            children: [
+              _SummaryStatItem(
+                value: summary.topicCount.toString(),
+                label: '创建的话题',
+              ),
+              _SummaryStatItem(
+                value: summary.postCount.toString(),
+                label: '创建的帖子',
+              ),
+              if (summary.solvedCount > 0)
+                _SummaryStatItem(
+                  value: summary.solvedCount.toString(),
+                  label: '解决方案',
+                  icon: Icons.check_circle,
+                  iconColor: Colors.green,
+                ),
             ],
           ),
           if (summary.topics.isNotEmpty) ...[
@@ -731,17 +781,57 @@ class _SummarySection extends StatelessWidget {
       ),
     );
   }
+
+  /// 格式化数字（超过1000显示为k）
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return count.toString();
+  }
+
+  /// 格式化时长（秒转换为天/小时/分钟）
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0';
+
+    final days = seconds ~/ 86400;
+    if (days > 0) {
+      return '${days}天';
+    }
+
+    final hours = seconds ~/ 3600;
+    if (hours > 0) {
+      return '${hours}小时';
+    }
+
+    final minutes = seconds ~/ 60;
+    if (minutes > 0) {
+      return '${minutes}分钟';
+    }
+
+    return '${seconds}秒';
+  }
 }
 
 class _SummaryStatItem extends StatelessWidget {
   final String value;
   final String label;
+  final IconData? icon;
+  final Color? iconColor;
 
-  const _SummaryStatItem({required this.value, required this.label});
+  const _SummaryStatItem({
+    required this.value,
+    required this.label,
+    this.icon,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           value,
@@ -751,7 +841,20 @@ class _SummaryStatItem extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                size: 12,
+                color: iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+            ],
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
       ],
     );
   }
@@ -1114,6 +1217,7 @@ class _ActivityCard extends StatelessWidget {
 
 class _ProfileHeader extends ConsumerWidget {
   final UserProfile profile;
+  final UserSummary? summary;
   final bool isOwnProfile;
   final VoidCallback onEditProfile;
   final VoidCallback onToggleFollow;
@@ -1122,6 +1226,7 @@ class _ProfileHeader extends ConsumerWidget {
 
   const _ProfileHeader({
     required this.profile,
+    this.summary,
     required this.isOwnProfile,
     required this.onEditProfile,
     required this.onToggleFollow,
@@ -1139,28 +1244,27 @@ class _ProfileHeader extends ConsumerWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundImage: profile.avatarUrl.isNotEmpty
-                    ? NetworkImage(profile.avatarUrl)
-                    : null,
-                child: profile.avatarUrl.isEmpty
-                    ? const Icon(Icons.person, size: 36)
-                    : null,
+              Column(
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundImage: profile.avatarUrl.isNotEmpty
+                        ? NetworkImage(profile.avatarUrl)
+                        : null,
+                    child: profile.avatarUrl.isEmpty
+                        ? const Icon(Icons.person, size: 36)
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  // 在线状态指示器
+                  _buildOnlineStatus(context, ref),
+                ],
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _StatItem(count: profile.feedCount.toString(), label: '动态'),
-                    _StatItem(
-                      count: profile.fansCount.toString(),
-                      label: '粉丝',
-                      onTap: onFollowersTap,
-                    ),
-                  ],
-                ),
+                child: summary != null
+                    ? _buildStatsSection(context, summary!)
+                    : const SizedBox.shrink(),
               ),
             ],
           ),
@@ -1227,6 +1331,184 @@ class _ProfileHeader extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// 构建在线状态指示器
+  Widget _buildOnlineStatus(BuildContext context, WidgetRef ref) {
+    final discourseUserAsync = ref.watch(discourseUserProfileProvider(profile.username));
+
+    return discourseUserAsync.when(
+      data: (userData) {
+        if (userData == null) return const SizedBox.shrink();
+
+        final lastSeenAt = userData['last_seen_at'] as String?;
+        if (lastSeenAt == null || lastSeenAt.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final lastSeen = DateTime.tryParse(lastSeenAt);
+        if (lastSeen == null) return const SizedBox.shrink();
+
+        final now = DateTime.now();
+        final difference = now.difference(lastSeen);
+
+        // 判断在线状态
+        final isOnline = difference.inMinutes < 5;
+        final statusText = isOnline
+            ? '在线'
+            : _formatLastSeen(difference);
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isOnline
+                ? Colors.green.withValues(alpha: 0.1)
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isOnline
+                  ? Colors.green.withValues(alpha: 0.3)
+                  : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: isOnline ? Colors.green : Colors.grey,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                statusText,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: isOnline ? Colors.green : Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: isOnline ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+
+  /// 格式化最后在线时间
+  String _formatLastSeen(Duration difference) {
+    if (difference.inDays > 365) {
+      final years = difference.inDays ~/ 365;
+      return '${years}年前';
+    } else if (difference.inDays > 30) {
+      final months = difference.inDays ~/ 30;
+      return '${months}个月前';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays}天前';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}小时前';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}分钟前';
+    } else {
+      return '刚刚';
+    }
+  }
+
+  /// 构建统计信息区域（显示在头像右侧）
+  Widget _buildStatsSection(BuildContext context, UserSummary summary) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 第一行：访问天数、阅读时间
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _HeaderStatItem(
+              value: summary.daysVisited.toString(),
+              label: '访问天数',
+            ),
+            _HeaderStatItem(
+              value: _formatDuration(summary.timeRead),
+              label: '阅读时间',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // 第二行：浏览话题、已读帖子
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _HeaderStatItem(
+              value: _formatCount(summary.topicsEntered),
+              label: '浏览话题',
+            ),
+            _HeaderStatItem(
+              value: _formatCount(summary.postsReadCount),
+              label: '已读帖子',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // 第三行：已送出赞、已收到赞
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            _HeaderStatItem(
+              value: summary.likesGiven.toString(),
+              label: '已送出',
+              icon: Icons.favorite,
+              iconColor: Colors.pink,
+            ),
+            _HeaderStatItem(
+              value: summary.likesReceived.toString(),
+              label: '已收到',
+              icon: Icons.favorite,
+              iconColor: Colors.pink,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// 格式化数字（超过1000显示为k）
+  String _formatCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(1)}k';
+    }
+    return count.toString();
+  }
+
+  /// 格式化时长（秒转换为天/小时/分钟）
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0';
+
+    final days = seconds ~/ 86400;
+    if (days > 0) {
+      return '${days}天';
+    }
+
+    final hours = seconds ~/ 3600;
+    if (hours > 0) {
+      return '${hours}小时';
+    }
+
+    final minutes = seconds ~/ 60;
+    if (minutes > 0) {
+      return '${minutes}分钟';
+    }
+
+    return '${seconds}秒';
   }
 
   /// 构建用户徽章展示区域
@@ -1376,6 +1658,52 @@ class _ProfileHeader extends ConsumerWidget {
 
     context.push(
       '${RoutePaths.webview}?url=${Uri.encodeComponent(badgesUri.toString())}&title=${Uri.encodeComponent('徽章')}',
+    );
+  }
+}
+
+/// 头部统计项组件（用于头像右侧的紧凑显示）
+class _HeaderStatItem extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData? icon;
+  final Color? iconColor;
+
+  const _HeaderStatItem({
+    required this.value,
+    required this.label,
+    this.icon,
+    this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 4),
+        if (icon != null) ...[
+          Icon(
+            icon,
+            size: 12,
+            color: iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 2),
+        ],
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }

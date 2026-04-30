@@ -345,6 +345,8 @@ _$DiscourseUserSummaryImpl _$$DiscourseUserSummaryImplFromJson(
   postCount: (json['post_count'] as num?)?.toInt() ?? 0,
   postsReadCount: (json['posts_read_count'] as num?)?.toInt() ?? 0,
   daysVisited: (json['days_visited'] as num?)?.toInt() ?? 0,
+  timeRead: (json['time_read'] as num?)?.toInt() ?? 0,
+  recentTimeRead: (json['recent_time_read'] as num?)?.toInt() ?? 0,
   solvedCount: (json['solved_count'] as num?)?.toInt() ?? 0,
   topicIds:
       (json['topic_ids'] as List<dynamic>?)
@@ -410,6 +412,8 @@ Map<String, dynamic> _$$DiscourseUserSummaryImplToJson(
   'post_count': instance.postCount,
   'posts_read_count': instance.postsReadCount,
   'days_visited': instance.daysVisited,
+  'time_read': instance.timeRead,
+  'recent_time_read': instance.recentTimeRead,
   'solved_count': instance.solvedCount,
   'topic_ids': instance.topicIds,
   'replies': instance.replies,
