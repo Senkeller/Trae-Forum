@@ -146,6 +146,14 @@ class DiscourseApiService {
     return _dio.get('$_baseUrl/u/$username/summary.json');
   }
 
+  /// 获取用户徽章列表
+  ///
+  /// [username] 用户名
+  /// 调用 Discourse GET /u/{username}/badges.json API
+  Future<Response> getUserBadges(String username) async {
+    return _dio.get('$_baseUrl/u/$username/badges.json');
+  }
+
   Future<Response> getUserActivity(String username, {int page = 0}) async {
     return _dio.get(
       '$_baseUrl/u/$username/activity.json',

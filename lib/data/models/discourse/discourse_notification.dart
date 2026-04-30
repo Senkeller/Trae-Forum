@@ -6,6 +6,18 @@ part 'discourse_notification.g.dart';
 /// Discourse 通知模型
 /// 对应 TRAE 论坛通知 API 的数据结构
 
+/// 将动态值转换为布尔值
+/// 处理 API 返回的布尔值可能是字符串的情况
+bool _parseBool(dynamic value) {
+  if (value == null) return false;
+  if (value is bool) return value;
+  if (value is String) {
+    return value.toLowerCase() == 'true' || value == '1';
+  }
+  if (value is num) return value != 0;
+  return false;
+}
+
 /// 通知列表响应模型
 @freezed
 class DiscourseNotificationResponse with _$DiscourseNotificationResponse {
@@ -27,7 +39,7 @@ class DiscourseNotification with _$DiscourseNotification {
   const factory DiscourseNotification({
     @JsonKey(name: 'id') required int id,
     @JsonKey(name: 'notification_type') required int notificationType,
-    @JsonKey(name: 'read') @Default(false) bool read,
+    @JsonKey(name: 'read', fromJson: _parseBool) @Default(false) bool read,
     @JsonKey(name: 'created_at') String? createdAt,
     @JsonKey(name: 'post_number') int? postNumber,
     @JsonKey(name: 'topic_id') int? topicId,
@@ -46,6 +58,16 @@ class DiscourseNotification with _$DiscourseNotification {
       _$DiscourseNotificationFromJson(json);
 }
 
+/// 将动态值转换为字符串
+/// 处理 API 返回的字段可能是布尔值或数字的情况
+String? _parseString(dynamic value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  if (value is bool) return value.toString();
+  if (value is num) return value.toString();
+  return value.toString();
+}
+
 /// 通知附加数据模型
 @freezed
 class NotificationData with _$NotificationData {
@@ -60,13 +82,16 @@ class NotificationData with _$NotificationData {
     @JsonKey(name: 'badge_id') int? badgeId,
     @JsonKey(name: 'badge_name') String? badgeName,
     @JsonKey(name: 'badge_slug') String? badgeSlug,
-    @JsonKey(name: 'badge_title') String? badgeTitle,
+    @JsonKey(name: 'badge_title', fromJson: _parseString) String? badgeTitle,
     @JsonKey(name: 'message') String? message,
     @JsonKey(name: 'chat_channel_id') int? chatChannelId,
     @JsonKey(name: 'chat_message_id') int? chatMessageId,
     @JsonKey(name: 'chat_thread_id') int? chatThreadId,
     @JsonKey(name: 'chat_thread_title') String? chatThreadTitle,
     @JsonKey(name: 'mentioned_by_username') String? mentionedByUsername,
+    // 移动帖子相关字段
+    @JsonKey(name: 'moved_to_topic_id') int? movedToTopicId,
+    @JsonKey(name: 'moved_to_post_number') int? movedToPostNumber,
   }) = _NotificationData;
 
   factory NotificationData.fromJson(Map<String, dynamic> json) =>

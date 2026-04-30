@@ -281,7 +281,7 @@ mixin _$DiscourseNotification {
   int get id => throw _privateConstructorUsedError;
   @JsonKey(name: 'notification_type')
   int get notificationType => throw _privateConstructorUsedError;
-  @JsonKey(name: 'read')
+  @JsonKey(name: 'read', fromJson: _parseBool)
   bool get read => throw _privateConstructorUsedError;
   @JsonKey(name: 'created_at')
   String? get createdAt => throw _privateConstructorUsedError;
@@ -326,7 +326,7 @@ abstract class $DiscourseNotificationCopyWith<$Res> {
   $Res call({
     @JsonKey(name: 'id') int id,
     @JsonKey(name: 'notification_type') int notificationType,
-    @JsonKey(name: 'read') bool read,
+    @JsonKey(name: 'read', fromJson: _parseBool) bool read,
     @JsonKey(name: 'created_at') String? createdAt,
     @JsonKey(name: 'post_number') int? postNumber,
     @JsonKey(name: 'topic_id') int? topicId,
@@ -467,7 +467,7 @@ abstract class _$$DiscourseNotificationImplCopyWith<$Res>
   $Res call({
     @JsonKey(name: 'id') int id,
     @JsonKey(name: 'notification_type') int notificationType,
-    @JsonKey(name: 'read') bool read,
+    @JsonKey(name: 'read', fromJson: _parseBool) bool read,
     @JsonKey(name: 'created_at') String? createdAt,
     @JsonKey(name: 'post_number') int? postNumber,
     @JsonKey(name: 'topic_id') int? topicId,
@@ -585,7 +585,7 @@ class _$DiscourseNotificationImpl implements _DiscourseNotification {
   const _$DiscourseNotificationImpl({
     @JsonKey(name: 'id') required this.id,
     @JsonKey(name: 'notification_type') required this.notificationType,
-    @JsonKey(name: 'read') this.read = false,
+    @JsonKey(name: 'read', fromJson: _parseBool) this.read = false,
     @JsonKey(name: 'created_at') this.createdAt,
     @JsonKey(name: 'post_number') this.postNumber,
     @JsonKey(name: 'topic_id') this.topicId,
@@ -609,7 +609,7 @@ class _$DiscourseNotificationImpl implements _DiscourseNotification {
   @JsonKey(name: 'notification_type')
   final int notificationType;
   @override
-  @JsonKey(name: 'read')
+  @JsonKey(name: 'read', fromJson: _parseBool)
   final bool read;
   @override
   @JsonKey(name: 'created_at')
@@ -725,7 +725,7 @@ abstract class _DiscourseNotification implements DiscourseNotification {
   const factory _DiscourseNotification({
     @JsonKey(name: 'id') required final int id,
     @JsonKey(name: 'notification_type') required final int notificationType,
-    @JsonKey(name: 'read') final bool read,
+    @JsonKey(name: 'read', fromJson: _parseBool) final bool read,
     @JsonKey(name: 'created_at') final String? createdAt,
     @JsonKey(name: 'post_number') final int? postNumber,
     @JsonKey(name: 'topic_id') final int? topicId,
@@ -750,7 +750,7 @@ abstract class _DiscourseNotification implements DiscourseNotification {
   @JsonKey(name: 'notification_type')
   int get notificationType;
   @override
-  @JsonKey(name: 'read')
+  @JsonKey(name: 'read', fromJson: _parseBool)
   bool get read;
   @override
   @JsonKey(name: 'created_at')
@@ -820,7 +820,7 @@ mixin _$NotificationData {
   String? get badgeName => throw _privateConstructorUsedError;
   @JsonKey(name: 'badge_slug')
   String? get badgeSlug => throw _privateConstructorUsedError;
-  @JsonKey(name: 'badge_title')
+  @JsonKey(name: 'badge_title', fromJson: _parseString)
   String? get badgeTitle => throw _privateConstructorUsedError;
   @JsonKey(name: 'message')
   String? get message => throw _privateConstructorUsedError;
@@ -833,7 +833,11 @@ mixin _$NotificationData {
   @JsonKey(name: 'chat_thread_title')
   String? get chatThreadTitle => throw _privateConstructorUsedError;
   @JsonKey(name: 'mentioned_by_username')
-  String? get mentionedByUsername => throw _privateConstructorUsedError;
+  String? get mentionedByUsername => throw _privateConstructorUsedError; // 移动帖子相关字段
+  @JsonKey(name: 'moved_to_topic_id')
+  int? get movedToTopicId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'moved_to_post_number')
+  int? get movedToPostNumber => throw _privateConstructorUsedError;
 
   /// Serializes this NotificationData to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -863,13 +867,15 @@ abstract class $NotificationDataCopyWith<$Res> {
     @JsonKey(name: 'badge_id') int? badgeId,
     @JsonKey(name: 'badge_name') String? badgeName,
     @JsonKey(name: 'badge_slug') String? badgeSlug,
-    @JsonKey(name: 'badge_title') String? badgeTitle,
+    @JsonKey(name: 'badge_title', fromJson: _parseString) String? badgeTitle,
     @JsonKey(name: 'message') String? message,
     @JsonKey(name: 'chat_channel_id') int? chatChannelId,
     @JsonKey(name: 'chat_message_id') int? chatMessageId,
     @JsonKey(name: 'chat_thread_id') int? chatThreadId,
     @JsonKey(name: 'chat_thread_title') String? chatThreadTitle,
     @JsonKey(name: 'mentioned_by_username') String? mentionedByUsername,
+    @JsonKey(name: 'moved_to_topic_id') int? movedToTopicId,
+    @JsonKey(name: 'moved_to_post_number') int? movedToPostNumber,
   });
 }
 
@@ -905,6 +911,8 @@ class _$NotificationDataCopyWithImpl<$Res, $Val extends NotificationData>
     Object? chatThreadId = freezed,
     Object? chatThreadTitle = freezed,
     Object? mentionedByUsername = freezed,
+    Object? movedToTopicId = freezed,
+    Object? movedToPostNumber = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -976,6 +984,14 @@ class _$NotificationDataCopyWithImpl<$Res, $Val extends NotificationData>
                 ? _value.mentionedByUsername
                 : mentionedByUsername // ignore: cast_nullable_to_non_nullable
                       as String?,
+            movedToTopicId: freezed == movedToTopicId
+                ? _value.movedToTopicId
+                : movedToTopicId // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            movedToPostNumber: freezed == movedToPostNumber
+                ? _value.movedToPostNumber
+                : movedToPostNumber // ignore: cast_nullable_to_non_nullable
+                      as int?,
           )
           as $Val,
     );
@@ -1002,13 +1018,15 @@ abstract class _$$NotificationDataImplCopyWith<$Res>
     @JsonKey(name: 'badge_id') int? badgeId,
     @JsonKey(name: 'badge_name') String? badgeName,
     @JsonKey(name: 'badge_slug') String? badgeSlug,
-    @JsonKey(name: 'badge_title') String? badgeTitle,
+    @JsonKey(name: 'badge_title', fromJson: _parseString) String? badgeTitle,
     @JsonKey(name: 'message') String? message,
     @JsonKey(name: 'chat_channel_id') int? chatChannelId,
     @JsonKey(name: 'chat_message_id') int? chatMessageId,
     @JsonKey(name: 'chat_thread_id') int? chatThreadId,
     @JsonKey(name: 'chat_thread_title') String? chatThreadTitle,
     @JsonKey(name: 'mentioned_by_username') String? mentionedByUsername,
+    @JsonKey(name: 'moved_to_topic_id') int? movedToTopicId,
+    @JsonKey(name: 'moved_to_post_number') int? movedToPostNumber,
   });
 }
 
@@ -1043,6 +1061,8 @@ class __$$NotificationDataImplCopyWithImpl<$Res>
     Object? chatThreadId = freezed,
     Object? chatThreadTitle = freezed,
     Object? mentionedByUsername = freezed,
+    Object? movedToTopicId = freezed,
+    Object? movedToPostNumber = freezed,
   }) {
     return _then(
       _$NotificationDataImpl(
@@ -1114,6 +1134,14 @@ class __$$NotificationDataImplCopyWithImpl<$Res>
             ? _value.mentionedByUsername
             : mentionedByUsername // ignore: cast_nullable_to_non_nullable
                   as String?,
+        movedToTopicId: freezed == movedToTopicId
+            ? _value.movedToTopicId
+            : movedToTopicId // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        movedToPostNumber: freezed == movedToPostNumber
+            ? _value.movedToPostNumber
+            : movedToPostNumber // ignore: cast_nullable_to_non_nullable
+                  as int?,
       ),
     );
   }
@@ -1133,13 +1161,15 @@ class _$NotificationDataImpl implements _NotificationData {
     @JsonKey(name: 'badge_id') this.badgeId,
     @JsonKey(name: 'badge_name') this.badgeName,
     @JsonKey(name: 'badge_slug') this.badgeSlug,
-    @JsonKey(name: 'badge_title') this.badgeTitle,
+    @JsonKey(name: 'badge_title', fromJson: _parseString) this.badgeTitle,
     @JsonKey(name: 'message') this.message,
     @JsonKey(name: 'chat_channel_id') this.chatChannelId,
     @JsonKey(name: 'chat_message_id') this.chatMessageId,
     @JsonKey(name: 'chat_thread_id') this.chatThreadId,
     @JsonKey(name: 'chat_thread_title') this.chatThreadTitle,
     @JsonKey(name: 'mentioned_by_username') this.mentionedByUsername,
+    @JsonKey(name: 'moved_to_topic_id') this.movedToTopicId,
+    @JsonKey(name: 'moved_to_post_number') this.movedToPostNumber,
   });
 
   factory _$NotificationDataImpl.fromJson(Map<String, dynamic> json) =>
@@ -1176,7 +1206,7 @@ class _$NotificationDataImpl implements _NotificationData {
   @JsonKey(name: 'badge_slug')
   final String? badgeSlug;
   @override
-  @JsonKey(name: 'badge_title')
+  @JsonKey(name: 'badge_title', fromJson: _parseString)
   final String? badgeTitle;
   @override
   @JsonKey(name: 'message')
@@ -1196,10 +1226,17 @@ class _$NotificationDataImpl implements _NotificationData {
   @override
   @JsonKey(name: 'mentioned_by_username')
   final String? mentionedByUsername;
+  // 移动帖子相关字段
+  @override
+  @JsonKey(name: 'moved_to_topic_id')
+  final int? movedToTopicId;
+  @override
+  @JsonKey(name: 'moved_to_post_number')
+  final int? movedToPostNumber;
 
   @override
   String toString() {
-    return 'NotificationData(topicTitle: $topicTitle, originalPostId: $originalPostId, originalPostType: $originalPostType, originalUsername: $originalUsername, revisionNumber: $revisionNumber, displayUsername: $displayUsername, count: $count, badgeId: $badgeId, badgeName: $badgeName, badgeSlug: $badgeSlug, badgeTitle: $badgeTitle, message: $message, chatChannelId: $chatChannelId, chatMessageId: $chatMessageId, chatThreadId: $chatThreadId, chatThreadTitle: $chatThreadTitle, mentionedByUsername: $mentionedByUsername)';
+    return 'NotificationData(topicTitle: $topicTitle, originalPostId: $originalPostId, originalPostType: $originalPostType, originalUsername: $originalUsername, revisionNumber: $revisionNumber, displayUsername: $displayUsername, count: $count, badgeId: $badgeId, badgeName: $badgeName, badgeSlug: $badgeSlug, badgeTitle: $badgeTitle, message: $message, chatChannelId: $chatChannelId, chatMessageId: $chatMessageId, chatThreadId: $chatThreadId, chatThreadTitle: $chatThreadTitle, mentionedByUsername: $mentionedByUsername, movedToTopicId: $movedToTopicId, movedToPostNumber: $movedToPostNumber)';
   }
 
   @override
@@ -1237,12 +1274,16 @@ class _$NotificationDataImpl implements _NotificationData {
             (identical(other.chatThreadTitle, chatThreadTitle) ||
                 other.chatThreadTitle == chatThreadTitle) &&
             (identical(other.mentionedByUsername, mentionedByUsername) ||
-                other.mentionedByUsername == mentionedByUsername));
+                other.mentionedByUsername == mentionedByUsername) &&
+            (identical(other.movedToTopicId, movedToTopicId) ||
+                other.movedToTopicId == movedToTopicId) &&
+            (identical(other.movedToPostNumber, movedToPostNumber) ||
+                other.movedToPostNumber == movedToPostNumber));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     runtimeType,
     topicTitle,
     originalPostId,
@@ -1261,7 +1302,9 @@ class _$NotificationDataImpl implements _NotificationData {
     chatThreadId,
     chatThreadTitle,
     mentionedByUsername,
-  );
+    movedToTopicId,
+    movedToPostNumber,
+  ]);
 
   /// Create a copy of NotificationData
   /// with the given fields replaced by the non-null parameter values.
@@ -1292,13 +1335,16 @@ abstract class _NotificationData implements NotificationData {
     @JsonKey(name: 'badge_id') final int? badgeId,
     @JsonKey(name: 'badge_name') final String? badgeName,
     @JsonKey(name: 'badge_slug') final String? badgeSlug,
-    @JsonKey(name: 'badge_title') final String? badgeTitle,
+    @JsonKey(name: 'badge_title', fromJson: _parseString)
+    final String? badgeTitle,
     @JsonKey(name: 'message') final String? message,
     @JsonKey(name: 'chat_channel_id') final int? chatChannelId,
     @JsonKey(name: 'chat_message_id') final int? chatMessageId,
     @JsonKey(name: 'chat_thread_id') final int? chatThreadId,
     @JsonKey(name: 'chat_thread_title') final String? chatThreadTitle,
     @JsonKey(name: 'mentioned_by_username') final String? mentionedByUsername,
+    @JsonKey(name: 'moved_to_topic_id') final int? movedToTopicId,
+    @JsonKey(name: 'moved_to_post_number') final int? movedToPostNumber,
   }) = _$NotificationDataImpl;
 
   factory _NotificationData.fromJson(Map<String, dynamic> json) =
@@ -1335,7 +1381,7 @@ abstract class _NotificationData implements NotificationData {
   @JsonKey(name: 'badge_slug')
   String? get badgeSlug;
   @override
-  @JsonKey(name: 'badge_title')
+  @JsonKey(name: 'badge_title', fromJson: _parseString)
   String? get badgeTitle;
   @override
   @JsonKey(name: 'message')
@@ -1354,7 +1400,13 @@ abstract class _NotificationData implements NotificationData {
   String? get chatThreadTitle;
   @override
   @JsonKey(name: 'mentioned_by_username')
-  String? get mentionedByUsername;
+  String? get mentionedByUsername; // 移动帖子相关字段
+  @override
+  @JsonKey(name: 'moved_to_topic_id')
+  int? get movedToTopicId;
+  @override
+  @JsonKey(name: 'moved_to_post_number')
+  int? get movedToPostNumber;
 
   /// Create a copy of NotificationData
   /// with the given fields replaced by the non-null parameter values.

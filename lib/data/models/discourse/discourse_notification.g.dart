@@ -34,7 +34,7 @@ _$DiscourseNotificationImpl _$$DiscourseNotificationImplFromJson(
 ) => _$DiscourseNotificationImpl(
   id: (json['id'] as num).toInt(),
   notificationType: (json['notification_type'] as num).toInt(),
-  read: json['read'] as bool? ?? false,
+  read: json['read'] == null ? false : _parseBool(json['read']),
   createdAt: json['created_at'] as String?,
   postNumber: (json['post_number'] as num?)?.toInt(),
   topicId: (json['topic_id'] as num?)?.toInt(),
@@ -82,13 +82,15 @@ _$NotificationDataImpl _$$NotificationDataImplFromJson(
   badgeId: (json['badge_id'] as num?)?.toInt(),
   badgeName: json['badge_name'] as String?,
   badgeSlug: json['badge_slug'] as String?,
-  badgeTitle: json['badge_title'] as String?,
+  badgeTitle: _parseString(json['badge_title']),
   message: json['message'] as String?,
   chatChannelId: (json['chat_channel_id'] as num?)?.toInt(),
   chatMessageId: (json['chat_message_id'] as num?)?.toInt(),
   chatThreadId: (json['chat_thread_id'] as num?)?.toInt(),
   chatThreadTitle: json['chat_thread_title'] as String?,
   mentionedByUsername: json['mentioned_by_username'] as String?,
+  movedToTopicId: (json['moved_to_topic_id'] as num?)?.toInt(),
+  movedToPostNumber: (json['moved_to_post_number'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$$NotificationDataImplToJson(
@@ -111,4 +113,6 @@ Map<String, dynamic> _$$NotificationDataImplToJson(
   'chat_thread_id': instance.chatThreadId,
   'chat_thread_title': instance.chatThreadTitle,
   'mentioned_by_username': instance.mentionedByUsername,
+  'moved_to_topic_id': instance.movedToTopicId,
+  'moved_to_post_number': instance.movedToPostNumber,
 };

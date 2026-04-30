@@ -436,7 +436,23 @@
                     const topics = await this.dataManager.getLatestTopics();
                     this.renderTopicList(topics);
                 } catch (error) {
-                    this.showError('数据加载失败，请稍后重试');
+                    console.error('[TabController] 数据加载失败:', error);
+                    
+                    // 根据错误类型显示不同的错误信息
+                    let errorMessage = '数据加载失败，请稍后重试';
+                    if (error.message && error.message.includes('CORS')) {
+                        errorMessage = '网络请求被阻止，请检查跨域设置';
+                    } else if (error.message && error.message.includes('Failed to fetch')) {
+                        errorMessage = '网络连接失败，请检查网络设置或API地址';
+                    }
+                    
+                    this.showError(errorMessage);
+                    
+                    // 更新徽章显示错误状态
+                    const badge = document.getElementById('newPostsBadge');
+                    badge.textContent = '!';
+                    badge.style.display = 'inline-flex';
+                    badge.style.backgroundColor = '#ff4d4f';
                 }
             }
 
@@ -464,12 +480,17 @@
 
             /**
              * 更新新帖数量徽章
+             * @param {number|string} count - 帖子数量
              */
             updateNewPostsBadge(count) {
                 const badge = document.getElementById('newPostsBadge');
                 
-                if (count > 0) {
-                    badge.textContent = count > 999 ? '999+' : count;
+                // 确保 count 是数字类型
+                const numCount = Number(count) || 0;
+                
+                if (numCount > 0) {
+                    const displayCount = numCount > 999 ? '999+' : String(numCount);
+                    badge.textContent = displayCount;
                     badge.style.display = 'inline-flex';
                     
                     // 添加动画效果
@@ -484,6 +505,7 @@
 
             /**
              * 渲染帖子列表
+             * @param {Array} topics - 帖子列表
              */
             renderTopicList(topics) {
                 const listContainer = document.getElementById('topicList');
@@ -493,19 +515,28 @@
                     return;
                 }
 
-                const html = topics.slice(0, 10).map(topic => `
-                    <li class="topic-item">
-                        <div class="topic-avatar" style="background-image: url('${topic.image_url || ''}'); background-size: cover;"></div>
-                        <div class="topic-info">
-                            <div class="topic-title">${this.escapeHtml(topic.title)}</div>
-                            <div class="topic-meta">
-                                <span>${topic.posts_count || 0} 回复</span>
-                                <span>${topic.views || 0} 浏览</span>
-                                <span>${topic.like_count || 0} 赞</span>
+                const html = topics.slice(0, 10).map(topic => {
+                    // 确保所有字段都是正确的类型
+                    const title = String(topic.title || '无标题');
+                    const imageUrl = topic.image_url ? String(topic.image_url) : '';
+                    const postsCount = Number(topic.posts_count) || 0;
+                    const views = Number(topic.views) || 0;
+                    const likeCount = Number(topic.like_count) || 0;
+                    
+                    return `
+                        <li class="topic-item">
+                            <div class="topic-avatar" style="background-image: url('${this.escapeHtml(imageUrl)}'); background-size: cover;"></div>
+                            <div class="topic-info">
+                                <div class="topic-title">${this.escapeHtml(title)}</div>
+                                <div class="topic-meta">
+                                    <span>${postsCount} 回复</span>
+                                    <span>${views} 浏览</span>
+                                    <span>${likeCount} 赞</span>
+                                </div>
                             </div>
-                        </div>
-                    </li>
-                `).join('');
+                        </li>
+                    `;
+                }).join('');
 
                 listContainer.innerHTML = html;
             }

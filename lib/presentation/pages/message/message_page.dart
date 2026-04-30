@@ -521,6 +521,24 @@ class _NotificationListState extends ConsumerState<_NotificationList> {
         }
         return;
 
+      // 移动帖子通知
+      case DiscourseNotificationType.movedPost:
+        // 优先使用移动后的 topicId
+        final targetTopicId = notification.data?.movedToTopicId ?? notification.topicId;
+        if (targetTopicId != null) {
+          _navigateToFeedDetail(
+            targetTopicId.toString(),
+            postNumber: notification.data?.movedToPostNumber ?? notification.postNumber,
+            postId: notification.data?.originalPostId,
+          );
+        } else {
+          // 如果没有 topicId，显示提示
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('无法跳转到该通知')));
+        }
+        return;
+
       // 普通话题通知
       default:
         if (notification.topicId != null) {

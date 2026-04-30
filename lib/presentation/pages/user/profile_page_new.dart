@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/network/discourse_api_service.dart';
+import '../../../data/models/discourse/discourse_user.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
@@ -313,6 +315,9 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          // 徽章展示区域
+          _buildUserBadgesSection(context, user.username),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
@@ -742,6 +747,157 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     );
   }
 
+  /// 构建用户徽章展示区域
+  Widget _buildUserBadgesSection(BuildContext context, String username) {
+    final badgesAsync = ref.watch(userBadgesProvider(username));
+
+    return badgesAsync.when(
+      data: (badges) {
+        if (badges.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 徽章标题和数量
+            Row(
+              children: [
+                Icon(
+                  Icons.workspace_premium_outlined,
+                  size: 16,
+                  color: Colors.white.withValues(alpha: 0.6),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '徽章',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF43D1AA).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${badges.length}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: const Color(0xFF43D1AA),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 徽章列表
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: badges.take(6).map((badge) => _buildBadgeItem(context, badge)).toList(),
+            ),
+            // 查看更多按钮（如果徽章数量超过6个）
+            if (badges.length > 6) ...[
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () => _navigateToUserBadges(context, username),
+                child: Text(
+                  '查看全部 ${badges.length} 个徽章 →',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF43D1AA),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
+  }
+
+  /// 构建单个徽章项
+  Widget _buildBadgeItem(BuildContext context, UserBadgeInfo badge) {
+    return Tooltip(
+      message: badge.description ?? badge.name,
+      child: GestureDetector(
+        onTap: () => _navigateToBadgeDetail(context, badge),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2B2E34),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.1),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 徽章图标
+              if (badge.imageUrl != null && badge.imageUrl!.isNotEmpty)
+                Image.network(
+                  badge.imageUrl!,
+                  width: 16,
+                  height: 16,
+                  errorBuilder: (_, _, _) => _buildDefaultBadgeIcon(),
+                )
+              else
+                _buildDefaultBadgeIcon(),
+              const SizedBox(width: 6),
+              // 徽章名称
+              Flexible(
+                child: Text(
+                  badge.name,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建默认徽章图标
+  Widget _buildDefaultBadgeIcon() {
+    return const Icon(
+      Icons.emoji_events_outlined,
+      size: 16,
+      color: Color(0xFFFFB800),
+    );
+  }
+
+  /// 导航到徽章详情页
+  void _navigateToBadgeDetail(BuildContext context, UserBadgeInfo badge) {
+    final baseUri = Uri.parse(AppConstants.forumUrl);
+    final badgeUri = baseUri.replace(
+      pathSegments: ['badges', badge.id.toString(), badge.slug],
+    );
+
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(badgeUri.toString())}&title=${Uri.encodeComponent(badge.name)}',
+    );
+  }
+
+  /// 导航到用户徽章列表页
+  void _navigateToUserBadges(BuildContext context, String username) {
+    final baseUri = Uri.parse(AppConstants.forumUrl);
+    final badgesUri = baseUri.replace(
+      pathSegments: ['u', username, 'badges'],
+    );
+
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(badgesUri.toString())}&title=${Uri.encodeComponent('我的徽章')}',
+    );
+  }
+
   /// 格式化数字
   String _formatCount(int count) {
     if (count >= 1000000) {
@@ -881,3 +1037,87 @@ class _ProfileGhostTag extends StatelessWidget {
     );
   }
 }
+
+/// 用户徽章数据模型
+class UserBadgeInfo {
+  final int id;
+  final String name;
+  final String? description;
+  final String? icon;
+  final String? imageUrl;
+  final String slug;
+
+  const UserBadgeInfo({
+    required this.id,
+    required this.name,
+    this.description,
+    this.icon,
+    this.imageUrl,
+    required this.slug,
+  });
+
+  factory UserBadgeInfo.fromDiscourseBadge(DiscourseBadge badge) {
+    return UserBadgeInfo(
+      id: badge.id,
+      name: badge.name,
+      description: badge.description,
+      icon: badge.icon,
+      imageUrl: badge.imageUrl,
+      slug: badge.slug,
+    );
+  }
+}
+
+/// 用户徽章列表 Provider
+final userBadgesProvider = FutureProvider.family<List<UserBadgeInfo>, String>(
+  (ref, username) async {
+    if (username.isEmpty) return [];
+    
+    try {
+      final discourseApi = ref.read(discourseApiServiceProvider);
+      final response = await discourseApi.getUserBadges(username);
+      
+      final data = response.data as Map<String, dynamic>?;
+      if (data == null) return [];
+      
+      final badgesJson = data['badges'] as List<dynamic>? ?? [];
+      final userBadgesJson = data['user_badges'] as List<dynamic>? ?? [];
+      
+      // 解析徽章定义
+      final badgeMap = <int, DiscourseBadge>{};
+      for (final badgeData in badgesJson) {
+        if (badgeData is Map<String, dynamic>) {
+          try {
+            final badge = DiscourseBadge.fromJson(badgeData);
+            badgeMap[badge.id] = badge;
+          } catch (_) {}
+        }
+      }
+      
+      // 获取用户拥有的徽章ID列表
+      final userBadgeIds = <int>{};
+      for (final userBadgeData in userBadgesJson) {
+        if (userBadgeData is Map<String, dynamic>) {
+          final badgeId = userBadgeData['badge_id'] as int?;
+          if (badgeId != null) {
+            userBadgeIds.add(badgeId);
+          }
+        }
+      }
+      
+      // 构建用户徽章列表
+      final userBadges = <UserBadgeInfo>[];
+      for (final badgeId in userBadgeIds) {
+        final badge = badgeMap[badgeId];
+        if (badge != null) {
+          userBadges.add(UserBadgeInfo.fromDiscourseBadge(badge));
+        }
+      }
+      
+      return userBadges;
+    } catch (e) {
+      debugPrint('🔍 [userBadgesProvider] 获取用户徽章失败: $e');
+      return [];
+    }
+  },
+);

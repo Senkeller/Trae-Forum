@@ -121,7 +121,7 @@ final isPushNotificationEnabledProvider = AutoDisposeProvider<bool>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef IsPushNotificationEnabledRef = AutoDisposeProviderRef<bool>;
-String _$settingsNotifierHash() => r'e6276403cc0dffebcb158e3d224ba7bf17a5620a';
+String _$settingsNotifierHash() => r'b85d98c8109a26e4024ccf928348c7c08582d481';
 
 /// 设置状态 Notifier
 ///
