@@ -284,7 +284,6 @@ class _VoteCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// 状态视图组件

@@ -52,6 +52,7 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
   String _editorContent = '';
   bool _draftSaved = false;
   DateTime? _draftSavedAt;
+  bool _isDraftSaving = false;
   final List<XFile> _selectedImages = [];
 
   final List<Map<String, String>> _categories = const [
@@ -160,14 +161,22 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
       if (normalizedContent == null || normalizedContent.isEmpty) return;
       setState(() {
         _editorContent = normalizedContent;
+        _draftSaved = true;
       });
+    } on DraftRepositoryException catch (e) {
+      _showDraftSnackBar(_mapDraftError(e, fallback: '草稿加载失败'));
     } catch (_) {
-      // 忽略草稿加载错误
+      _showDraftSnackBar('草稿加载失败，请稍后重试');
     }
   }
 
-  Future<void> _saveDraft() async {
-    if (_editorContent.trim().isEmpty) return;
+  Future<bool> _saveDraft({bool showFeedback = false}) async {
+    if (_editorContent.trim().isEmpty) return false;
+    if (_isDraftSaving) return false;
+
+    setState(() {
+      _isDraftSaving = true;
+    });
 
     try {
       final repository = ref.read(commentRepositoryProvider);
@@ -176,22 +185,65 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
         content: _editorContent.trim(),
       );
 
-      if (!mounted) return;
+      if (!mounted) return success;
       setState(() {
         _draftSaved = success;
         if (success) _draftSavedAt = DateTime.now();
       });
+      if (showFeedback) {
+        _showDraftSnackBar(success ? '草稿已保存' : '草稿保存失败');
+      }
+      return success;
+    } on DraftRepositoryException catch (e) {
+      if (!mounted) return false;
+      setState(() {
+        _draftSaved = false;
+      });
+      if (showFeedback) {
+        _showDraftSnackBar(_mapDraftError(e, fallback: '草稿保存失败'));
+      }
+      return false;
     } catch (_) {
-      // 忽略草稿保存错误
+      if (!mounted) return false;
+      setState(() {
+        _draftSaved = false;
+      });
+      if (showFeedback) {
+        _showDraftSnackBar('草稿保存失败，请稍后重试');
+      }
+      return false;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDraftSaving = false;
+        });
+      }
     }
   }
 
-  Future<void> _deleteDraft() async {
+  Future<bool> _deleteDraft({bool showFeedback = false}) async {
     try {
       final repository = ref.read(commentRepositoryProvider);
       await repository.deleteDraft(topicId: 0);
+      if (!mounted) return true;
+      setState(() {
+        _draftSaved = false;
+        _draftSavedAt = null;
+      });
+      if (showFeedback) {
+        _showDraftSnackBar('草稿已删除');
+      }
+      return true;
+    } on DraftRepositoryException catch (e) {
+      if (showFeedback) {
+        _showDraftSnackBar(_mapDraftError(e, fallback: '草稿删除失败'));
+      }
+      return false;
     } catch (_) {
-      // 忽略删除错误
+      if (showFeedback) {
+        _showDraftSnackBar('草稿删除失败，请稍后重试');
+      }
+      return false;
     }
   }
 
@@ -260,11 +312,16 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
       if (!mounted) return;
 
       if (response.status == 200) {
-        await _deleteDraft();
+        final deleted = await _deleteDraft();
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('发布成功')));
+        if (!deleted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('发布成功，但草稿清理失败')));
+        }
         if (prepared.failedCount > 0) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -423,10 +480,38 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
 
     if (!mounted || shouldExit == null) return;
     if (shouldExit) {
-      await _saveDraft();
+      final saved = await _saveDraft(showFeedback: true);
+      if (!saved) return;
     }
     if (!mounted) return;
     context.pop();
+  }
+
+  String _mapDraftError(
+    DraftRepositoryException error, {
+    required String fallback,
+  }) {
+    switch (error.statusCode) {
+      case 401:
+      case 403:
+        return '登录状态已失效，请重新登录后重试';
+      case 429:
+        return '草稿操作过于频繁，请稍后重试';
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return '服务器暂时不可用，请稍后重试';
+      default:
+        return fallback;
+    }
+  }
+
+  void _showDraftSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openCategorySheet() async {
@@ -508,7 +593,11 @@ class _FeedCreatePageState extends ConsumerState<FeedCreatePage> {
         actions: [
           if (!_isLoading)
             IconButton(
-              onPressed: _saveDraft,
+              onPressed: _isDraftSaving
+                  ? null
+                  : () {
+                      _saveDraft(showFeedback: true);
+                    },
               icon: Icon(
                 _draftSaved ? Icons.check_circle : Icons.save_outlined,
                 color: _draftSaved ? const Color(0xFF10A37F) : null,

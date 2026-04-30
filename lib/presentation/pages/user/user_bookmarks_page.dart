@@ -347,7 +347,6 @@ class _BookmarkCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// 状态视图组件

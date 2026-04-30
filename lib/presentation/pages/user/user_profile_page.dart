@@ -836,7 +836,7 @@ class _SummaryTopicItem extends StatelessWidget {
                       topic.createdAt!.trim().isNotEmpty) ...[
                     const Spacer(),
                     Text(
-                      _formatTime(topic.createdAt!),
+                      RelativeTimeUtil.fromIso(topic.createdAt!),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -849,10 +849,6 @@ class _SummaryTopicItem extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatTime(String isoTime) {
-    return RelativeTimeUtil.fromIso(isoTime);
   }
 }
 
@@ -939,7 +935,7 @@ class _ActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primaryText = _resolvePrimaryText();
-    final cookedText = _stripHtml(activity.cooked ?? '');
+    final cookedText = HtmlTextUtil.stripHtml(activity.cooked ?? '');
     final bodyText = cookedText.isNotEmpty && cookedText != primaryText
         ? cookedText
         : '';
@@ -988,7 +984,7 @@ class _ActivityCard extends StatelessWidget {
                         ),
                         if (activity.createdAt != null)
                           Text(
-                            _formatTime(activity.createdAt!),
+                            RelativeTimeUtil.fromIso(activity.createdAt!),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
                                   color: Theme.of(
@@ -1098,7 +1094,7 @@ class _ActivityCard extends StatelessWidget {
     final excerpt = activity.excerpt?.trim() ?? '';
     if (excerpt.isNotEmpty) return excerpt;
 
-    final cooked = _stripHtml(activity.cooked ?? '');
+    final cooked = HtmlTextUtil.stripHtml(activity.cooked ?? '');
     if (cooked.isNotEmpty) return cooked;
 
     if (activity.topicId > 0) {
@@ -1112,14 +1108,6 @@ class _ActivityCard extends StatelessWidget {
       return template;
     }
     return 'https://forum.trae.cn${template.replaceAll('{size}', '60')}';
-  }
-
-  String _formatTime(String isoTime) {
-    return RelativeTimeUtil.fromIso(isoTime);
-  }
-
-  String _stripHtml(String htmlString) {
-    return HtmlTextUtil.stripHtml(htmlString);
   }
 }
 
@@ -1281,7 +1269,7 @@ class _FeedCard extends StatelessWidget {
         : (feed.content.trim().isNotEmpty
               ? feed.content.trim()
               : '话题 #${feed.id}');
-    final excerpt = _stripHtml(feed.content).trim();
+    final excerpt = HtmlTextUtil.stripHtml(feed.content).trim();
     final showExcerpt = excerpt.isNotEmpty && excerpt != title;
 
     return Card(
@@ -1343,7 +1331,7 @@ class _FeedCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    _formatTime(feed.createTime),
+                    _formatTimeValue(feed.createTime),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
@@ -1377,11 +1365,7 @@ class _FeedCard extends StatelessWidget {
     );
   }
 
-  String _stripHtml(String htmlString) {
-    return HtmlTextUtil.stripHtml(htmlString);
-  }
-
-  String _formatTime(String value) {
+  String _formatTimeValue(String value) {
     if (value.trim().isEmpty) return '未知时间';
 
     final parsedInt = int.tryParse(value.trim());
@@ -1390,19 +1374,15 @@ class _FeedCard extends StatelessWidget {
           ? parsedInt
           : parsedInt * 1000;
       final dt = DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
-      return _relativeTime(dt);
+      return RelativeTimeUtil.fromIso(dt.toIso8601String());
     }
 
     try {
       final dt = DateTime.parse(value).toLocal();
-      return _relativeTime(dt);
+      return RelativeTimeUtil.fromIso(dt.toIso8601String());
     } catch (_) {
       return value;
     }
-  }
-
-  String _relativeTime(DateTime dateTime) {
-    return RelativeTimeUtil.fromIso(dateTime.toIso8601String());
   }
 }
 

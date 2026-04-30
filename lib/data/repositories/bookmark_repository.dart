@@ -335,11 +335,13 @@ class BookmarkRepository {
         toStringOrNull(nestedTopic?['title']) ??
         '';
 
-    final excerpt = _stripHtml(
+    final excerpt = HtmlTextUtil.stripHtml(
       toStringOrNull(map['excerpt']) ??
           toStringOrNull(map['topic_excerpt']) ??
           toStringOrNull(nestedTopic?['excerpt']) ??
           '',
+      tagReplacement: ' ',
+      collapseWhitespace: true,
     );
 
     final username =
@@ -434,15 +436,6 @@ class BookmarkRepository {
       }
     }
     return itemCount >= AppConstants.pageSize;
-  }
-
-  String _stripHtml(String raw) {
-    if (raw.isEmpty) return '';
-    return HtmlTextUtil.stripHtml(
-      raw,
-      tagReplacement: ' ',
-      collapseWhitespace: true,
-    );
   }
 }
 

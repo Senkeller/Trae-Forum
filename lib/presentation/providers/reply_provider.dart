@@ -196,6 +196,13 @@ class ReplyNotifier extends _$ReplyNotifier {
   /// [error] 错误对象
   /// @return 错误码字符串
   String? _extractErrorCode(dynamic error) {
+    if (error is DraftRepositoryException) {
+      final code = error.statusCode?.toString();
+      if (code != null && _errorCodeMap.containsKey(code)) {
+        return code;
+      }
+    }
+
     final errorString = error.toString();
 
     // 尝试提取 HTTP 状态码

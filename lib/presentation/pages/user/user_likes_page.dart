@@ -372,7 +372,6 @@ class _LikeCard extends StatelessWidget {
     }
     return 'https://forum.trae.cn${template.replaceAll('{size}', '60')}';
   }
-
 }
 
 /// 状态视图组件

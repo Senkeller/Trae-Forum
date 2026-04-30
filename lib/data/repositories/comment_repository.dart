@@ -7,6 +7,25 @@ import '../models/draft_model.dart';
 
 part 'comment_repository.g.dart';
 
+/// 草稿仓储异常
+class DraftRepositoryException implements Exception {
+  final String operation;
+  final int? statusCode;
+  final String message;
+
+  const DraftRepositoryException({
+    required this.operation,
+    required this.message,
+    this.statusCode,
+  });
+
+  @override
+  String toString() {
+    final codePart = statusCode == null ? '' : ' (HTTP $statusCode)';
+    return 'DraftRepositoryException[$operation]$codePart: $message';
+  }
+}
+
 /// 评论仓库
 /// 负责处理评论相关的数据操作，包括获取评论列表、发布评论、点赞评论、获取楼中楼回复等
 @riverpod
@@ -482,21 +501,32 @@ class CommentRepository {
     required String content,
     int? replyToPostNumber,
   }) async {
-    try {
-      final draftKey = _resolveDraftKey(
-        topicId: topicId,
-        replyToPostNumber: replyToPostNumber,
-      );
+    final draftKey = _resolveDraftKey(
+      topicId: topicId,
+      replyToPostNumber: replyToPostNumber,
+    );
 
+    try {
       final response = await _discourseApi.saveDraft(
         draftKey: draftKey,
         data: content,
         sequence: DraftSequence.next(),
       );
 
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
+      if (response.statusCode == 200) {
+        return true;
+      }
+      throw DraftRepositoryException(
+        operation: 'saveDraft',
+        statusCode: response.statusCode,
+        message: '保存草稿失败',
+      );
+    } on DioException catch (e) {
+      throw DraftRepositoryException(
+        operation: 'saveDraft',
+        statusCode: e.response?.statusCode,
+        message: e.message ?? '请求失败',
+      );
     }
   }
 
@@ -509,12 +539,12 @@ class CommentRepository {
     required int topicId,
     int? replyToPostNumber,
   }) async {
-    try {
-      final draftKey = _resolveDraftKey(
-        topicId: topicId,
-        replyToPostNumber: replyToPostNumber,
-      );
+    final draftKey = _resolveDraftKey(
+      topicId: topicId,
+      replyToPostNumber: replyToPostNumber,
+    );
 
+    try {
       final response = await _discourseApi.getDraft(draftKey);
 
       if (response.statusCode == 200 && response.data != null) {
@@ -529,9 +559,26 @@ class CommentRepository {
           );
         }
       }
+      if (response.statusCode == 404) {
+        return null;
+      }
+      if (response.statusCode != 200) {
+        throw DraftRepositoryException(
+          operation: 'getDraft',
+          statusCode: response.statusCode,
+          message: '加载草稿失败',
+        );
+      }
       return null;
-    } catch (e) {
-      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        return null;
+      }
+      throw DraftRepositoryException(
+        operation: 'getDraft',
+        statusCode: e.response?.statusCode,
+        message: e.message ?? '请求失败',
+      );
     }
   }
 
@@ -543,18 +590,30 @@ class CommentRepository {
     required int topicId,
     int? replyToPostNumber,
   }) async {
-    try {
-      final draftKey = _resolveDraftKey(
-        topicId: topicId,
-        replyToPostNumber: replyToPostNumber,
-      );
+    final draftKey = _resolveDraftKey(
+      topicId: topicId,
+      replyToPostNumber: replyToPostNumber,
+    );
 
-      await _discourseApi.deleteDraft(
+    try {
+      final response = await _discourseApi.deleteDraft(
         draftKey: draftKey,
         sequence: DraftSequence.next(),
       );
-    } catch (e) {
-      // 忽略删除错误
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return;
+      }
+      throw DraftRepositoryException(
+        operation: 'deleteDraft',
+        statusCode: response.statusCode,
+        message: '删除草稿失败',
+      );
+    } on DioException catch (e) {
+      throw DraftRepositoryException(
+        operation: 'deleteDraft',
+        statusCode: e.response?.statusCode,
+        message: e.message ?? '请求失败',
+      );
     }
   }
 

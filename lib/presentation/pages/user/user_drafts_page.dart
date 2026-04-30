@@ -181,7 +181,7 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
       return parsedTitle;
     }
     if (draft.excerpt != null && draft.excerpt!.trim().isNotEmpty) {
-      return _stripHtml(draft.excerpt!);
+      return HtmlTextUtil.stripHtml(draft.excerpt!);
     }
     if (draft.topicSlug != null && draft.topicSlug!.trim().isNotEmpty) {
       return draft.topicSlug!.trim();
@@ -202,16 +202,12 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
     }
 
     if (draft.cooked != null && draft.cooked!.trim().isNotEmpty) {
-      return _stripHtml(draft.cooked!);
+      return HtmlTextUtil.stripHtml(draft.cooked!);
     }
     if (draft.excerpt != null && draft.excerpt!.trim().isNotEmpty) {
-      return _stripHtml(draft.excerpt!);
+      return HtmlTextUtil.stripHtml(draft.excerpt!);
     }
     return '';
-  }
-
-  String _stripHtml(String htmlString) {
-    return HtmlTextUtil.stripHtml(htmlString);
   }
 
   @override
@@ -344,7 +340,7 @@ class _DraftCard extends StatelessWidget {
                         // 创建时间
                         if (draft.createdAt != null)
                           Text(
-                            _formatTime(draft.createdAt!),
+                            RelativeTimeUtil.fromIso(draft.createdAt!),
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: colorScheme.onSurfaceVariant),
                           ),
@@ -370,7 +366,7 @@ class _DraftCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    _stripHtml(draft.cooked!),
+                    HtmlTextUtil.stripHtml(draft.cooked!),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -412,31 +408,15 @@ class _DraftCard extends StatelessWidget {
   /// 返回草稿标题字符串
   String _getDraftTitle() {
     if (draft.excerpt != null && draft.excerpt!.isNotEmpty) {
-      return _stripHtml(draft.excerpt!);
+      return HtmlTextUtil.stripHtml(draft.excerpt!);
     }
     if (draft.cooked != null && draft.cooked!.isNotEmpty) {
-      final stripped = _stripHtml(draft.cooked!);
+      final stripped = HtmlTextUtil.stripHtml(draft.cooked!);
       return stripped.length > 50
           ? '${stripped.substring(0, 50)}...'
           : stripped;
     }
     return '草稿 #${draft.id}';
-  }
-
-  /// 格式化时间显示
-  ///
-  /// [isoTime] ISO 8601 格式的时间字符串
-  /// 返回相对时间描述（如：2小时前、3天前）
-  String _formatTime(String isoTime) {
-    return RelativeTimeUtil.fromIso(isoTime);
-  }
-
-  /// 去除 HTML 标签
-  ///
-  /// [htmlString] 包含 HTML 标签的字符串
-  /// 返回纯文本字符串
-  String _stripHtml(String htmlString) {
-    return HtmlTextUtil.stripHtml(htmlString);
   }
 }
 

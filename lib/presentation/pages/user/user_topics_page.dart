@@ -268,7 +268,7 @@ class _TopicCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _formatTime(topic.createdAt!),
+                      RelativeTimeUtil.fromIso(topic.createdAt!),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(width: 16),
@@ -321,14 +321,6 @@ class _TopicCard extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  /// 格式化时间显示
-  ///
-  /// [isoTime] ISO 8601 格式的时间字符串
-  /// 返回相对时间描述（如：2小时前、3天前）
-  String _formatTime(String isoTime) {
-    return RelativeTimeUtil.fromIso(isoTime);
   }
 }
 
