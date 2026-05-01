@@ -18,15 +18,24 @@ class NotificationPushSyncService with WidgetsBindingObserver {
 
   static const String _lastPushedNotificationIdKey =
       'push_last_notification_id';
+  static const String _recentPushedNotificationIdsKey =
+      'push_recent_notification_ids';
   static const Duration _foregroundInterval = Duration(seconds: 45);
   static const Duration _backgroundInterval = Duration(minutes: 3);
+  static const Duration _maxBackoffInterval = Duration(minutes: 15);
+  static const int _maxRecentPushedIds = 64;
 
   Timer? _timer;
   Ref? _ref;
   bool _started = false;
   bool _syncing = false;
+  bool _isForeground = true;
+  bool _permissionRequested = false;
+  int _consecutiveFailures = 0;
+  Duration _currentInterval = _foregroundInterval;
   int _lastPushedNotificationId = 0;
   bool _initializedBaseline = false;
+  final List<int> _recentPushedIds = <int>[];
 
   Future<void> start(Ref ref) async {
     if (_started) return;
@@ -35,10 +44,10 @@ class NotificationPushSyncService with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     await LocalNotificationService.instance.initialize();
-    await LocalNotificationService.instance.requestPermissions();
     await _loadBaseline();
 
-    _restartTimer(_foregroundInterval);
+    _currentInterval = _foregroundInterval;
+    _restartTimer(_currentInterval);
     unawaited(_syncOnce(seedOnlyIfNeeded: true));
   }
 
@@ -54,14 +63,18 @@ class NotificationPushSyncService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_started) return;
     if (state == AppLifecycleState.resumed) {
-      _restartTimer(_foregroundInterval);
+      _isForeground = true;
+      _currentInterval = _foregroundInterval;
+      _restartTimer(_currentInterval);
       unawaited(_syncOnce());
       return;
     }
 
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
-      _restartTimer(_backgroundInterval);
+      _isForeground = false;
+      _currentInterval = _backgroundInterval;
+      _restartTimer(_currentInterval);
     }
   }
 
@@ -75,12 +88,71 @@ class NotificationPushSyncService with WidgetsBindingObserver {
   Future<void> _loadBaseline() async {
     final prefs = await SharedPreferences.getInstance();
     _lastPushedNotificationId = prefs.getInt(_lastPushedNotificationIdKey) ?? 0;
+    final rawIds =
+        prefs.getStringList(_recentPushedNotificationIdsKey) ?? const [];
+    _recentPushedIds
+      ..clear()
+      ..addAll(
+        rawIds.map(int.tryParse).whereType<int>().toSet().toList()..sort(),
+      );
     _initializedBaseline = _lastPushedNotificationId > 0;
   }
 
   Future<void> _saveBaseline() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_lastPushedNotificationIdKey, _lastPushedNotificationId);
+    await prefs.setStringList(
+      _recentPushedNotificationIdsKey,
+      _recentPushedIds.map((id) => id.toString()).toList(),
+    );
+  }
+
+  void updatePushEnabled(bool enabled) {
+    if (!_started) return;
+    if (!enabled) {
+      _timer?.cancel();
+      _timer = null;
+      return;
+    }
+    _currentInterval = _isForeground
+        ? _foregroundInterval
+        : _backgroundInterval;
+    _restartTimer(_currentInterval);
+    unawaited(_syncOnce(seedOnlyIfNeeded: true));
+  }
+
+  void _recordPushedId(int id) {
+    if (_recentPushedIds.contains(id)) return;
+    _recentPushedIds.add(id);
+    if (_recentPushedIds.length > _maxRecentPushedIds) {
+      _recentPushedIds.removeAt(0);
+    }
+  }
+
+  bool _wasAlreadyPushed(DiscourseNotification notification) {
+    return _recentPushedIds.contains(notification.id);
+  }
+
+  void _onSyncSuccess() {
+    _consecutiveFailures = 0;
+    final target = _isForeground ? _foregroundInterval : _backgroundInterval;
+    if (_currentInterval != target) {
+      _currentInterval = target;
+      _restartTimer(_currentInterval);
+    }
+  }
+
+  void _onSyncFailure() {
+    _consecutiveFailures += 1;
+    final base = _isForeground ? _foregroundInterval : _backgroundInterval;
+    final exponent = _consecutiveFailures.clamp(0, 4).toInt();
+    final multiplier = 1 << exponent;
+    final next = Duration(seconds: base.inSeconds * multiplier);
+    final bounded = next > _maxBackoffInterval ? _maxBackoffInterval : next;
+    if (bounded != _currentInterval) {
+      _currentInterval = bounded;
+      _restartTimer(_currentInterval);
+    }
   }
 
   Future<void> _syncOnce({bool seedOnlyIfNeeded = false}) async {
@@ -92,6 +164,10 @@ class NotificationPushSyncService with WidgetsBindingObserver {
     try {
       final settings = ref.read(currentSettingsProvider);
       if (!settings.pushNotification) return;
+      if (!_permissionRequested) {
+        _permissionRequested = true;
+        await LocalNotificationService.instance.requestPermissions();
+      }
 
       final isAuthenticated = await ref.read(
         isAuthenticatedAsyncProvider.future,
@@ -114,7 +190,13 @@ class NotificationPushSyncService with WidgetsBindingObserver {
         response.data as Map<String, dynamic>,
       );
       final unread = parsed.notifications.where((n) => !n.read).toList();
-      if (unread.isEmpty) return;
+      await LocalNotificationService.instance.syncUnreadBadgeCount(
+        unread.length,
+      );
+      if (unread.isEmpty) {
+        _onSyncSuccess();
+        return;
+      }
 
       final maxNotificationId = unread
           .map((n) => n.id)
@@ -124,6 +206,7 @@ class NotificationPushSyncService with WidgetsBindingObserver {
         _lastPushedNotificationId = maxNotificationId;
         _initializedBaseline = true;
         await _saveBaseline();
+        _onSyncSuccess();
         return;
       }
 
@@ -138,20 +221,27 @@ class NotificationPushSyncService with WidgetsBindingObserver {
           _lastPushedNotificationId = maxNotificationId;
           await _saveBaseline();
         }
+        _onSyncSuccess();
         return;
       }
 
       for (final notification in newNotifications.take(6)) {
+        if (_wasAlreadyPushed(notification)) {
+          continue;
+        }
         await LocalNotificationService.instance.showForumMessageNotification(
           notification: notification,
           settings: settings,
         );
+        _recordPushedId(notification.id);
       }
 
       _lastPushedNotificationId = maxNotificationId;
       await _saveBaseline();
+      _onSyncSuccess();
     } catch (_) {
       // 推送同步失败静默处理，不影响主流程。
+      _onSyncFailure();
     } finally {
       _syncing = false;
     }

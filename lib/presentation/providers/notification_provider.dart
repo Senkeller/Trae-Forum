@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/discourse_api_service.dart';
+import '../../core/services/local_notification_service.dart';
 import '../../data/models/discourse/discourse_notification.dart';
 import 'auth_provider.dart';
 
@@ -117,6 +118,13 @@ class NotificationNotifier extends _$NotificationNotifier {
     return const NotificationState();
   }
 
+  Future<void> _setStateAndSyncBadge(NotificationState nextState) async {
+    state = nextState;
+    await LocalNotificationService.instance.syncUnreadBadgeCount(
+      nextState.unreadCount,
+    );
+  }
+
   /// 切换筛选类型
   ///
   /// [type] 要切换到的筛选类型
@@ -154,13 +162,15 @@ class NotificationNotifier extends _$NotificationNotifier {
         bumpLastSeen: true,
       );
 
-      state = state.copyWith(
-        notifications: result.notifications,
-        isLoading: false,
-        hasMore: result.hasMore,
-        currentPage: 1,
-        seenNotificationId: result.seenNotificationId,
-        unreadCount: result.notifications.where((n) => !n.read).length,
+      await _setStateAndSyncBadge(
+        state.copyWith(
+          notifications: result.notifications,
+          isLoading: false,
+          hasMore: result.hasMore,
+          currentPage: 1,
+          seenNotificationId: result.seenNotificationId,
+          unreadCount: result.notifications.where((n) => !n.read).length,
+        ),
       );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: '网络错误: $e');
@@ -182,13 +192,15 @@ class NotificationNotifier extends _$NotificationNotifier {
         page: 1,
         bumpLastSeen: true,
       );
-      state = state.copyWith(
-        notifications: result.notifications,
-        isRefreshing: false,
-        hasMore: result.hasMore,
-        currentPage: 1,
-        seenNotificationId: result.seenNotificationId,
-        unreadCount: result.notifications.where((n) => !n.read).length,
+      await _setStateAndSyncBadge(
+        state.copyWith(
+          notifications: result.notifications,
+          isRefreshing: false,
+          hasMore: result.hasMore,
+          currentPage: 1,
+          seenNotificationId: result.seenNotificationId,
+          unreadCount: result.notifications.where((n) => !n.read).length,
+        ),
       );
     } catch (e) {
       state = state.copyWith(isRefreshing: false, errorMessage: '网络错误: $e');
@@ -230,12 +242,14 @@ class NotificationNotifier extends _$NotificationNotifier {
           ...uniqueNewNotifications,
         ];
 
-        state = state.copyWith(
-          notifications: mergedNotifications,
-          isLoadingMore: false,
-          currentPage: nextPage,
-          hasMore: result.hasMore,
-          unreadCount: mergedNotifications.where((n) => !n.read).length,
+        await _setStateAndSyncBadge(
+          state.copyWith(
+            notifications: mergedNotifications,
+            isLoadingMore: false,
+            currentPage: nextPage,
+            hasMore: result.hasMore,
+            unreadCount: mergedNotifications.where((n) => !n.read).length,
+          ),
         );
       }
     } catch (e) {
@@ -451,18 +465,19 @@ class NotificationNotifier extends _$NotificationNotifier {
             return n;
           }).toList();
 
-          state = state.copyWith(
-            notifications: updatedNotifications,
-            unreadCount: updatedNotifications.where((n) => !n.read).length,
+          await _setStateAndSyncBadge(
+            state.copyWith(
+              notifications: updatedNotifications,
+              unreadCount: updatedNotifications.where((n) => !n.read).length,
+            ),
           );
         } else {
           final updatedNotifications = state.notifications
               .map((n) => n.copyWith(read: true))
               .toList();
 
-          state = state.copyWith(
-            notifications: updatedNotifications,
-            unreadCount: 0,
+          await _setStateAndSyncBadge(
+            state.copyWith(notifications: updatedNotifications, unreadCount: 0),
           );
         }
         return;
@@ -480,9 +495,11 @@ class NotificationNotifier extends _$NotificationNotifier {
           return n;
         }).toList();
 
-        state = state.copyWith(
-          notifications: updatedNotifications,
-          unreadCount: updatedNotifications.where((n) => !n.read).length,
+        await _setStateAndSyncBadge(
+          state.copyWith(
+            notifications: updatedNotifications,
+            unreadCount: updatedNotifications.where((n) => !n.read).length,
+          ),
         );
       } else {
         // 标记所有通知已读
@@ -493,9 +510,8 @@ class NotificationNotifier extends _$NotificationNotifier {
           return n.copyWith(read: true);
         }).toList();
 
-        state = state.copyWith(
-          notifications: updatedNotifications,
-          unreadCount: 0,
+        await _setStateAndSyncBadge(
+          state.copyWith(notifications: updatedNotifications, unreadCount: 0),
         );
       }
     } catch (e) {
@@ -522,9 +538,11 @@ class NotificationNotifier extends _$NotificationNotifier {
           .where((n) => n.id != notificationId)
           .toList();
 
-      state = state.copyWith(
-        notifications: updatedNotifications,
-        unreadCount: updatedNotifications.where((n) => !n.read).length,
+      await _setStateAndSyncBadge(
+        state.copyWith(
+          notifications: updatedNotifications,
+          unreadCount: updatedNotifications.where((n) => !n.read).length,
+        ),
       );
 
       if (_usesIndependentDataSource(state.filterType)) {
@@ -553,9 +571,11 @@ class NotificationNotifier extends _$NotificationNotifier {
           .where((n) => !notificationIds.contains(n.id))
           .toList();
 
-      state = state.copyWith(
-        notifications: updatedNotifications,
-        unreadCount: updatedNotifications.where((n) => !n.read).length,
+      await _setStateAndSyncBadge(
+        state.copyWith(
+          notifications: updatedNotifications,
+          unreadCount: updatedNotifications.where((n) => !n.read).length,
+        ),
       );
 
       if (_usesIndependentDataSource(state.filterType)) {
@@ -589,9 +609,11 @@ class NotificationNotifier extends _$NotificationNotifier {
         return n;
       }).toList();
 
-      state = state.copyWith(
-        notifications: updatedNotifications,
-        unreadCount: updatedNotifications.where((n) => !n.read).length,
+      await _setStateAndSyncBadge(
+        state.copyWith(
+          notifications: updatedNotifications,
+          unreadCount: updatedNotifications.where((n) => !n.read).length,
+        ),
       );
     } catch (e) {
       // 标记失败

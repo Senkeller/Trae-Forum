@@ -2,13 +2,17 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../config/constants.dart';
 import '../../config/routes.dart';
 import '../../data/models/discourse/discourse_notification.dart';
+import '../utils/notification_navigation_resolver.dart';
 import '../../presentation/providers/settings_provider.dart';
 
 class LocalNotificationService {
-  LocalNotificationService._();
+  LocalNotificationService._({FlutterLocalNotificationsPlugin? plugin})
+    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
   static final LocalNotificationService instance = LocalNotificationService._();
 
   static const String _channelId = 'forum_messages';
@@ -16,11 +20,25 @@ class LocalNotificationService {
   static const String _channelDesc = '论坛互动通知（回复、点赞、提及）';
   static const String _androidGroupKey = 'forum_messages_group';
   static const int _androidGroupSummaryId = -100;
+  static const int _iosBadgeSyncNotificationId = -101;
+  static const String _pendingNavigationPathKey =
+      'notification_pending_navigation_path';
+  static const Duration _tapDedupeWindow = Duration(milliseconds: 1200);
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin;
   final List<String> _recentAndroidLines = <String>[];
   bool _initialized = false;
+  String? _lastTapSignature;
+  DateTime? _lastTapTime;
+  @visibleForTesting
+  void Function(String path)? debugNavigationHandler;
+  @visibleForTesting
+  DateTime Function() debugNow = DateTime.now;
+
+  @visibleForTesting
+  factory LocalNotificationService.createForTest({
+    required FlutterLocalNotificationsPlugin plugin,
+  }) => LocalNotificationService._(plugin: plugin);
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -43,7 +61,10 @@ class LocalNotificationService {
 
     final launchDetails = await _plugin.getNotificationAppLaunchDetails();
     final launchResponse = launchDetails?.notificationResponse;
-    if (launchDetails?.didNotificationLaunchApp == true &&
+    final pendingPath = await _consumePendingNavigationPath();
+    if (pendingPath != null && pendingPath.isNotEmpty) {
+      _navigateSafely(pendingPath);
+    } else if (launchDetails?.didNotificationLaunchApp == true &&
         launchResponse != null) {
       _handleNotificationResponse(launchResponse);
     }
@@ -96,6 +117,7 @@ class LocalNotificationService {
       presentAlert: true,
       presentBadge: true,
       presentSound: settings.soundEnabled,
+      badgeNumber: null,
       threadIdentifier: 'forum_messages',
     );
 
@@ -204,21 +226,147 @@ class LocalNotificationService {
   }
 
   void _handleNotificationResponse(NotificationResponse response) {
-    final payload = response.payload;
-    if (payload == null || payload.isEmpty) return;
+    final decision = NotificationNavigationResolver.resolveFromPayload(
+      response.payload,
+    );
+    if (_shouldDropRapidDuplicateTap(response.payload, decision.targetPath)) {
+      debugPrint(
+        'ℹ️ [LocalNotificationService] 忽略重复通知点击: ${decision.targetPath}',
+      );
+      return;
+    }
+    if (decision.isFallback) {
+      debugPrint('⚠️ [LocalNotificationService] 通知 payload 解析失败，使用兜底路由');
+    }
+    _navigateSafely(decision.targetPath);
+  }
 
+  bool _shouldDropRapidDuplicateTap(String? payload, String targetPath) {
+    final now = debugNow();
+    final normalizedPayload = payload ?? '';
+    final signature = '$normalizedPayload|$targetPath';
+    final lastTime = _lastTapTime;
+    final lastSignature = _lastTapSignature;
+    _lastTapSignature = signature;
+    _lastTapTime = now;
+
+    if (lastTime == null || lastSignature == null) {
+      return false;
+    }
+    final elapsed = now.difference(lastTime);
+    if (elapsed < Duration.zero) {
+      return false;
+    }
+    return lastSignature == signature && elapsed <= _tapDedupeWindow;
+  }
+
+  Future<void> cachePendingNotificationNavigation(String? payload) async {
+    final decision = NotificationNavigationResolver.resolveFromPayload(payload);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingNavigationPathKey, decision.targetPath);
+  }
+
+  @visibleForTesting
+  Future<void> handleBackgroundNotificationTap(NotificationResponse response) {
+    return cachePendingNotificationNavigation(response.payload);
+  }
+
+  @visibleForTesting
+  void handleForegroundNotificationTap(NotificationResponse response) {
+    _handleNotificationResponse(response);
+  }
+
+  Future<String?> _consumePendingNavigationPath() async {
+    final prefs = await SharedPreferences.getInstance();
+    final path = prefs.getString(_pendingNavigationPathKey);
+    if (path == null || path.isEmpty) return null;
+    await prefs.remove(_pendingNavigationPathKey);
+    return path;
+  }
+
+  Future<void> syncUnreadBadgeCount(int unreadCount) async {
+    final normalized = unreadCount < 0 ? 0 : unreadCount;
+    await Future.wait(<Future<void>>[
+      _syncAndroidGroupSummaryBadge(normalized),
+      _syncIosBadge(normalized),
+    ]);
+  }
+
+  Future<void> _syncAndroidGroupSummaryBadge(int unreadCount) async {
+    if (unreadCount <= 0) {
+      _recentAndroidLines.clear();
+      await _plugin.cancel(_androidGroupSummaryId);
+      return;
+    }
+
+    final inbox = InboxStyleInformation(
+      _recentAndroidLines.reversed.toList(),
+      contentTitle: 'TRAE Forum 新消息',
+      summaryText: '$unreadCount 条未读',
+    );
+
+    final summaryAndroidDetails = AndroidNotificationDetails(
+      _channelId,
+      _channelName,
+      channelDescription: _channelDesc,
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      channelShowBadge: true,
+      setAsGroupSummary: true,
+      styleInformation: inbox,
+      groupKey: _androidGroupKey,
+      number: unreadCount,
+      onlyAlertOnce: true,
+    );
+
+    await _plugin.show(
+      _androidGroupSummaryId,
+      'TRAE Forum',
+      '你有 $unreadCount 条未读消息',
+      NotificationDetails(android: summaryAndroidDetails),
+    );
+  }
+
+  Future<void> _syncIosBadge(int unreadCount) async {
+    final details = DarwinNotificationDetails(
+      presentAlert: false,
+      presentBadge: true,
+      presentSound: false,
+      badgeNumber: unreadCount,
+      threadIdentifier: 'forum_messages',
+    );
+    await _plugin.show(
+      _iosBadgeSyncNotificationId,
+      null,
+      null,
+      NotificationDetails(iOS: details),
+    );
+  }
+
+  void _navigateSafely(String primaryPath) {
+    final debugHandler = debugNavigationHandler;
+    if (debugHandler != null) {
+      debugHandler(primaryPath);
+      return;
+    }
     try {
-      final map = jsonDecode(payload) as Map<String, dynamic>;
-      final topicId = map['topicId'] as int?;
-      final postNumber = map['postNumber'] as int?;
-      if (topicId == null || topicId <= 0) return;
-
-      final path = postNumber != null && postNumber > 1
-          ? '/feed/$topicId?postNumber=$postNumber'
-          : '/feed/$topicId';
-      AppRouter.router.push(path);
+      AppRouter.router.push(primaryPath);
     } catch (e) {
-      debugPrint('⚠️ [LocalNotificationService] 处理通知点击失败: $e');
+      debugPrint('⚠️ [LocalNotificationService] 主路由跳转失败: $e');
+      _navigateToFallbackInbox();
+    }
+  }
+
+  void _navigateToFallbackInbox() {
+    final debugHandler = debugNavigationHandler;
+    if (debugHandler != null) {
+      debugHandler(RoutePaths.notifications);
+      return;
+    }
+    try {
+      AppRouter.router.push(RoutePaths.notifications);
+    } catch (_) {
+      AppRouter.router.push(RoutePaths.message);
     }
   }
 
@@ -262,6 +410,11 @@ class LocalNotificationService {
 }
 
 @pragma('vm:entry-point')
-void _backgroundNotificationTapHandler(NotificationResponse response) {
-  // 后台点击回调会在 isolate 中触发，导航由主 isolate 在启动后处理。
+Future<void> _backgroundNotificationTapHandler(
+  NotificationResponse response,
+) async {
+  // 后台 isolate 仅负责缓存导航决策，主 isolate 启动后统一消费并跳转。
+  await LocalNotificationService.instance.handleBackgroundNotificationTap(
+    response,
+  );
 }
