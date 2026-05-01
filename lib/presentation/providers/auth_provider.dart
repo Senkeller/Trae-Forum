@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +8,7 @@ import '../../core/network/api_service.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/network/cookie_manager.dart';
 import '../../core/network/discourse_api_service.dart';
+import '../../core/network/interceptors/error_interceptor.dart';
 import '../../core/network/native_cookie_bridge.dart';
 import '../../data/models/user.dart';
 
@@ -15,13 +19,152 @@ part 'auth_provider.g.dart';
 class AuthNotifier extends _$AuthNotifier {
   ApiService? _apiService;
   DiscourseApiService? _discourseApiService;
+  Timer? _heartbeatTimer;
+  bool _isHeartbeatChecking = false;
+  bool _isHandlingAuthExpired = false;
+  void _authExpiredListener() {
+    unawaited(_handleAuthExpired());
+  }
 
   /// 构建认证状态
   @override
   Future<UserInfo> build() async {
     _apiService = ref.read(apiServiceProvider);
     _discourseApiService = ref.read(discourseApiServiceProvider);
+
+    // 注册登录过期回调
+    ErrorInterceptor.onAuthExpired = _authExpiredListener;
+
+    // 启动心跳检测
+    _startHeartbeatCheck();
+
+    // 清理时取消定时器
+    ref.onDispose(() {
+      _heartbeatTimer?.cancel();
+      if (identical(ErrorInterceptor.onAuthExpired, _authExpiredListener)) {
+        ErrorInterceptor.onAuthExpired = null;
+      }
+    });
+
     return _loadUserInfo();
+  }
+
+  /// 启动心跳检测定时器
+  void _startHeartbeatCheck() {
+    _heartbeatTimer?.cancel();
+    // 每5分钟检测一次登录状态
+    _heartbeatTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      _checkLoginStatusSilent();
+    });
+  }
+
+  /// 静默检测登录状态（不显示加载状态）
+  Future<void> _checkLoginStatusSilent() async {
+    if (_isHeartbeatChecking) return;
+    final currentUser = state.valueOrNull;
+    if (currentUser == null || currentUser.uid.isEmpty) {
+      return;
+    }
+
+    _isHeartbeatChecking = true;
+    try {
+      if (_discourseApiService == null) return;
+      final response = await _discourseApiService!.checkLoginStatus();
+      if (_isAuthExpiredStatusCode(response.statusCode)) {
+        debugPrint('⚠️ [AuthNotifier] 心跳检测发现登录已过期');
+        await _handleAuthExpired();
+      }
+    } on DioException catch (e) {
+      if (_isAuthExpiredException(e)) {
+        debugPrint('⚠️ [AuthNotifier] 心跳检测异常判定登录已过期');
+        await _handleAuthExpired();
+      } else {
+        debugPrint('⚠️ [AuthNotifier] 心跳检测失败: $e');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [AuthNotifier] 心跳检测失败: $e');
+    } finally {
+      _isHeartbeatChecking = false;
+    }
+  }
+
+  /// 处理登录过期
+  Future<void> _handleAuthExpired() async {
+    if (_isHandlingAuthExpired) return;
+    _isHandlingAuthExpired = true;
+    debugPrint('🔒 [AuthNotifier] 登录已过期，清除用户状态');
+    try {
+      // 先更新状态，立即反映到UI
+      state = const AsyncData(UserInfo(uid: '', username: ''));
+      // 异步清除本地用户信息
+      await _clearUserInfo();
+      // 清除 Dio Cookie
+      await DioClient.clearCookies();
+    } finally {
+      _isHandlingAuthExpired = false;
+    }
+  }
+
+  /// 手动检查登录状态
+  ///
+  /// 用于页面可见时或操作前检查登录状态
+  /// 返回是否已登录
+  Future<bool> validateLoginStatus() async {
+    final currentUser = state.valueOrNull;
+    if (currentUser == null || currentUser.uid.isEmpty) {
+      return false;
+    }
+
+    try {
+      if (_discourseApiService == null) return false;
+      final response = await _discourseApiService!.checkLoginStatus();
+      if (_isAuthExpiredStatusCode(response.statusCode)) {
+        debugPrint('⚠️ [AuthNotifier] 验证发现登录已过期');
+        await _handleAuthExpired();
+        return false;
+      }
+      return response.statusCode == 200;
+    } on DioException catch (e) {
+      if (_isAuthExpiredException(e)) {
+        debugPrint('⚠️ [AuthNotifier] 验证异常判定登录已过期');
+        await _handleAuthExpired();
+        return false;
+      }
+      debugPrint('⚠️ [AuthNotifier] 验证登录状态失败: $e');
+      return false;
+    } catch (e) {
+      debugPrint('⚠️ [AuthNotifier] 验证登录状态失败: $e');
+      return false;
+    }
+  }
+
+  bool _isAuthExpiredStatusCode(int? statusCode) {
+    return statusCode == 401 || statusCode == 403;
+  }
+
+  bool _isAuthExpiredException(DioException error) {
+    final apiError = error.error;
+    if (apiError is ApiException) {
+      if (_isAuthExpiredStatusCode(apiError.code)) {
+        return true;
+      }
+      final message = apiError.message.toLowerCase();
+      if (message.contains('登录') ||
+          message.contains('not_logged_in') ||
+          message.contains('need to log in')) {
+        return true;
+      }
+    }
+    final responseData = error.response?.data;
+    if (responseData is Map<String, dynamic>) {
+      final type = responseData['error_type']?.toString();
+      if (type == 'not_logged_in') return true;
+      final errors = responseData['errors'];
+      if (errors is List) {
+        return errors.any((item) => item.toString().contains('登录'));
+      }
+    }
+    return _isAuthExpiredStatusCode(error.response?.statusCode);
   }
 
   /// 从本地存储加载用户信息
@@ -368,7 +511,9 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
     final discourseApi = ref.read(discourseApiServiceProvider);
     debugPrint('🔍 [isAuthenticatedAsync] 开始调用 checkLoginStatus...');
     final response = await discourseApi.checkLoginStatus();
-    debugPrint('🔍 [isAuthenticatedAsync] checkLoginStatus 响应: status=${response.statusCode}');
+    debugPrint(
+      '🔍 [isAuthenticatedAsync] checkLoginStatus 响应: status=${response.statusCode}',
+    );
 
     if (response.statusCode == 200) {
       // 如果本地用户缺失或为占位，尝试从 WebView 恢复用户信息
@@ -378,7 +523,9 @@ Future<bool> isAuthenticatedAsync(IsAuthenticatedAsyncRef ref) async {
       debugPrint('✅ [isAuthenticatedAsync] 登录验证成功');
       return true;
     } else {
-      debugPrint('⚠️ [isAuthenticatedAsync] 登录验证失败: status=${response.statusCode}');
+      debugPrint(
+        '⚠️ [isAuthenticatedAsync] 登录验证失败: status=${response.statusCode}',
+      );
     }
   } catch (e, stackTrace) {
     debugPrint('❌ [isAuthenticatedAsync] checkLoginStatus 调用失败: $e');

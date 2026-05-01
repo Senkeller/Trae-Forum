@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'config/routes.dart';
 import 'config/theme.dart';
+import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/settings_provider.dart';
 import 'presentation/providers/push_bootstrap_provider.dart';
 
@@ -11,12 +14,58 @@ import 'presentation/providers/push_bootstrap_provider.dart';
 ///
 /// 应用初始化已在 [main.dart] 的 [AppInitializer] 中完成
 /// 此类仅负责构建应用 UI 和路由
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   /// 构造函数
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+  static const Duration _resumeCheckCooldown = Duration(seconds: 15);
+  DateTime? _lastResumeCheckAt;
+  bool _isResumeChecking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_validateLoginStatusOnResume());
+    }
+  }
+
+  Future<void> _validateLoginStatusOnResume() async {
+    if (_isResumeChecking) return;
+    final now = DateTime.now();
+    final lastCheckAt = _lastResumeCheckAt;
+    if (lastCheckAt != null &&
+        now.difference(lastCheckAt) < _resumeCheckCooldown) {
+      return;
+    }
+
+    _isResumeChecking = true;
+    _lastResumeCheckAt = now;
+    try {
+      await ref.read(authNotifierProvider.notifier).validateLoginStatus();
+    } finally {
+      _isResumeChecking = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // 启动系统推送轮询服务（幂等）
     ref.watch(pushBootstrapProvider);
     final fontScale = ref.watch(fontSizeProvider).scaleFactor;
