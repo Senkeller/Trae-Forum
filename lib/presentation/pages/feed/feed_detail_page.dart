@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/constants.dart';
+import '../../../core/network/discourse_api_service.dart';
 import '../../../core/utils/date_util.dart';
 import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
@@ -1626,7 +1627,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   }
 }
 
-class _TopicHeaderSection extends StatelessWidget {
+class _TopicHeaderSection extends StatefulWidget {
   final FeedContentData detail;
   final List<TopicContentBlock> blocks;
   final List<GlobalKey> headingKeys;
@@ -1650,10 +1651,263 @@ class _TopicHeaderSection extends StatelessWidget {
   });
 
   @override
+  State<_TopicHeaderSection> createState() => _TopicHeaderSectionState();
+}
+
+class _TopicHeaderSectionState extends State<_TopicHeaderSection> {
+  // 通知级别: 0=免打扰, 1=常规, 2=跟踪, 3=关注
+  int _notificationLevel = 2;
+  bool _isSettingNotificationLevel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 默认通知级别为跟踪(2)
+    _notificationLevel = 2;
+  }
+
+  /// 获取通知级别配置
+  Map<String, dynamic> get _notificationConfig {
+    switch (_notificationLevel) {
+      case 3:
+        return {
+          'label': '关注',
+          'icon': Icons.notifications_active,
+          'color': Colors.green,
+          'description': '您将在此话题有新回复时收到通知，并且会显示新回复数量。',
+        };
+      case 2:
+        return {
+          'label': '跟踪',
+          'icon': Icons.notifications,
+          'color': Colors.blue,
+          'description': '将显示此话题的新回复数量。您会在别人 @ 您或回复您时收到通知。',
+        };
+      case 1:
+        return {
+          'label': '常规',
+          'icon': Icons.notifications_none,
+          'color': Colors.grey,
+          'description': '您会在别人 @ 您或回复您时收到通知。',
+        };
+      case 0:
+        return {
+          'label': '免打扰',
+          'icon': Icons.notifications_off,
+          'color': Colors.grey.shade600,
+          'description': '您永远不会收到有关此话题的任何通知，它也不会出现在最新话题中。',
+        };
+      default:
+        return {
+          'label': '跟踪',
+          'icon': Icons.notifications,
+          'color': Colors.blue,
+          'description': '将显示此话题的新回复数量。您会在别人 @ 您或回复您时收到通知。',
+        };
+    }
+  }
+
+  /// 显示通知级别选择菜单
+  void _showNotificationLevelMenu() {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 拖动指示器
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.outline.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            // 标题
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: Text(
+                '设置通知级别',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            // 通知级别选项
+            _buildNotificationLevelItem(
+              level: 3,
+              icon: Icons.notifications_active,
+              title: '关注',
+              description: '您将在此话题有新回复时收到通知，并且会显示新回复数量。',
+              color: Colors.green,
+            ),
+            _buildNotificationLevelItem(
+              level: 2,
+              icon: Icons.notifications,
+              title: '跟踪',
+              description: '将显示此话题的新回复数量。您会在别人 @ 您或回复您时收到通知。',
+              color: Colors.blue,
+            ),
+            _buildNotificationLevelItem(
+              level: 1,
+              icon: Icons.notifications_none,
+              title: '常规',
+              description: '您会在别人 @ 您或回复您时收到通知。',
+              color: Colors.grey,
+            ),
+            _buildNotificationLevelItem(
+              level: 0,
+              icon: Icons.notifications_off,
+              title: '免打扰',
+              description: '您永远不会收到有关此话题的任何通知，它也不会出现在最新话题中。',
+              color: Colors.grey.shade600,
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 构建通知级别选项项
+  Widget _buildNotificationLevelItem({
+    required int level,
+    required IconData icon,
+    required String title,
+    required String description,
+    required Color color,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isSelected = _notificationLevel == level;
+
+    return InkWell(
+      onTap: _isSettingNotificationLevel
+          ? null
+          : () => _setNotificationLevel(level),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.1) : null,
+          border: Border(
+            left: BorderSide(
+              color: isSelected ? color : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? color : colorScheme.onSurfaceVariant,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: isSelected ? color : colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected) Icon(Icons.check_circle, color: color, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 设置通知级别
+  Future<void> _setNotificationLevel(int level) async {
+    if (_isSettingNotificationLevel || level == _notificationLevel) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    setState(() {
+      _isSettingNotificationLevel = true;
+    });
+
+    try {
+      final topicId = int.tryParse(widget.detail.id);
+      if (topicId == null || topicId <= 0) {
+        throw Exception('无效的话题ID');
+      }
+
+      final apiService = DiscourseApiService();
+      await apiService.setTopicNotificationLevel(
+        topicId: topicId,
+        notificationLevel: level,
+      );
+
+      if (mounted) {
+        setState(() {
+          _notificationLevel = level;
+          _isSettingNotificationLevel = false;
+        });
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('已设置为"${_notificationConfig['label']}"'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _isSettingNotificationLevel = false;
+        });
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('设置失败: $error'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final username = detail.userInfo?.username ?? '匿名用户';
-    final avatar = detail.userInfo?.avatar;
+    final username = widget.detail.userInfo?.username ?? '匿名用户';
+    final avatar = widget.detail.userInfo?.avatar;
+    final config = _notificationConfig;
 
     return Container(
       width: double.infinity,
@@ -1668,22 +1922,22 @@ class _TopicHeaderSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (detail.title?.trim().isNotEmpty == true)
+          if (widget.detail.title?.trim().isNotEmpty == true)
             Text(
-              detail.title!.trim(),
+              widget.detail.title!.trim(),
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w800,
                 height: 1.25,
               ),
             ),
-          if (detail.title?.trim().isNotEmpty == true)
+          if (widget.detail.title?.trim().isNotEmpty == true)
             const SizedBox(height: 16),
           Row(
             children: [
               _AuthorAvatar(
                 avatar: avatar,
                 username: username,
-                onTap: onAuthorAvatarTap,
+                onTap: widget.onAuthorAvatarTap,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1701,7 +1955,7 @@ class _TopicHeaderSection extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
-                        if (detail.isTop) ...[
+                        if (widget.detail.isTop) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1726,7 +1980,7 @@ class _TopicHeaderSection extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _formatTimestamp(detail.dateline),
+                      _formatTimestamp(widget.detail.dateline),
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -1737,12 +1991,13 @@ class _TopicHeaderSection extends StatelessWidget {
             ],
           ),
           TopicMagazineRenderer(
-            blocks: blocks,
-            onLinkTap: onLinkTap,
-            headingKeys: headingKeys,
+            blocks: widget.blocks,
+            onLinkTap: widget.onLinkTap,
+            headingKeys: widget.headingKeys,
           ),
           const SizedBox(height: 14),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
                 Icons.chat_bubble_outline_rounded,
@@ -1750,43 +2005,90 @@ class _TopicHeaderSection extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
-              Text(
-                '${detail.replyNum} 条回复',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+              Padding(
+                padding: const EdgeInsets.only(top: 1),
+                child: Text(
+                  '${widget.detail.replyNum} 条回复',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: isBookmarkLoading ? null : onBookmarkTap,
-                icon: isBookmarkLoading
-                    ? SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: colorScheme.primary,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 2,
+                    runSpacing: 4,
+                    children: [
+                      // 通知级别按钮
+                      TextButton.icon(
+                        onPressed: _isSettingNotificationLevel
+                            ? null
+                            : _showNotificationLevelMenu,
+                        icon: _isSettingNotificationLevel
+                            ? SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: config['color'] as Color,
+                                ),
+                              )
+                            : Icon(
+                                config['icon'] as IconData,
+                                size: 16,
+                                color: config['color'] as Color,
+                              ),
+                        label: Text(
+                          config['label'] as String,
+                          style: TextStyle(color: config['color'] as Color),
                         ),
-                      )
-                    : Icon(
-                        isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                        size: 16,
-                        color: isBookmarked
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
                       ),
-                label: Text(isBookmarked ? '已加书签' : '书签'),
-              ),
-              OutlinedButton.icon(
-                onPressed: onOpenInBrowserTap,
-                icon: const Icon(Icons.open_in_browser_outlined, size: 16),
-                label: const Text('论坛网页'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
+                      TextButton.icon(
+                        onPressed: widget.isBookmarkLoading
+                            ? null
+                            : widget.onBookmarkTap,
+                        icon: widget.isBookmarkLoading
+                            ? SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: colorScheme.primary,
+                                ),
+                              )
+                            : Icon(
+                                widget.isBookmarked
+                                    ? Icons.bookmark
+                                    : Icons.bookmark_border,
+                                size: 16,
+                                color: widget.isBookmarked
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                        label: Text(widget.isBookmarked ? '已加书签' : '书签'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: widget.onOpenInBrowserTap,
+                        icon: const Icon(
+                          Icons.open_in_browser_outlined,
+                          size: 16,
+                        ),
+                        label: const Text('论坛网页'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          minimumSize: const Size(0, 34),
+                        ),
+                      ),
+                    ],
                   ),
-                  minimumSize: const Size(0, 34),
                 ),
               ),
             ],

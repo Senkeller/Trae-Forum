@@ -1129,4 +1129,33 @@ class DiscourseApiService {
       ),
     );
   }
+
+  // ==================== 话题通知级别 API ====================
+
+  /// 设置话题通知级别
+  ///
+  /// [topicId] 话题ID
+  /// [notificationLevel] 通知级别 (0=免打扰, 1=常规, 2=跟踪, 3=关注)
+  /// 调用 Discourse POST /t/{topicId}/notifications API
+  /// 成功返回 { "success": "OK" }
+  Future<Response> setTopicNotificationLevel({
+    required int topicId,
+    required int notificationLevel,
+  }) async {
+    await _ensureForumSessionReady();
+    final csrfToken = DiscourseCsrfToken.token;
+
+    return _dio.post(
+      '$_baseUrl/t/$topicId/notifications',
+      data: {'notification_level': notificationLevel},
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
 }
