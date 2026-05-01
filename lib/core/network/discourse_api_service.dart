@@ -424,6 +424,41 @@ class DiscourseApiService {
     return _dio.post('$_baseUrl/presence/update');
   }
 
+  /// 切换用户在线/离线状态
+  ///
+  /// [username] 用户名
+  /// [hidePresence] 是否隐藏在线状态（true=离线，false=在线）
+  /// 调用 Discourse PUT /u/{username}.json API
+  Future<Response> toggleUserPresence({
+    required String username,
+    required bool hidePresence,
+  }) async {
+    await _ensureForumSessionReady();
+    final csrfToken = DiscourseCsrfToken.token;
+
+    return _dio.put(
+      '$_baseUrl/u/$username.json',
+      data: {'hide_presence': hidePresence},
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  /// 获取用户当前在线状态
+  ///
+  /// [username] 用户名
+  /// 返回用户详细信息，包含 hide_presence 字段
+  Future<Response> getUserPresenceStatus(String username) async {
+    await _ensureForumSessionReady();
+    return _dio.get('$_baseUrl/u/$username.json');
+  }
+
   // ==================== 帖子/评论相关 API ====================
 
   /// 创建帖子/评论

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
+import 'online_status_indicator.dart';
 
 /// 用户等级枚举
 enum UserLevel {
@@ -142,6 +143,12 @@ class UserName extends StatelessWidget {
   /// 等级标识大小
   final double badgeSize;
 
+  /// 是否显示在线状态
+  final bool showOnlineStatus;
+
+  /// 在线状态圆点大小
+  final double onlineStatusDotSize;
+
   /// 构造函数
   ///
   /// [username] 用户名（必填）
@@ -156,6 +163,8 @@ class UserName extends StatelessWidget {
   /// [overflow] 文字溢出处理，默认 ellipsis
   /// [onTap] 点击回调
   /// [badgeSize] 等级标识大小，默认 16
+  /// [showOnlineStatus] 是否显示在线状态，默认 false
+  /// [onlineStatusDotSize] 在线状态圆点大小，默认 6
   const UserName({
     super.key,
     required this.username,
@@ -170,6 +179,8 @@ class UserName extends StatelessWidget {
     this.overflow = TextOverflow.ellipsis,
     this.onTap,
     this.badgeSize = 16,
+    this.showOnlineStatus = false,
+    this.onlineStatusDotSize = 6,
   });
 
   @override
@@ -195,6 +206,15 @@ class UserName extends StatelessWidget {
             overflow: overflow,
           ),
         ),
+        // 在线状态
+        if (showOnlineStatus) ...[
+          const SizedBox(width: 6),
+          OnlineStatusIndicator(
+            username: username,
+            style: OnlineStatusStyle.dotOnly,
+            dotSize: onlineStatusDotSize,
+          ),
+        ],
         // 认证标识
         if (showVerified && isVerified) ...[
           const SizedBox(width: 4),

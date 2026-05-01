@@ -39,26 +39,6 @@ mixin _$UserInfo {
   String? get verifyTitle => throw _privateConstructorUsedError;
   @JsonKey(name: 'is_developer')
   bool get isDeveloper => throw _privateConstructorUsedError;
-  @JsonKey(name: 'title')
-  String? get title => throw _privateConstructorUsedError;
-  @JsonKey(name: 'location')
-  String? get location => throw _privateConstructorUsedError;
-  @JsonKey(name: 'website')
-  String? get website => throw _privateConstructorUsedError;
-  @JsonKey(name: 'created_at')
-  String? get createdAt => throw _privateConstructorUsedError;
-  @JsonKey(name: 'last_posted_at')
-  String? get lastPostedAt => throw _privateConstructorUsedError;
-  @JsonKey(name: 'last_seen_at')
-  String? get lastSeenAt => throw _privateConstructorUsedError;
-  @JsonKey(name: 'profile_view_count')
-  int get profileViewCount => throw _privateConstructorUsedError;
-  @JsonKey(name: 'trust_level')
-  int get trustLevel => throw _privateConstructorUsedError;
-  @JsonKey(name: 'groups')
-  List<String> get groups => throw _privateConstructorUsedError;
-  @JsonKey(name: 'gamification_score')
-  int get gamificationScore => throw _privateConstructorUsedError;
 
   /// Serializes this UserInfo to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -85,16 +65,6 @@ abstract class $UserInfoCopyWith<$Res> {
     @JsonKey(name: 'follow') int follow,
     @JsonKey(name: 'verify_title') String? verifyTitle,
     @JsonKey(name: 'is_developer') bool isDeveloper,
-    @JsonKey(name: 'title') String? title,
-    @JsonKey(name: 'location') String? location,
-    @JsonKey(name: 'website') String? website,
-    @JsonKey(name: 'created_at') String? createdAt,
-    @JsonKey(name: 'last_posted_at') String? lastPostedAt,
-    @JsonKey(name: 'last_seen_at') String? lastSeenAt,
-    @JsonKey(name: 'profile_view_count') int profileViewCount,
-    @JsonKey(name: 'trust_level') int trustLevel,
-    @JsonKey(name: 'groups') List<String> groups,
-    @JsonKey(name: 'gamification_score') int gamificationScore,
   });
 }
 
@@ -122,16 +92,6 @@ class _$UserInfoCopyWithImpl<$Res, $Val extends UserInfo>
     Object? follow = null,
     Object? verifyTitle = freezed,
     Object? isDeveloper = null,
-    Object? title = freezed,
-    Object? location = freezed,
-    Object? website = freezed,
-    Object? createdAt = freezed,
-    Object? lastPostedAt = freezed,
-    Object? lastSeenAt = freezed,
-    Object? profileViewCount = null,
-    Object? trustLevel = null,
-    Object? groups = null,
-    Object? gamificationScore = null,
   }) {
     return _then(
       _value.copyWith(
@@ -171,46 +131,6 @@ class _$UserInfoCopyWithImpl<$Res, $Val extends UserInfo>
                 ? _value.isDeveloper
                 : isDeveloper // ignore: cast_nullable_to_non_nullable
                       as bool,
-            title: freezed == title
-                ? _value.title
-                : title // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            location: freezed == location
-                ? _value.location
-                : location // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            website: freezed == website
-                ? _value.website
-                : website // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            createdAt: freezed == createdAt
-                ? _value.createdAt
-                : createdAt // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            lastPostedAt: freezed == lastPostedAt
-                ? _value.lastPostedAt
-                : lastPostedAt // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            lastSeenAt: freezed == lastSeenAt
-                ? _value.lastSeenAt
-                : lastSeenAt // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            profileViewCount: null == profileViewCount
-                ? _value.profileViewCount
-                : profileViewCount // ignore: cast_nullable_to_non_nullable
-                      as int,
-            trustLevel: null == trustLevel
-                ? _value.trustLevel
-                : trustLevel // ignore: cast_nullable_to_non_nullable
-                      as int,
-            groups: null == groups
-                ? _value.groups
-                : groups // ignore: cast_nullable_to_non_nullable
-                      as List<String>,
-            gamificationScore: null == gamificationScore
-                ? _value.gamificationScore
-                : gamificationScore // ignore: cast_nullable_to_non_nullable
-                      as int,
           )
           as $Val,
     );
@@ -236,16 +156,6 @@ abstract class _$$UserInfoImplCopyWith<$Res>
     @JsonKey(name: 'follow') int follow,
     @JsonKey(name: 'verify_title') String? verifyTitle,
     @JsonKey(name: 'is_developer') bool isDeveloper,
-    @JsonKey(name: 'title') String? title,
-    @JsonKey(name: 'location') String? location,
-    @JsonKey(name: 'website') String? website,
-    @JsonKey(name: 'created_at') String? createdAt,
-    @JsonKey(name: 'last_posted_at') String? lastPostedAt,
-    @JsonKey(name: 'last_seen_at') String? lastSeenAt,
-    @JsonKey(name: 'profile_view_count') int profileViewCount,
-    @JsonKey(name: 'trust_level') int trustLevel,
-    @JsonKey(name: 'groups') List<String> groups,
-    @JsonKey(name: 'gamification_score') int gamificationScore,
   });
 }
 
@@ -272,16 +182,6 @@ class __$$UserInfoImplCopyWithImpl<$Res>
     Object? follow = null,
     Object? verifyTitle = freezed,
     Object? isDeveloper = null,
-    Object? title = freezed,
-    Object? location = freezed,
-    Object? website = freezed,
-    Object? createdAt = freezed,
-    Object? lastPostedAt = freezed,
-    Object? lastSeenAt = freezed,
-    Object? profileViewCount = null,
-    Object? trustLevel = null,
-    Object? groups = null,
-    Object? gamificationScore = null,
   }) {
     return _then(
       _$UserInfoImpl(
@@ -321,46 +221,6 @@ class __$$UserInfoImplCopyWithImpl<$Res>
             ? _value.isDeveloper
             : isDeveloper // ignore: cast_nullable_to_non_nullable
                   as bool,
-        title: freezed == title
-            ? _value.title
-            : title // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        location: freezed == location
-            ? _value.location
-            : location // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        website: freezed == website
-            ? _value.website
-            : website // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        createdAt: freezed == createdAt
-            ? _value.createdAt
-            : createdAt // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        lastPostedAt: freezed == lastPostedAt
-            ? _value.lastPostedAt
-            : lastPostedAt // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        lastSeenAt: freezed == lastSeenAt
-            ? _value.lastSeenAt
-            : lastSeenAt // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        profileViewCount: null == profileViewCount
-            ? _value.profileViewCount
-            : profileViewCount // ignore: cast_nullable_to_non_nullable
-                  as int,
-        trustLevel: null == trustLevel
-            ? _value.trustLevel
-            : trustLevel // ignore: cast_nullable_to_non_nullable
-                  as int,
-        groups: null == groups
-            ? _value._groups
-            : groups // ignore: cast_nullable_to_non_nullable
-                  as List<String>,
-        gamificationScore: null == gamificationScore
-            ? _value.gamificationScore
-            : gamificationScore // ignore: cast_nullable_to_non_nullable
-                  as int,
       ),
     );
   }
@@ -379,17 +239,7 @@ class _$UserInfoImpl implements _UserInfo {
     @JsonKey(name: 'follow') this.follow = 0,
     @JsonKey(name: 'verify_title') this.verifyTitle,
     @JsonKey(name: 'is_developer') this.isDeveloper = false,
-    @JsonKey(name: 'title') this.title,
-    @JsonKey(name: 'location') this.location,
-    @JsonKey(name: 'website') this.website,
-    @JsonKey(name: 'created_at') this.createdAt,
-    @JsonKey(name: 'last_posted_at') this.lastPostedAt,
-    @JsonKey(name: 'last_seen_at') this.lastSeenAt,
-    @JsonKey(name: 'profile_view_count') this.profileViewCount = 0,
-    @JsonKey(name: 'trust_level') this.trustLevel = 0,
-    @JsonKey(name: 'groups') final List<String> groups = const [],
-    @JsonKey(name: 'gamification_score') this.gamificationScore = 0,
-  }) : _groups = groups;
+  });
 
   factory _$UserInfoImpl.fromJson(Map<String, dynamic> json) =>
       _$$UserInfoImplFromJson(json);
@@ -421,46 +271,10 @@ class _$UserInfoImpl implements _UserInfo {
   @override
   @JsonKey(name: 'is_developer')
   final bool isDeveloper;
-  @override
-  @JsonKey(name: 'title')
-  final String? title;
-  @override
-  @JsonKey(name: 'location')
-  final String? location;
-  @override
-  @JsonKey(name: 'website')
-  final String? website;
-  @override
-  @JsonKey(name: 'created_at')
-  final String? createdAt;
-  @override
-  @JsonKey(name: 'last_posted_at')
-  final String? lastPostedAt;
-  @override
-  @JsonKey(name: 'last_seen_at')
-  final String? lastSeenAt;
-  @override
-  @JsonKey(name: 'profile_view_count')
-  final int profileViewCount;
-  @override
-  @JsonKey(name: 'trust_level')
-  final int trustLevel;
-  final List<String> _groups;
-  @override
-  @JsonKey(name: 'groups')
-  List<String> get groups {
-    if (_groups is EqualUnmodifiableListView) return _groups;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableListView(_groups);
-  }
-
-  @override
-  @JsonKey(name: 'gamification_score')
-  final int gamificationScore;
 
   @override
   String toString() {
-    return 'UserInfo(uid: $uid, username: $username, avatar: $avatar, level: $level, bio: $bio, fans: $fans, follow: $follow, verifyTitle: $verifyTitle, isDeveloper: $isDeveloper, title: $title, location: $location, website: $website, createdAt: $createdAt, lastPostedAt: $lastPostedAt, lastSeenAt: $lastSeenAt, profileViewCount: $profileViewCount, trustLevel: $trustLevel, groups: $groups, gamificationScore: $gamificationScore)';
+    return 'UserInfo(uid: $uid, username: $username, avatar: $avatar, level: $level, bio: $bio, fans: $fans, follow: $follow, verifyTitle: $verifyTitle, isDeveloper: $isDeveloper)';
   }
 
   @override
@@ -479,29 +293,12 @@ class _$UserInfoImpl implements _UserInfo {
             (identical(other.verifyTitle, verifyTitle) ||
                 other.verifyTitle == verifyTitle) &&
             (identical(other.isDeveloper, isDeveloper) ||
-                other.isDeveloper == isDeveloper) &&
-            (identical(other.title, title) || other.title == title) &&
-            (identical(other.location, location) ||
-                other.location == location) &&
-            (identical(other.website, website) || other.website == website) &&
-            (identical(other.createdAt, createdAt) ||
-                other.createdAt == createdAt) &&
-            (identical(other.lastPostedAt, lastPostedAt) ||
-                other.lastPostedAt == lastPostedAt) &&
-            (identical(other.lastSeenAt, lastSeenAt) ||
-                other.lastSeenAt == lastSeenAt) &&
-            (identical(other.profileViewCount, profileViewCount) ||
-                other.profileViewCount == profileViewCount) &&
-            (identical(other.trustLevel, trustLevel) ||
-                other.trustLevel == trustLevel) &&
-            const DeepCollectionEquality().equals(other._groups, _groups) &&
-            (identical(other.gamificationScore, gamificationScore) ||
-                other.gamificationScore == gamificationScore));
+                other.isDeveloper == isDeveloper));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hashAll([
+  int get hashCode => Object.hash(
     runtimeType,
     uid,
     username,
@@ -512,17 +309,7 @@ class _$UserInfoImpl implements _UserInfo {
     follow,
     verifyTitle,
     isDeveloper,
-    title,
-    location,
-    website,
-    createdAt,
-    lastPostedAt,
-    lastSeenAt,
-    profileViewCount,
-    trustLevel,
-    const DeepCollectionEquality().hash(_groups),
-    gamificationScore,
-  ]);
+  );
 
   /// Create a copy of UserInfo
   /// with the given fields replaced by the non-null parameter values.
@@ -549,16 +336,6 @@ abstract class _UserInfo implements UserInfo {
     @JsonKey(name: 'follow') final int follow,
     @JsonKey(name: 'verify_title') final String? verifyTitle,
     @JsonKey(name: 'is_developer') final bool isDeveloper,
-    @JsonKey(name: 'title') final String? title,
-    @JsonKey(name: 'location') final String? location,
-    @JsonKey(name: 'website') final String? website,
-    @JsonKey(name: 'created_at') final String? createdAt,
-    @JsonKey(name: 'last_posted_at') final String? lastPostedAt,
-    @JsonKey(name: 'last_seen_at') final String? lastSeenAt,
-    @JsonKey(name: 'profile_view_count') final int profileViewCount,
-    @JsonKey(name: 'trust_level') final int trustLevel,
-    @JsonKey(name: 'groups') final List<String> groups,
-    @JsonKey(name: 'gamification_score') final int gamificationScore,
   }) = _$UserInfoImpl;
 
   factory _UserInfo.fromJson(Map<String, dynamic> json) =
@@ -591,36 +368,6 @@ abstract class _UserInfo implements UserInfo {
   @override
   @JsonKey(name: 'is_developer')
   bool get isDeveloper;
-  @override
-  @JsonKey(name: 'title')
-  String? get title;
-  @override
-  @JsonKey(name: 'location')
-  String? get location;
-  @override
-  @JsonKey(name: 'website')
-  String? get website;
-  @override
-  @JsonKey(name: 'created_at')
-  String? get createdAt;
-  @override
-  @JsonKey(name: 'last_posted_at')
-  String? get lastPostedAt;
-  @override
-  @JsonKey(name: 'last_seen_at')
-  String? get lastSeenAt;
-  @override
-  @JsonKey(name: 'profile_view_count')
-  int get profileViewCount;
-  @override
-  @JsonKey(name: 'trust_level')
-  int get trustLevel;
-  @override
-  @JsonKey(name: 'groups')
-  List<String> get groups;
-  @override
-  @JsonKey(name: 'gamification_score')
-  int get gamificationScore;
 
   /// Create a copy of UserInfo
   /// with the given fields replaced by the non-null parameter values.

@@ -196,6 +196,8 @@ class CommentCard extends StatelessWidget {
           userId: data.userId,
           level: data.userLevel,
           showLevel: true,
+          showOnlineStatus: true,
+          onlineStatusDotSize: 5,
           style: textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w600,
             color: colorScheme.onSurfaceVariant,

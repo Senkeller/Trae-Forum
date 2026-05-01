@@ -49,6 +49,9 @@ class FeedAuthor extends StatelessWidget {
   /// 头像尺寸
   final double avatarSize;
 
+  /// 是否显示在线状态
+  final bool showOnlineStatus;
+
   /// 构造函数
   ///
   /// [username] 用户名（必填）
@@ -64,6 +67,7 @@ class FeedAuthor extends StatelessWidget {
   /// [onFollowTap] 关注按钮点击回调
   /// [onMoreTap] 更多按钮点击回调
   /// [avatarSize] 头像尺寸，默认 48
+  /// [showOnlineStatus] 是否显示在线状态，默认 true
   const FeedAuthor({
     super.key,
     required this.username,
@@ -79,6 +83,7 @@ class FeedAuthor extends StatelessWidget {
     this.onFollowTap,
     this.onMoreTap,
     this.avatarSize = 48,
+    this.showOnlineStatus = true,
   });
 
   @override
@@ -110,6 +115,7 @@ class FeedAuthor extends StatelessWidget {
                     userId: userId,
                     level: userLevel,
                     showLevel: true,
+                    showOnlineStatus: showOnlineStatus,
                   ),
                   const SizedBox(height: 2),
                   // 时间和位置

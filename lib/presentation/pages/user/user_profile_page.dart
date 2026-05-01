@@ -13,6 +13,7 @@ import '../../providers/home_provider.dart';
 import '../../providers/user_badges_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
+import '../../widgets/user/online_status_indicator.dart';
 
 /// 用户资料页
 class UserProfilePage extends ConsumerStatefulWidget {
@@ -1335,87 +1336,10 @@ class _ProfileHeader extends ConsumerWidget {
 
   /// 构建在线状态指示器
   Widget _buildOnlineStatus(BuildContext context, WidgetRef ref) {
-    final discourseUserAsync = ref.watch(discourseUserProfileProvider(profile.username));
-
-    return discourseUserAsync.when(
-      data: (userData) {
-        if (userData == null) return const SizedBox.shrink();
-
-        final lastSeenAt = userData['last_seen_at'] as String?;
-        if (lastSeenAt == null || lastSeenAt.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final lastSeen = DateTime.tryParse(lastSeenAt);
-        if (lastSeen == null) return const SizedBox.shrink();
-
-        final now = DateTime.now();
-        final difference = now.difference(lastSeen);
-
-        // 判断在线状态
-        final isOnline = difference.inMinutes < 5;
-        final statusText = isOnline
-            ? '在线'
-            : _formatLastSeen(difference);
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: isOnline
-                ? Colors.green.withValues(alpha: 0.1)
-                : Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isOnline
-                  ? Colors.green.withValues(alpha: 0.3)
-                  : Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: isOnline ? Colors.green : Colors.grey,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                statusText,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: isOnline ? Colors.green : Theme.of(context).colorScheme.onSurfaceVariant,
-                  fontWeight: isOnline ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
+    return OnlineStatusIndicator(
+      username: profile.username,
+      style: OnlineStatusStyle.detailed,
     );
-  }
-
-  /// 格式化最后在线时间
-  String _formatLastSeen(Duration difference) {
-    if (difference.inDays > 365) {
-      final years = difference.inDays ~/ 365;
-      return '${years}年前';
-    } else if (difference.inDays > 30) {
-      final months = difference.inDays ~/ 30;
-      return '${months}个月前';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}天前';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}小时前';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}分钟前';
-    } else {
-      return '刚刚';
-    }
   }
 
   /// 构建统计信息区域（显示在头像右侧）

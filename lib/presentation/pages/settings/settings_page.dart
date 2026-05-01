@@ -6,6 +6,7 @@ import '../../../config/constants.dart' show AppConstants, RoutePaths;
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/user_presence_provider.dart';
 
 /// 设置页面
 ///
@@ -27,6 +28,8 @@ class SettingsPage extends ConsumerWidget {
     final currentUser = ref.watch(currentUserProvider);
     final appSettings = ref.watch(currentSettingsProvider);
     final isLoggedIn = currentUser != null;
+    final userPresence = ref.watch(currentUserPresenceProvider);
+    final presenceNotifier = ref.read(userPresenceNotifierProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -51,6 +54,37 @@ class SettingsPage extends ConsumerWidget {
               context.push(RoutePaths.userEdit);
             },
           ),
+
+          // 在线状态（仅登录用户显示）
+          if (isLoggedIn) ...[
+            _SectionHeader(title: '在线状态'),
+            _PresenceSettingItem(
+              status: userPresence,
+              onToggle: () async {
+                try {
+                  await presenceNotifier.togglePresence();
+                  if (context.mounted) {
+                    final newStatus = ref.read(currentUserPresenceProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('已切换为${newStatus.displayName}状态'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('切换失败：$e'),
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
 
           // 外观
           _SectionHeader(title: '外观'),
@@ -707,6 +741,85 @@ class _SwitchSettingItem extends StatelessWidget {
           : null,
       value: value,
       onChanged: onChanged,
+    );
+  }
+}
+
+/// 在线状态设置项
+///
+/// 显示和切换用户在线/离线状态的设置项
+class _PresenceSettingItem extends StatelessWidget {
+  /// 当前状态
+  final UserPresenceStatus status;
+
+  /// 点击回调
+  final VoidCallback onToggle;
+
+  /// 构造函数
+  const _PresenceSettingItem({
+    required this.status,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: status.color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          status.isOnline ? Icons.circle : Icons.circle_outlined,
+          color: status.color,
+          size: 20,
+        ),
+      ),
+      title: const Text('在线状态'),
+      subtitle: Text(
+        status.displayName,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: status.color,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 状态指示器
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: status.color,
+              shape: BoxShape.circle,
+              boxShadow: status.isOnline
+                  ? [
+                      BoxShadow(
+                        color: status.color.withOpacity(0.4),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 切换按钮
+          Switch(
+            value: status.isOnline,
+            onChanged: status == UserPresenceStatus.unknown
+                ? null // 加载中时禁用
+                : (_) => onToggle(),
+            activeColor: const Color(0xFF00B96B),
+          ),
+        ],
+      ),
+      onTap: status == UserPresenceStatus.unknown ? null : onToggle,
     );
   }
 }
