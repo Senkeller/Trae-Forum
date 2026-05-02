@@ -337,24 +337,27 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   Widget build(BuildContext context) {
     final localizedTag = _getLocalizedTag(widget.tag);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('#$localizedTag'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.open_in_browser),
-            tooltip: '在论坛中查看',
-            onPressed: () {
-              // 构建论坛标签URL（使用原始标签值）
-              final url = '${AppConstants.baseUrl}/tag/${widget.tag}';
-              context.push(
-                '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(localizedTag)}',
-              );
-            },
-          ),
-        ],
+    return Semantics(
+      label: '话题详情页，标签 $localizedTag',
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('#$localizedTag'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.open_in_browser),
+              tooltip: '在论坛中查看',
+              onPressed: () {
+                // 构建论坛标签URL（使用原始标签值）
+                final url = '${AppConstants.baseUrl}/tag/${widget.tag}';
+                context.push(
+                  '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(localizedTag)}',
+                );
+              },
+            ),
+          ],
+        ),
+        body: _buildBody(),
       ),
-      body: _buildBody(),
     );
   }
 
@@ -430,92 +433,97 @@ class _TopicCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundImage: topic.avatarUrl.isNotEmpty
-                        ? NetworkImage(topic.avatarUrl)
-                        : null,
-                    child: topic.avatarUrl.isEmpty
-                        ? const Icon(Icons.person, size: 18)
-                        : null,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          topic.username,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          _formatTime(topic.createTime),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
-                      ],
+    return Semantics(
+      label: '${topic.username}发布的话题：${topic.title}，${topic.likeCount}个赞，${topic.replyCount}条评论',
+      hint: '双击查看详情',
+      button: true,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundImage: topic.avatarUrl.isNotEmpty
+                          ? NetworkImage(topic.avatarUrl)
+                          : null,
+                      child: topic.avatarUrl.isEmpty
+                          ? const Icon(Icons.person, size: 18)
+                          : null,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                topic.title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (topic.content.isNotEmpty && topic.content != topic.title) ...[
-                const SizedBox(height: 8),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            topic.username,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          Text(
+                            _formatTime(topic.createTime),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
                 Text(
-                  topic.content,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                  maxLines: 3,
+                  topic.title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    Icons.thumb_up_outlined,
-                    size: 16,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
+                if (topic.content.isNotEmpty && topic.content != topic.title) ...[
+                  const SizedBox(height: 8),
                   Text(
-                    '${topic.likeCount}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.comment_outlined,
-                    size: 16,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${topic.replyCount}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    topic.content,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.thumb_up_outlined,
+                      size: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${topic.likeCount}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(
+                      Icons.comment_outlined,
+                      size: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${topic.replyCount}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

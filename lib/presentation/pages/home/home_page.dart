@@ -158,72 +158,82 @@ class _HomePageState extends ConsumerState<HomePage>
   Widget build(BuildContext context) {
     super.build(context);
 
-    return Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              title: const MainTopAppBarTitle(),
-              pinned: true,
-              floating: true,
-              snap: true,
-              forceElevated: innerBoxIsScrolled,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined),
-                  onPressed: () {
-                    HapticFeedbackUtil.trigger(ref, HapticScene.message);
-                    context.push(RoutePaths.notifications);
-                  },
+    return Semantics(
+      label: '首页，显示动态流列表',
+      child: Scaffold(
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                title: const MainTopAppBarTitle(),
+                pinned: true,
+                floating: true,
+                snap: true,
+                forceElevated: innerBoxIsScrolled,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    tooltip: '通知消息',
+                    onPressed: () {
+                      HapticFeedbackUtil.trigger(ref, HapticScene.message);
+                      context.push(RoutePaths.notifications);
+                    },
+                  ),
+                ],
+                bottom: TabBar(
+                  controller: _tabController,
+                  isScrollable: true,
+                  tabs: homeFeedTabs
+                      .map(
+                        (type) => Tab(text: homeFeedTabLabels[type] ?? type.name),
+                      )
+                      .toList(),
                 ),
-              ],
-              bottom: TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabs: homeFeedTabs
-                    .map(
-                      (type) => Tab(text: homeFeedTabLabels[type] ?? type.name),
-                    )
-                    .toList(),
               ),
-            ),
-          ];
-        },
-        body: TabBarView(
-          controller: _tabController,
-          children: List.generate(homeFeedTabs.length, (index) {
-            final feedType = homeFeedTabs[index];
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: List.generate(homeFeedTabs.length, (index) {
+              final feedType = homeFeedTabs[index];
 
-            // AI快讯Tab使用独立的视图组件
-            if (feedType == FeedType.aiNews) {
-              return const AINewsListViewV2();
-            }
+              // AI快讯Tab使用独立的视图组件
+              if (feedType == FeedType.aiNews) {
+                return const AINewsListViewV2();
+              }
 
-            final bannerCategoryId = _resolveBannerCategoryId(feedType);
+              final bannerCategoryId = _resolveBannerCategoryId(feedType);
 
-            return _FeedListView(
-              key: ValueKey('feed_${feedType.name}'),
-              tabIndex: index,
-              onRefresh: () => _onRefresh(index),
-              onLoading: () => _onLoading(index),
-              refreshController: _refreshControllers[index],
-              scrollController: _scrollControllers[index],
-              showBanner: true,
-              bannerCategoryId: bannerCategoryId,
-            );
-          }),
+              return _FeedListView(
+                key: ValueKey('feed_${feedType.name}'),
+                tabIndex: index,
+                onRefresh: () => _onRefresh(index),
+                onLoading: () => _onLoading(index),
+                refreshController: _refreshControllers[index],
+                scrollController: _scrollControllers[index],
+                showBanner: true,
+                bannerCategoryId: bannerCategoryId,
+              );
+            }),
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final created = await context.push<bool>(RoutePaths.feedCreate);
-          if (created == true && mounted) {
-            await ref
-                .read(homeNotifierProvider.notifier)
-                .refreshFeeds(force: true);
-          }
-        },
-        child: const Icon(Icons.add),
+        floatingActionButton: Semantics(
+          label: '发布新动态',
+          hint: '双击创建新帖子',
+          button: true,
+          child: FloatingActionButton(
+            onPressed: () async {
+              final created = await context.push<bool>(RoutePaths.feedCreate);
+              if (created == true && mounted) {
+                await ref
+                    .read(homeNotifierProvider.notifier)
+                    .refreshFeeds(force: true);
+              }
+            },
+            tooltip: '发布新动态',
+            child: const Icon(Icons.add),
+          ),
+        ),
       ),
     );
   }
@@ -1014,7 +1024,10 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
       onTap: () {
         if (widget.feed.username.isNotEmpty) {
           context.push(
-            RoutePaths.userProfile.replaceFirst(':uid', widget.feed.username),
+            RoutePaths.userProfile.replaceFirst(
+              ':username',
+              widget.feed.username,
+            ),
           );
         }
       },

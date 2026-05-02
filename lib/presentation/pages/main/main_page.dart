@@ -32,37 +32,44 @@ class MainPage extends ConsumerWidget {
 
     return Scaffold(
       body: IndexedStack(index: currentIndex, children: _pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
-        onDestinationSelected: (index) {
-          if (index == currentIndex) {
-            return;
-          }
-          HapticFeedbackUtil.trigger(ref, HapticScene.navSwitch);
-          ref.read(mainPageIndexProvider.notifier).setIndex(index);
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: '首页',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.forum_outlined),
-            selectedIcon: Icon(Icons.forum),
-            label: '话题',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.message_outlined),
-            selectedIcon: Icon(Icons.message),
-            label: '消息',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
+      bottomNavigationBar: Semantics(
+        label: '底部导航栏',
+        child: NavigationBar(
+          selectedIndex: currentIndex,
+          onDestinationSelected: (index) {
+            if (index == currentIndex) {
+              return;
+            }
+            HapticFeedbackUtil.trigger(ref, HapticScene.navSwitch);
+            ref.read(mainPageIndexProvider.notifier).setIndex(index);
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: '首页',
+              tooltip: '切换到首页',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.forum_outlined),
+              selectedIcon: Icon(Icons.forum),
+              label: '话题',
+              tooltip: '切换到话题页',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.message_outlined),
+              selectedIcon: Icon(Icons.message),
+              label: '消息',
+              tooltip: '切换到消息页',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: '我的',
+              tooltip: '切换到个人中心',
+            ),
+          ],
+        ),
       ),
     );
   }

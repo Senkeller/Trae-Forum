@@ -8,10 +8,12 @@ import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/discourse/discourse_notification.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/private_message_provider.dart';
 import '../../widgets/common/empty_widget.dart';
 import '../../widgets/common/error_widget.dart';
 import '../../widgets/common/loading_widget.dart';
 import '../../widgets/user/user_avatar.dart';
+import 'notification_copy.dart';
 
 /// 消息列表页
 ///
@@ -125,10 +127,51 @@ class _MessagePageState extends ConsumerState<MessagePage>
     final colorScheme = theme.colorScheme;
     final notificationState = ref.watch(notificationNotifierProvider);
 
+    // 监听私信未读数
+    final privateMessageUnreadCount = ref.watch(
+      privateMessageConversationNotifierProvider.select((s) => s.totalUnreadCount),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('消息'),
         actions: [
+          // 私信入口按钮
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.mail_outline),
+                tooltip: '私信',
+                onPressed: () {
+                  HapticFeedbackUtil.trigger(ref, HapticScene.message);
+                  context.push(RoutePaths.conversations);
+                },
+              ),
+              if (privateMessageUnreadCount > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: colorScheme.error,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      privateMessageUnreadCount > 99 ? '99+' : '$privateMessageUnreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.done_all),
             tooltip: '全部已读',
@@ -1056,95 +1099,14 @@ class _NotificationItem extends StatelessWidget {
   }
 
   String _getContent() {
-    // 显示话题标题
-    final topicTitle = notification.topicTitle ?? notification.fancyTitle;
-    if (topicTitle != null && topicTitle.isNotEmpty) {
-      return topicTitle;
-    }
-    return '点击查看详情';
+    return getNotificationContentText(notification);
   }
 
   String _getActionText(int notificationType) {
-    switch (notificationType) {
-      case DiscourseNotificationType.mentioned:
-      case DiscourseNotificationType.groupMentioned:
-        return '在话题中提到了你';
-      case DiscourseNotificationType.replied:
-        return '回复了你的帖子';
-      case DiscourseNotificationType.posted:
-        return '在话题中回复了';
-      case DiscourseNotificationType.questionAnswerUserCommented:
-        return '评论了你关注的问答内容';
-      case DiscourseNotificationType.quoted:
-        return '引用了你的内容';
-      case DiscourseNotificationType.liked:
-      case DiscourseNotificationType.likedConsolidated:
-        final count = notification.data?.count ?? 1;
-        return count > 1 ? '等$count人赞了你' : '赞了你';
-      case DiscourseNotificationType.reaction:
-        return '对你的内容做出了回应';
-      case DiscourseNotificationType.grantedBadge:
-        return '你获得了徽章';
-      case DiscourseNotificationType.following:
-        return '关注了你';
-      case DiscourseNotificationType.followingCreatedTopic:
-        return '发布了新话题';
-      case DiscourseNotificationType.followingReplied:
-        return '回复了话题';
-      case DiscourseNotificationType.edited:
-        return '编辑了你的帖子';
-      case DiscourseNotificationType.invitedToPrivateMessage:
-        return '邀请你加入私信';
-      case DiscourseNotificationType.invitedToTopic:
-        return '邀请你参与话题';
-      case DiscourseNotificationType.linked:
-      case DiscourseNotificationType.linkedConsolidated:
-        return '链接了你的帖子';
-      case DiscourseNotificationType.movedPost:
-        return '移动了你的帖子';
-      case DiscourseNotificationType.watchingCategoryOrTag:
-        return '你关注的分类或标签有新内容';
-      case DiscourseNotificationType.chatMention:
-        return '在聊天中提到了你';
-      case DiscourseNotificationType.chatMessage:
-        return '发送了聊天消息';
-      case DiscourseNotificationType.chatQuoted:
-        return '在聊天中引用了你';
-      case DiscourseNotificationType.chatInvitation:
-        return '邀请你加入聊天';
-      case DiscourseNotificationType.eventInvitation:
-        return '邀请你参加活动';
-      case DiscourseNotificationType.eventReminder:
-        return '活动提醒';
-      case DiscourseNotificationType.topicReminder:
-        return '话题提醒';
-      case DiscourseNotificationType.watchingFirstPost:
-        return '首帖更新';
-      case DiscourseNotificationType.postApproved:
-        return '你的帖子已通过审核';
-      case DiscourseNotificationType.codeReviewCommitApproved:
-        return '你的代码审查提交已通过';
-      case DiscourseNotificationType.membershipRequestAccepted:
-        return '你的成员请求已被接受';
-      case DiscourseNotificationType.membershipRequestConsolidated:
-        return '你的成员请求状态已更新';
-      case DiscourseNotificationType.votesReleased:
-        return '你的投票额度已释放';
-      case DiscourseNotificationType.assigned:
-        return '分配给你';
-      case DiscourseNotificationType.custom:
-        return '向你发送了系统通知';
-      case DiscourseNotificationType.newFeatures:
-        return '发布了新功能通知';
-      case DiscourseNotificationType.adminProblems:
-        return '发布了管理员问题提醒';
-      case DiscourseNotificationType.upcomingChangeAvailable:
-        return '有即将可用的变更';
-      case DiscourseNotificationType.upcomingChangeAutomaticallyPromoted:
-        return '变更已自动升级';
-      default:
-        return '通知了你';
-    }
+    return getNotificationActionText(
+      notificationType,
+      data: notification.data,
+    );
   }
 
   String _formatTime(String? timeString) {

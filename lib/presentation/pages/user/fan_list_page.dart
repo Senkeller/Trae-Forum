@@ -11,10 +11,7 @@ import '../../widgets/user/user_avatar.dart';
 class FanListPage extends ConsumerStatefulWidget {
   final String uid;
 
-  const FanListPage({
-    super.key,
-    required this.uid,
-  });
+  const FanListPage({super.key, required this.uid});
 
   @override
   ConsumerState<FanListPage> createState() => _FanListPageState();
@@ -31,7 +28,14 @@ class _FanListPageState extends ConsumerState<FanListPage> {
   }
 
   Future<void> _onRefresh() async {
-    await ref.read(discourseFollowListProvider(widget.uid, FollowType.followers).notifier).refresh(widget.uid, FollowType.followers);
+    await ref
+        .read(
+          discourseFollowListProvider(
+            widget.uid,
+            FollowType.followers,
+          ).notifier,
+        )
+        .refresh(widget.uid, FollowType.followers);
     _refreshController.refreshCompleted();
   }
 
@@ -55,7 +59,9 @@ class _FanListPageState extends ConsumerState<FanListPage> {
     }
 
     try {
-      await ref.read(userFollowStatusProvider(username).notifier).toggleFollow(username);
+      await ref
+          .read(userFollowStatusProvider(username).notifier)
+          .toggleFollow(username);
       if (!mounted) return;
       final isFollowing = !_followingSet.contains(username);
       setState(() {
@@ -72,9 +78,9 @@ class _FanListPageState extends ConsumerState<FanListPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('操作失败: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('操作失败: $e')));
     }
   }
 
@@ -83,12 +89,12 @@ class _FanListPageState extends ConsumerState<FanListPage> {
     final currentUser = ref.watch(currentUserProvider);
     final isOwnProfile = currentUser?.username == widget.uid;
 
-    final fanListAsync = ref.watch(discourseFollowListProvider(widget.uid, FollowType.followers));
+    final fanListAsync = ref.watch(
+      discourseFollowListProvider(widget.uid, FollowType.followers),
+    );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isOwnProfile ? '我的粉丝' : '粉丝列表'),
-      ),
+      appBar: AppBar(title: Text(isOwnProfile ? '我的粉丝' : '粉丝列表')),
       body: fanListAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => _StateView(
@@ -96,7 +102,9 @@ class _FanListPageState extends ConsumerState<FanListPage> {
           title: '加载失败',
           message: error.toString(),
           actionLabel: '重试',
-          onAction: () => ref.invalidate(discourseFollowListProvider(widget.uid, FollowType.followers)),
+          onAction: () => ref.invalidate(
+            discourseFollowListProvider(widget.uid, FollowType.followers),
+          ),
         ),
         data: (users) {
           if (users.isEmpty) {
@@ -130,7 +138,12 @@ class _FanListPageState extends ConsumerState<FanListPage> {
                   isFollowing: isFollowing,
                   isSelf: isSelf,
                   onTap: () {
-                    context.push(RoutePaths.userProfile.replaceFirst(':uid', username));
+                    context.push(
+                      RoutePaths.userProfile.replaceFirst(
+                        ':username',
+                        username,
+                      ),
+                    );
                   },
                   onToggleFollow: () => _toggleFollow(username),
                 );
@@ -189,16 +202,16 @@ class _FanCard extends StatelessWidget {
                     Text(
                       username,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     if (bio.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         bio,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                          color: colorScheme.onSurfaceVariant,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -268,10 +281,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

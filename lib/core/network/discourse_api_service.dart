@@ -1158,4 +1158,256 @@ class DiscourseApiService {
       ),
     );
   }
+
+  // ==================== 用户资料更新 API ====================
+
+  /// 更新用户资料
+  ///
+  /// [username] 用户名
+  /// [name] 显示名称（昵称）
+  /// [bioRaw] 个人简介（原始Markdown格式）
+  /// [location] 位置（可选）
+  /// [website] 网站（可选）
+  /// 调用 Discourse PUT /u/{username}.json API
+  /// 成功返回更新后的用户信息
+  Future<Response> updateUserProfile({
+    required String username,
+    String? name,
+    String? bioRaw,
+    String? location,
+    String? website,
+  }) async {
+    await _ensureForumSessionReady();
+    final csrfToken = DiscourseCsrfToken.token;
+
+    final data = <String, dynamic>{};
+
+    if (name != null) {
+      data['name'] = name;
+    }
+    if (bioRaw != null) {
+      data['bio_raw'] = bioRaw;
+    }
+    if (location != null) {
+      data['location'] = location;
+    }
+    if (website != null) {
+      data['website'] = website;
+    }
+
+    return _dio.put(
+      '$_baseUrl/u/$username.json',
+      data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  // ==================== 私信相关 API ====================
+
+  /// 获取私信会话列表
+  ///
+  /// [username] 当前用户名
+  /// [page] 页码，从0开始
+  /// 调用 Discourse GET /topics/private-messages/{username}.json API
+  Future<Response> getPrivateMessageTopics(String username, {int page = 0}) async {
+    await _ensureForumSessionReady();
+    return _dio.get(
+      '$_baseUrl/topics/private-messages/$username.json',
+      queryParameters: {if (page > 0) 'page': page},
+    );
+  }
+
+  /// 获取私信详情
+  ///
+  /// [topicId] 私信话题ID
+  /// 调用 Discourse GET /t/{topicId}.json API
+  Future<Response> getPrivateMessageDetail(int topicId) async {
+    await _ensureForumSessionReady();
+    return _dio.get('$_baseUrl/t/$topicId.json');
+  }
+
+  /// 获取私信帖子列表
+  ///
+  /// [topicId] 私信话题ID
+  /// [page] 页码，从0开始
+  /// 调用 Discourse GET /t/{topicId}/posts.json API
+  Future<Response> getPrivateMessagePosts(int topicId, {int page = 0}) async {
+    await _ensureForumSessionReady();
+    return _dio.get(
+      '$_baseUrl/t/$topicId/posts.json',
+      queryParameters: {'page': page},
+    );
+  }
+
+  /// 发送私信（创建新私信话题）
+  ///
+  /// [title] 私信标题
+  /// [raw] 私信内容（Markdown格式）
+  /// [targetUsernames] 接收者用户名列表
+  /// [targetGroupNames] 接收者用户组列表（可选）
+  /// 调用 Discourse POST /posts API，设置 archetype: private_message
+  Future<Response> createPrivateMessage({
+    required String title,
+    required String raw,
+    required List<String> targetUsernames,
+    List<String>? targetGroupNames,
+  }) async {
+    await _ensureForumSessionReady();
+    final csrfToken = DiscourseCsrfToken.token;
+
+    final data = <String, dynamic>{
+      'title': title,
+      'raw': raw,
+      'archetype': 'private_message',
+      'target_usernames': targetUsernames.join(','),
+    };
+
+    if (targetGroupNames != null && targetGroupNames.isNotEmpty) {
+      data['target_group_names'] = targetGroupNames.join(',');
+    }
+
+    return _dio.post(
+      '$_baseUrl/posts',
+      data: data,
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  /// 回复私信（在现有私信话题中发送帖子）
+  ///
+  /// [topicId] 私信话题ID
+  /// [raw] 回复内容（Markdown格式）
+  /// 调用 Discourse POST /posts API
+  Future<Response> replyToPrivateMessage({
+    required int topicId,
+    required String raw,
+  }) async {
+    await _ensureForumSessionReady();
+    final csrfToken = DiscourseCsrfToken.token;
+
+    return _dio.post(
+      '$_baseUrl/posts',
+      data: {
+        'topic_id': topicId,
+        'raw': raw,
+      },
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  /// 邀请用户加入私信
+  ///
+  /// [topicId] 私信话题ID
+  /// [usernames] 要邀请的用户名列表
+  /// 调用 Discourse POST /t/{topicId}/invite API
+  Future<Response> inviteToPrivateMessage({
+    required int topicId,
+    required List<String> usernames,
+  }) async {
+    await _ensureForumSessionReady();
+    final csrfToken = DiscourseCsrfToken.token;
+
+    return _dio.post(
+      '$_baseUrl/t/$topicId/invite',
+      data: {
+        'usernames': usernames,
+      },
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  /// 离开私信会话
+  ///
+  /// [topicId] 私信话题ID
+  /// 调用 Discourse DELETE /t/{topicId}/remove-allowed-user API
+  Future<Response> leavePrivateMessage({
+    required int topicId,
+    required String username,
+  }) async {
+    await _ensureForumSessionReady();
+    final csrfToken = DiscourseCsrfToken.token;
+
+    return _dio.delete(
+      '$_baseUrl/t/$topicId/remove-allowed-user',
+      queryParameters: {'username': username},
+      options: Options(
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Discourse-Logged-In': 'true',
+          'Discourse-Present': 'true',
+          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        },
+      ),
+    );
+  }
+
+  // ==================== 用户搜索相关 API ====================
+
+  /// 搜索用户
+  ///
+  /// [query] 搜索关键词（用户名或显示名称）
+  /// [limit] 返回结果数量限制，默认20
+  /// 调用 Discourse GET /search/query API，用于用户搜索建议
+  Future<Response> searchUsers(String query, {int limit = 20}) async {
+    await _ensureForumSessionReady();
+    return _dio.get(
+      '$_baseUrl/search/query',
+      queryParameters: {
+        'term': query,
+        'type': 'user',
+        'limit': limit,
+      },
+    );
+  }
+
+  /// 高级用户搜索
+  ///
+  /// [query] 搜索关键词
+  /// [page] 页码，从0开始
+  /// [limit] 每页数量限制
+  /// 调用 Discourse GET /search.json API，搜索类型为用户
+  Future<Response> searchUsersAdvanced({
+    required String query,
+    int page = 0,
+    int limit = 20,
+  }) async {
+    await _ensureForumSessionReady();
+    final searchQuery = '@$query'; // Discourse 中使用 @ 前缀搜索用户
+    return _dio.get(
+      '$_baseUrl/search.json',
+      queryParameters: {
+        'q': searchQuery,
+        'page': page,
+        'limit': limit,
+      },
+    );
+  }
 }

@@ -171,56 +171,66 @@ class _LikeButtonState extends ConsumerState<LikeButton>
             ? AppTheme.likeColor
             : colorScheme.onSurfaceVariant;
 
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: isLoading ? null : _handleTap,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AnimatedBuilder(
-                    animation: _scaleAnimation,
-                    builder: (context, child) {
-                      return Transform.scale(
-                        scale: _scaleAnimation.value,
-                        child: isLoading
-                            ? SizedBox(
-                                width: widget.iconSize,
-                                height: widget.iconSize,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    iconColor,
+        final buttonLabel = isLiked
+            ? '已点赞，$likeCount人点赞'
+            : '未点赞，$likeCount人点赞';
+
+        return Semantics(
+          label: buttonLabel,
+          hint: isLiked ? '双击取消点赞' : '双击点赞',
+          button: true,
+          enabled: !isLoading,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isLoading ? null : _handleTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedBuilder(
+                      animation: _scaleAnimation,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _scaleAnimation.value,
+                          child: isLoading
+                              ? SizedBox(
+                                  width: widget.iconSize,
+                                  height: widget.iconSize,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      iconColor,
+                                    ),
                                   ),
+                                )
+                              : Icon(
+                                  isLiked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  size: widget.iconSize,
+                                  color: iconColor,
                                 ),
-                              )
-                            : Icon(
-                                isLiked
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                size: widget.iconSize,
-                                color: iconColor,
-                              ),
-                      );
-                    },
-                  ),
-                  if (widget.showCount) ...[
-                    const SizedBox(width: 4),
-                    Text(
-                      _formatCount(likeCount),
-                      style: textTheme.bodySmall?.copyWith(
-                        color: textColor,
-                        fontSize: widget.fontSize,
-                        fontWeight: isLiked
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
+                        );
+                      },
                     ),
+                    if (widget.showCount) ...[
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatCount(likeCount),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: textColor,
+                          fontSize: widget.fontSize,
+                          fontWeight: isLiked
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -292,34 +302,43 @@ class LikeButtonSimple extends ConsumerWidget {
     final isLiked = likeState?.isLiked ?? initialIsLiked;
     final likeCount = likeState?.likeCount ?? initialLikeCount;
 
-    return GestureDetector(
-      onTap: () async {
-        final state = ref.read(postLikeStateProvider(postId));
-        final wasLiked = state?.isLiked ?? initialIsLiked;
-        await HapticFeedbackUtil.trigger(
-          ref,
-          wasLiked ? HapticScene.unlike : HapticScene.like,
-        );
-        await ref.read(likeProvider.notifier).toggleLike(postId);
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isLiked ? Icons.favorite : Icons.favorite_border,
-            size: iconSize,
-            color: isLiked ? AppTheme.likeColor : colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 2),
-          Text(
-            _formatCount(likeCount),
-            style: textTheme.bodySmall?.copyWith(
-              color: isLiked
-                  ? AppTheme.likeColor
-                  : colorScheme.onSurfaceVariant,
+    final buttonLabel = isLiked
+        ? '已点赞，$likeCount人点赞'
+        : '未点赞，$likeCount人点赞';
+
+    return Semantics(
+      label: buttonLabel,
+      hint: isLiked ? '双击取消点赞' : '双击点赞',
+      button: true,
+      child: GestureDetector(
+        onTap: () async {
+          final state = ref.read(postLikeStateProvider(postId));
+          final wasLiked = state?.isLiked ?? initialIsLiked;
+          await HapticFeedbackUtil.trigger(
+            ref,
+            wasLiked ? HapticScene.unlike : HapticScene.like,
+          );
+          await ref.read(likeProvider.notifier).toggleLike(postId);
+        },
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isLiked ? Icons.favorite : Icons.favorite_border,
+              size: iconSize,
+              color: isLiked ? AppTheme.likeColor : colorScheme.onSurfaceVariant,
             ),
-          ),
-        ],
+            const SizedBox(width: 2),
+            Text(
+              _formatCount(likeCount),
+              style: textTheme.bodySmall?.copyWith(
+                color: isLiked
+                    ? AppTheme.likeColor
+                    : colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

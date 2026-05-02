@@ -52,45 +52,53 @@ class ErrorWidget extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final defaultIconColor = iconColor ?? colorScheme.error.withOpacity(0.5);
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: iconSize,
-              color: defaultIconColor,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              style: textTheme.titleLarge?.copyWith(
-                color: colorScheme.onBackground,
-                fontWeight: FontWeight.w600,
+    return Semantics(
+      label: '错误提示：$title，${message ?? ''}',
+      hint: onRetry != null ? '双击$retryText按钮重试' : '',
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: iconSize,
+                color: defaultIconColor,
               ),
-              textAlign: TextAlign.center,
-            ),
-            if (message != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 24),
               Text(
-                message!,
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
+                title,
+                style: textTheme.titleLarge?.copyWith(
+                  color: colorScheme.onBackground,
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (message != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message!,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (onRetry != null) ...[
+                const SizedBox(height: 24),
+                Semantics(
+                  label: retryText,
+                  button: true,
+                  child: FilledButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(retryText),
+                  ),
+                ),
+              ],
             ],
-            if (onRetry != null) ...[
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: Text(retryText),
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );

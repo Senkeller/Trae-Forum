@@ -594,29 +594,35 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
   Widget _buildInputArea(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return Semantics(
+      label: '评论输入框',
+      hint: '输入评论内容，支持 Markdown 格式',
+      textField: true,
       child: Container(
-        constraints: const BoxConstraints(maxHeight: 120),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-          borderRadius: const BorderRadius.all(Radius.circular(12)),
-        ),
-        child: TextField(
-          controller: _controller,
-          focusNode: _focusNode,
-          maxLines: null,
-          maxLength: 500,
-          textInputAction: TextInputAction.newline,
-          keyboardType: TextInputType.multiline,
-          decoration: InputDecoration(
-            hintText: '说点什么（支持 Markdown）...',
-            hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
-            contentPadding: const EdgeInsets.all(12),
-            border: InputBorder.none,
-            counterText: '',
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 120),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
           ),
-          style: TextStyle(color: colorScheme.onSurface, fontSize: 16),
+          child: TextField(
+            controller: _controller,
+            focusNode: _focusNode,
+            maxLines: null,
+            maxLength: 500,
+            textInputAction: TextInputAction.newline,
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration(
+              hintText: '说点什么（支持 Markdown）...',
+              hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+              contentPadding: const EdgeInsets.all(12),
+              border: InputBorder.none,
+              counterText: '',
+              labelText: '评论内容',
+            ),
+            style: TextStyle(color: colorScheme.onSurface, fontSize: 16),
+          ),
         ),
       ),
     );
@@ -790,37 +796,43 @@ class _QuickCommentSheetState extends ConsumerState<QuickCommentSheet> {
   Widget _buildSendButton(BuildContext context, {required bool hasText}) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return GestureDetector(
-      onTap: hasText && !_isLoading && !_isUploadingImage ? _handleSend : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: hasText && !_isLoading && !_isUploadingImage
-              ? colorScheme.primary
-              : colorScheme.surfaceContainerHighest,
-          borderRadius: const BorderRadius.all(Radius.circular(20)),
-        ),
-        child: _isLoading
-            ? SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    colorScheme.onPrimary,
+    return Semantics(
+      label: '发送评论',
+      hint: hasText ? '双击发送评论' : '请先输入评论内容',
+      button: true,
+      enabled: hasText && !_isLoading && !_isUploadingImage,
+      child: GestureDetector(
+        onTap: hasText && !_isLoading && !_isUploadingImage ? _handleSend : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: hasText && !_isLoading && !_isUploadingImage
+                ? colorScheme.primary
+                : colorScheme.surfaceContainerHighest,
+            borderRadius: const BorderRadius.all(Radius.circular(20)),
+          ),
+          child: _isLoading
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.onPrimary,
+                    ),
+                  ),
+                )
+              : Text(
+                  '发送',
+                  style: TextStyle(
+                    color: hasText
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
                   ),
                 ),
-              )
-            : Text(
-                '发送',
-                style: TextStyle(
-                  color: hasText
-                      ? colorScheme.onPrimary
-                      : colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
+        ),
       ),
     );
   }

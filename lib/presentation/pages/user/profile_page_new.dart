@@ -69,33 +69,36 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(
-        context,
-      ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // 顶部导航栏
-            SliverToBoxAdapter(
-              child: _buildAppBar(context, isAuthenticated, unreadCount),
-            ),
-            // 用户状态卡片
-            SliverToBoxAdapter(
-              child: _buildUserCard(context, currentUser, isAuthenticated),
-            ),
-            // TRAE 仪表盘（仅已登录用户显示）
-            if (isAuthenticated)
-              const SliverToBoxAdapter(child: EmbeddedTraeDashboard()),
-            // 快捷功能入口
-            SliverToBoxAdapter(child: _buildQuickActionsSection(context)),
-            // 消息通知
-            SliverToBoxAdapter(
-              child: _buildNotificationSection(context, unreadSummary),
-            ),
-            // 底部间距
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
+    return Semantics(
+      label: '个人中心页面',
+      child: Scaffold(
+        backgroundColor: Theme.of(
+          context,
+        ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        body: SafeArea(
+          child: CustomScrollView(
+            slivers: [
+              // 顶部导航栏
+              SliverToBoxAdapter(
+                child: _buildAppBar(context, isAuthenticated, unreadCount),
+              ),
+              // 用户状态卡片
+              SliverToBoxAdapter(
+                child: _buildUserCard(context, currentUser, isAuthenticated),
+              ),
+              // TRAE 仪表盘（仅已登录用户显示）
+              if (isAuthenticated)
+                const SliverToBoxAdapter(child: EmbeddedTraeDashboard()),
+              // 快捷功能入口
+              SliverToBoxAdapter(child: _buildQuickActionsSection(context)),
+              // 消息通知
+              SliverToBoxAdapter(
+                child: _buildNotificationSection(context, unreadSummary),
+              ),
+              // 底部间距
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            ],
+          ),
         ),
       ),
     );
@@ -774,7 +777,10 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
                 ),
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF43D1AA).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(10),
@@ -794,7 +800,10 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: badges.take(6).map((badge) => _buildBadgeItem(context, badge)).toList(),
+              children: badges
+                  .take(6)
+                  .map((badge) => _buildBadgeItem(context, badge))
+                  .toList(),
             ),
             // 查看更多按钮（如果徽章数量超过6个）
             if (badges.length > 6) ...[
@@ -828,9 +837,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
           decoration: BoxDecoration(
             color: const Color(0xFF2B2E34),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -888,9 +895,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
   /// 导航到用户徽章列表页
   void _navigateToUserBadges(BuildContext context, String username) {
     final baseUri = Uri.parse(AppConstants.forumUrl);
-    final badgesUri = baseUri.replace(
-      pathSegments: ['u', username, 'badges'],
-    );
+    final badgesUri = baseUri.replace(pathSegments: ['u', username, 'badges']);
 
     context.push(
       '${RoutePaths.webview}?url=${Uri.encodeComponent(badgesUri.toString())}&title=${Uri.encodeComponent('我的徽章')}',
@@ -986,7 +991,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     if (currentUser == null) return;
 
     context.push(
-      '${RoutePaths.userProfile.replaceFirst(':uid', currentUser.username)}?tab=activity',
+      '${RoutePaths.userProfile.replaceFirst(':username', currentUser.username)}?tab=activity',
     );
   }
 
@@ -1006,7 +1011,7 @@ class _ProfilePageNewState extends ConsumerState<ProfilePageNew> {
     if (currentUser == null) return;
 
     context.push(
-      RoutePaths.userProfile.replaceFirst(':uid', currentUser.username),
+      RoutePaths.userProfile.replaceFirst(':username', currentUser.username),
     );
   }
 }

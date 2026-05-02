@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../config/constants.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 
 class BlacklistPage extends ConsumerStatefulWidget {
   const BlacklistPage({super.key});
@@ -13,77 +14,37 @@ class BlacklistPage extends ConsumerStatefulWidget {
 }
 
 class _BlacklistPageState extends ConsumerState<BlacklistPage> {
-  List<Map<String, String>> _blockedUsers = [];
-  List<String> _blockedKeywords = [];
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBlacklist();
-  }
-
-  Future<void> _loadBlacklist() async {
-    final currentUser = ref.read(currentUserProvider);
-    if (currentUser == null || currentUser.uid.isEmpty) {
-      setState(() {
-        _errorMessage = '请先登录';
-      });
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      setState(() {
-        _isLoading = false;
-        _blockedUsers = [];
-        _blockedKeywords = [];
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '加载失败: $e';
-      });
-    }
-  }
-
   Future<void> _unblockUser(String username) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已解除对 @$username 的屏蔽')),
-    );
-
-    setState(() {
-      _blockedUsers.removeWhere((user) => user['username'] == username);
-    });
+    await ref
+        .read(settingsNotifierProvider.notifier)
+        .removeBlockedUser(username);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已解除对 @$username 的屏蔽')));
   }
 
   Future<void> _unblockKeyword(String keyword) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已解除对关键词 "$keyword" 的屏蔽')),
-    );
-
-    setState(() {
-      _blockedKeywords.remove(keyword);
-    });
+    await ref
+        .read(settingsNotifierProvider.notifier)
+        .removeBlockedKeyword(keyword);
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('已解除对关键词 "$keyword" 的屏蔽')));
   }
 
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
     final isLoggedIn = currentUser != null && currentUser.uid.isNotEmpty;
+    final settings = ref.watch(currentSettingsProvider);
+    final blockedUsers = settings.blockedUsers;
+    final blockedKeywords = settings.blockedKeywords;
 
     if (!isLoggedIn) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('黑名单'),
-        ),
+        appBar: AppBar(title: const Text('黑名单')),
         body: _StateView(
           icon: Icons.account_circle_outlined,
           title: '未登录',
@@ -105,24 +66,12 @@ class _BlacklistPageState extends ConsumerState<BlacklistPage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildBody(),
+      body: _buildBody(blockedUsers, blockedKeywords),
     );
   }
 
-  Widget _buildBody() {
-    if (_errorMessage != null) {
-      return _StateView(
-        icon: Icons.error_outline,
-        title: '加载失败',
-        message: _errorMessage!,
-        actionLabel: '重试',
-        onAction: _loadBlacklist,
-      );
-    }
-
-    if (_blockedUsers.isEmpty && _blockedKeywords.isEmpty) {
+  Widget _buildBody(List<String> blockedUsers, List<String> blockedKeywords) {
+    if (blockedUsers.isEmpty && blockedKeywords.isEmpty) {
       return _StateView(
         icon: Icons.block,
         title: '黑名单为空',
@@ -135,7 +84,7 @@ class _BlacklistPageState extends ConsumerState<BlacklistPage> {
     return ListView(
       padding: const EdgeInsets.symmetric(vertical: 8),
       children: [
-        if (_blockedUsers.isNotEmpty) ...[
+        if (blockedUsers.isNotEmpty) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -143,29 +92,29 @@ class _BlacklistPageState extends ConsumerState<BlacklistPage> {
                 const Icon(Icons.person_outline, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  '屏蔽的用户 (${_blockedUsers.length})',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  '屏蔽的用户 (${blockedUsers.length})',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
           ),
-          ...List.generate(_blockedUsers.length, (index) {
-            final user = _blockedUsers[index];
+          ...List.generate(blockedUsers.length, (index) {
+            final username = blockedUsers[index];
             return _BlockedUserTile(
-              username: user['username'] ?? '',
-              reason: user['reason'],
-              onUnblock: () => _unblockUser(user['username'] ?? ''),
+              username: username,
+              reason: null,
+              onUnblock: () => _unblockUser(username),
               onViewProfile: () {
                 context.push(
-                  RoutePaths.userProfile.replaceFirst(':uid', user['username'] ?? ''),
+                  RoutePaths.userProfile.replaceFirst(':username', username),
                 );
               },
             );
           }),
         ],
-        if (_blockedKeywords.isNotEmpty) ...[
+        if (blockedKeywords.isNotEmpty) ...[
           const Divider(height: 32),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -174,16 +123,16 @@ class _BlacklistPageState extends ConsumerState<BlacklistPage> {
                 const Icon(Icons.text_fields, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  '屏蔽的关键词 (${_blockedKeywords.length})',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  '屏蔽的关键词 (${blockedKeywords.length})',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
           ),
-          ...List.generate(_blockedKeywords.length, (index) {
-            final keyword = _blockedKeywords[index];
+          ...List.generate(blockedKeywords.length, (index) {
+            final keyword = blockedKeywords[index];
             return _BlockedKeywordTile(
               keyword: keyword,
               onUnblock: () => _unblockKeyword(keyword),
@@ -246,18 +195,20 @@ class _BlacklistPageState extends ConsumerState<BlacklistPage> {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               final username = controller.text.trim();
-              if (username.isNotEmpty) {
-                setState(() {
-                  _blockedUsers.add({
-                    'username': username,
-                    'reason': '',
-                  });
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('已屏蔽 @$username')),
-                );
+              if (username.isNotEmpty && username.length <= 40) {
+                await ref
+                    .read(settingsNotifierProvider.notifier)
+                    .addBlockedUser(username);
+                if (!mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('已屏蔽 @$username')));
+              } else if (username.isNotEmpty && mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('用户名长度不能超过 40')));
               }
               Navigator.of(context).pop();
             },
@@ -289,15 +240,20 @@ class _BlacklistPageState extends ConsumerState<BlacklistPage> {
             child: const Text('取消'),
           ),
           FilledButton(
-            onPressed: () {
+            onPressed: () async {
               final keyword = controller.text.trim();
-              if (keyword.isNotEmpty) {
-                setState(() {
-                  _blockedKeywords.add(keyword);
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('已屏蔽关键词 "$keyword"')),
-                );
+              if (keyword.isNotEmpty && keyword.length <= 40) {
+                await ref
+                    .read(settingsNotifierProvider.notifier)
+                    .addBlockedKeyword(keyword);
+                if (!mounted) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('已屏蔽关键词 "$keyword"')));
+              } else if (keyword.isNotEmpty && mounted) {
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('关键词长度不能超过 40')));
               }
               Navigator.of(context).pop();
             },
@@ -355,10 +311,7 @@ class _BlockedKeywordTile extends StatelessWidget {
   final String keyword;
   final VoidCallback onUnblock;
 
-  const _BlockedKeywordTile({
-    required this.keyword,
-    required this.onUnblock,
-  });
+  const _BlockedKeywordTile({required this.keyword, required this.onUnblock});
 
   @override
   Widget build(BuildContext context) {
@@ -416,10 +369,7 @@ class _StateView extends StatelessWidget {
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
-              FilledButton(
-                onPressed: onAction,
-                child: Text(actionLabel!),
-              ),
+              FilledButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
         ),

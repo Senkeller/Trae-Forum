@@ -6,10 +6,7 @@ import '../../../config/constants.dart';
 class ErrorPage extends StatelessWidget {
   final Exception? error;
 
-  const ErrorPage({
-    super.key,
-    this.error,
-  });
+  const ErrorPage({super.key, this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -46,15 +43,15 @@ class ErrorPage extends StatelessWidget {
               Text(
                 '页面出错了',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
                 _getErrorMessage(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               if (error != null) ...[
@@ -62,7 +59,9 @@ class ErrorPage extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -78,9 +77,8 @@ class ErrorPage extends StatelessWidget {
                           const SizedBox(width: 8),
                           Text(
                             '错误详情',
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -88,9 +86,9 @@ class ErrorPage extends StatelessWidget {
                       Text(
                         error.toString(),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontFamily: 'monospace',
-                              color: colorScheme.error,
-                            ),
+                          fontFamily: 'monospace',
+                          color: colorScheme.error,
+                        ),
                       ),
                     ],
                   ),
@@ -122,7 +120,9 @@ class ErrorPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  color: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -137,9 +137,8 @@ class ErrorPage extends StatelessWidget {
                         const SizedBox(width: 8),
                         Text(
                           '遇到问题了？',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -147,8 +146,8 @@ class ErrorPage extends StatelessWidget {
                     Text(
                       '你可以尝试刷新页面或返回首页。如果问题持续存在，请联系我们的客服团队。',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -159,8 +158,14 @@ class ErrorPage extends StatelessWidget {
                 children: [
                   TextButton.icon(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('反馈功能开发中')),
+                      final feedbackUrl = Uri.parse(
+                        'https://github.com/trae-community/trae-forum-app/issues',
+                      );
+                      _openWebPage(
+                        context,
+                        url: feedbackUrl.toString(),
+                        title: '反馈问题',
+                        hint: '已打开反馈页面',
                       );
                     },
                     icon: const Icon(Icons.feedback_outlined, size: 18),
@@ -169,8 +174,14 @@ class ErrorPage extends StatelessWidget {
                   const SizedBox(width: 16),
                   TextButton.icon(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('帮助中心开发中')),
+                      final helpUrl = Uri.parse(
+                        '${AppConstants.forumUrl}/guidelines',
+                      );
+                      _openWebPage(
+                        context,
+                        url: helpUrl.toString(),
+                        title: '帮助中心',
+                        hint: '已打开帮助中心',
                       );
                     },
                     icon: const Icon(Icons.help_outline, size: 18),
@@ -213,5 +224,17 @@ class ErrorPage extends StatelessWidget {
     }
 
     return '抱歉，页面加载时遇到了问题。';
+  }
+
+  void _openWebPage(
+    BuildContext context, {
+    required String url,
+    required String title,
+    required String hint,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(hint)));
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title)}',
+    );
   }
 }

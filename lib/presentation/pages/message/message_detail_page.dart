@@ -11,6 +11,7 @@ import '../../../data/models/discourse/discourse_notification.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../widgets/user/user_avatar.dart';
+import 'notification_copy.dart';
 
 class MessageDetailPage extends ConsumerStatefulWidget {
   final String type;
@@ -606,24 +607,7 @@ class _MessageCard extends StatelessWidget {
   }
 
   String _getContent() {
-    // 显示话题标题
-    final topicTitle = notification.topicTitle ?? notification.fancyTitle;
-    if (topicTitle != null && topicTitle.isNotEmpty) {
-      return topicTitle;
-    }
-    return '点击查看详情';
-  }
-
-  /// 去除HTML标签
-  String _stripHtmlTags(String htmlText) {
-    return htmlText
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .trim();
+    return getNotificationContentText(notification);
   }
 
   String _formatTime(String? timeString) {

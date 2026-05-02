@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../core/animations/page_transitions.dart';
 import 'constants.dart';
 import '../presentation/pages/main/main_page.dart';
 import '../presentation/pages/home/home_page.dart';
@@ -17,6 +18,8 @@ import '../presentation/pages/search/search_page.dart';
 import '../presentation/pages/search/search_result_page.dart';
 import '../presentation/pages/message/message_page.dart';
 import '../presentation/pages/message/message_detail_page.dart';
+import '../presentation/pages/message/conversation_list_page.dart';
+import '../presentation/pages/message/chat_page.dart';
 
 import '../presentation/pages/notification/notification_settings_page.dart';
 import '../presentation/pages/settings/settings_page.dart';
@@ -113,6 +116,8 @@ class AppRouter {
     RoutePaths.userBookmarks,
     RoutePaths.userSolved,
     RoutePaths.userVotes,
+    RoutePaths.conversations,
+    RoutePaths.chat,
   ];
 
   /// 检查路由是否为受保护路由
@@ -172,12 +177,24 @@ class AppRouter {
         builder: (context, state) => const HomePage(),
       ),
 
-      // 创建 Feed
+      // 创建 Feed - 使用底部滑入动画
       GoRoute(
         path: RoutePaths.feedCreate,
-        builder: (context, state) => FeedCreatePage(
-          initialTitle: state.uri.queryParameters['title'],
-          initialContent: state.uri.queryParameters['content'],
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          child: FeedCreatePage(
+            initialTitle: state.uri.queryParameters['title'],
+            initialContent: state.uri.queryParameters['content'],
+          ),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return PageTransitionBuilder.build(
+              context: context,
+              animation: animation,
+              secondaryAnimation: secondaryAnimation,
+              child: child,
+              config: PageTransitionConfig.bottomSheet,
+            );
+          },
         ),
       ),
 
@@ -222,35 +239,71 @@ class AppRouter {
         },
       ),
 
-      // Feed 回复
+      // Feed 回复 - 使用底部滑入动画
       GoRoute(
         path: RoutePaths.feedReply,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id']!;
-          return FeedReplyPage(feedId: id);
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: FeedReplyPage(feedId: id),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return PageTransitionBuilder.build(
+                context: context,
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                child: child,
+                config: PageTransitionConfig.bottomSheet,
+              );
+            },
+          );
         },
       ),
 
-      // Feed 编辑
+      // Feed 编辑 - 使用淡入动画
       GoRoute(
         path: RoutePaths.feedEdit,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id']!;
-          return FeedEditPage(feedId: id);
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: FeedEditPage(feedId: id),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return PageTransitionBuilder.build(
+                context: context,
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                child: child,
+                config: PageTransitionConfig.fade,
+              );
+            },
+          );
         },
       ),
 
-      // 用户主页
+      // 用户主页 - 使用淡入动画
       GoRoute(
         path: RoutePaths.userProfile,
-        builder: (context, state) {
-          final uid = state.pathParameters['uid'];
+        pageBuilder: (context, state) {
+          final username = state.pathParameters['username'];
           final tab = state.uri.queryParameters['tab'];
           final category = state.uri.queryParameters['category'];
-          return UserProfilePage(
-            uid: uid,
-            initialTab: tab,
-            initialActivityCategory: category,
+          return CustomTransitionPage(
+            key: state.pageKey,
+            child: UserProfilePage(
+              username: username,
+              initialTab: tab,
+              initialActivityCategory: category,
+            ),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return PageTransitionBuilder.build(
+                context: context,
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                child: child,
+                config: PageTransitionConfig.fade,
+              );
+            },
           );
         },
       ),
@@ -265,7 +318,7 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.followList,
         builder: (context, state) {
-          final uid = state.pathParameters['uid']!;
+          final uid = state.pathParameters['username']!;
           return FollowListPage(uid: uid);
         },
       ),
@@ -274,7 +327,7 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.fanList,
         builder: (context, state) {
-          final uid = state.pathParameters['uid']!;
+          final uid = state.pathParameters['username']!;
           return FanListPage(uid: uid);
         },
       ),
@@ -460,14 +513,32 @@ class AppRouter {
         builder: (context, state) => const FavoritesPage(),
       ),
 
-      // 图片预览
+      // 图片预览 - 使用缩放淡入动画
       GoRoute(
         path: RoutePaths.imagePreview,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final images = state.extra as List<String>? ?? [];
           final index =
               int.tryParse(state.uri.queryParameters['index'] ?? '0') ?? 0;
-          return ImagePreviewPage(imageUrls: images, initialIndex: index);
+          return CustomTransitionPage(
+            key: state.pageKey,
+            opaque: false,
+            fullscreenDialog: true,
+            child: ImagePreviewPage(imageUrls: images, initialIndex: index),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return PageTransitionBuilder.build(
+                context: context,
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                child: child,
+                config: const PageTransitionConfig(
+                  type: PageTransitionType.scaleAndFade,
+                  duration: Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                ),
+              );
+            },
+          );
         },
       ),
 
@@ -564,6 +635,21 @@ class AppRouter {
         builder: (context, state) {
           final username = state.pathParameters['username']!;
           return UserVotesPage(username: username);
+        },
+      ),
+
+      // 私信会话列表
+      GoRoute(
+        path: RoutePaths.conversations,
+        builder: (context, state) => const ConversationListPage(),
+      ),
+
+      // 私信聊天页面
+      GoRoute(
+        path: RoutePaths.chat,
+        builder: (context, state) {
+          final topicId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return ChatPage(topicId: topicId);
         },
       ),
     ],

@@ -713,7 +713,7 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     if (profileId.isEmpty || !mounted) {
       return;
     }
-    context.push(RoutePaths.userProfile.replaceFirst(':uid', profileId));
+    context.push(RoutePaths.userProfile.replaceFirst(':username', profileId));
   }
 
   Future<void> _sendComment(String content) async {

@@ -81,6 +81,21 @@ class AppSettings {
   /// 是否开启振动
   final bool vibrationEnabled;
 
+  /// 回复通知
+  final bool notifyReplies;
+
+  /// 点赞通知
+  final bool notifyLikes;
+
+  /// @通知
+  final bool notifyMentions;
+
+  /// 关注通知
+  final bool notifyFollows;
+
+  /// 系统通知
+  final bool notifySystem;
+
   /// 是否显示动态大图
   final bool showLargeImage;
 
@@ -102,6 +117,12 @@ class AppSettings {
   /// 缓存大小限制（MB）
   final int cacheSizeLimit;
 
+  /// 屏蔽用户列表（用户名）
+  final List<String> blockedUsers;
+
+  /// 屏蔽关键词列表
+  final List<String> blockedKeywords;
+
   const AppSettings({
     this.imageQuality = ImageQuality.high,
     this.fontSize = FontSize.medium,
@@ -113,6 +134,11 @@ class AppSettings {
     this.pushNotification = true,
     this.soundEnabled = true,
     this.vibrationEnabled = true,
+    this.notifyReplies = true,
+    this.notifyLikes = true,
+    this.notifyMentions = true,
+    this.notifyFollows = true,
+    this.notifySystem = true,
     this.showLargeImage = true,
     this.listDensity = 1.0,
     this.followSystemDarkMode = true,
@@ -120,6 +146,8 @@ class AppSettings {
     this.enableDoubleTapLike = true,
     this.cacheImages = true,
     this.cacheSizeLimit = 500,
+    this.blockedUsers = const [],
+    this.blockedKeywords = const [],
   });
 
   /// 从 JSON 创建
@@ -150,6 +178,11 @@ class AppSettings {
       pushNotification: json['pushNotification'] ?? true,
       soundEnabled: json['soundEnabled'] ?? true,
       vibrationEnabled: json['vibrationEnabled'] ?? true,
+      notifyReplies: json['notifyReplies'] ?? true,
+      notifyLikes: json['notifyLikes'] ?? true,
+      notifyMentions: json['notifyMentions'] ?? true,
+      notifyFollows: json['notifyFollows'] ?? true,
+      notifySystem: json['notifySystem'] ?? true,
       showLargeImage: json['showLargeImage'] ?? true,
       listDensity: json['listDensity']?.toDouble() ?? 1.0,
       followSystemDarkMode: json['followSystemDarkMode'] ?? true,
@@ -157,6 +190,14 @@ class AppSettings {
       enableDoubleTapLike: json['enableDoubleTapLike'] ?? true,
       cacheImages: json['cacheImages'] ?? true,
       cacheSizeLimit: json['cacheSizeLimit'] ?? 500,
+      blockedUsers: ((json['blockedUsers'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList(),
+      blockedKeywords: ((json['blockedKeywords'] as List?) ?? const [])
+          .map((e) => e.toString())
+          .where((e) => e.trim().isNotEmpty)
+          .toList(),
     );
   }
 
@@ -173,6 +214,11 @@ class AppSettings {
       'pushNotification': pushNotification,
       'soundEnabled': soundEnabled,
       'vibrationEnabled': vibrationEnabled,
+      'notifyReplies': notifyReplies,
+      'notifyLikes': notifyLikes,
+      'notifyMentions': notifyMentions,
+      'notifyFollows': notifyFollows,
+      'notifySystem': notifySystem,
       'showLargeImage': showLargeImage,
       'listDensity': listDensity,
       'followSystemDarkMode': followSystemDarkMode,
@@ -180,6 +226,8 @@ class AppSettings {
       'enableDoubleTapLike': enableDoubleTapLike,
       'cacheImages': cacheImages,
       'cacheSizeLimit': cacheSizeLimit,
+      'blockedUsers': blockedUsers,
+      'blockedKeywords': blockedKeywords,
     };
   }
 
@@ -195,6 +243,11 @@ class AppSettings {
     bool? pushNotification,
     bool? soundEnabled,
     bool? vibrationEnabled,
+    bool? notifyReplies,
+    bool? notifyLikes,
+    bool? notifyMentions,
+    bool? notifyFollows,
+    bool? notifySystem,
     bool? showLargeImage,
     double? listDensity,
     bool? followSystemDarkMode,
@@ -202,6 +255,8 @@ class AppSettings {
     bool? enableDoubleTapLike,
     bool? cacheImages,
     int? cacheSizeLimit,
+    List<String>? blockedUsers,
+    List<String>? blockedKeywords,
   }) {
     return AppSettings(
       imageQuality: imageQuality ?? this.imageQuality,
@@ -215,6 +270,11 @@ class AppSettings {
       pushNotification: pushNotification ?? this.pushNotification,
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
+      notifyReplies: notifyReplies ?? this.notifyReplies,
+      notifyLikes: notifyLikes ?? this.notifyLikes,
+      notifyMentions: notifyMentions ?? this.notifyMentions,
+      notifyFollows: notifyFollows ?? this.notifyFollows,
+      notifySystem: notifySystem ?? this.notifySystem,
       showLargeImage: showLargeImage ?? this.showLargeImage,
       listDensity: listDensity ?? this.listDensity,
       followSystemDarkMode: followSystemDarkMode ?? this.followSystemDarkMode,
@@ -222,6 +282,8 @@ class AppSettings {
       enableDoubleTapLike: enableDoubleTapLike ?? this.enableDoubleTapLike,
       cacheImages: cacheImages ?? this.cacheImages,
       cacheSizeLimit: cacheSizeLimit ?? this.cacheSizeLimit,
+      blockedUsers: blockedUsers ?? this.blockedUsers,
+      blockedKeywords: blockedKeywords ?? this.blockedKeywords,
     );
   }
 }
@@ -382,6 +444,66 @@ class SettingsNotifier extends _$SettingsNotifier {
   Future<void> setVibrationEnabled(bool enabled) async {
     final currentSettings = _getCurrentSettings();
     final newSettings = currentSettings.copyWith(vibrationEnabled: enabled);
+    await updateSettings(newSettings);
+  }
+
+  Future<void> setNotificationPreferences({
+    bool? notifyReplies,
+    bool? notifyLikes,
+    bool? notifyMentions,
+    bool? notifyFollows,
+    bool? notifySystem,
+  }) async {
+    final currentSettings = _getCurrentSettings();
+    final newSettings = currentSettings.copyWith(
+      notifyReplies: notifyReplies ?? currentSettings.notifyReplies,
+      notifyLikes: notifyLikes ?? currentSettings.notifyLikes,
+      notifyMentions: notifyMentions ?? currentSettings.notifyMentions,
+      notifyFollows: notifyFollows ?? currentSettings.notifyFollows,
+      notifySystem: notifySystem ?? currentSettings.notifySystem,
+    );
+    await updateSettings(newSettings);
+  }
+
+  Future<void> addBlockedUser(String username) async {
+    final normalized = username.trim();
+    if (normalized.isEmpty) return;
+    final currentSettings = _getCurrentSettings();
+    if (currentSettings.blockedUsers.contains(normalized)) return;
+    final newSettings = currentSettings.copyWith(
+      blockedUsers: [...currentSettings.blockedUsers, normalized],
+    );
+    await updateSettings(newSettings);
+  }
+
+  Future<void> removeBlockedUser(String username) async {
+    final currentSettings = _getCurrentSettings();
+    final newSettings = currentSettings.copyWith(
+      blockedUsers: currentSettings.blockedUsers
+          .where((u) => u != username)
+          .toList(),
+    );
+    await updateSettings(newSettings);
+  }
+
+  Future<void> addBlockedKeyword(String keyword) async {
+    final normalized = keyword.trim();
+    if (normalized.isEmpty) return;
+    final currentSettings = _getCurrentSettings();
+    if (currentSettings.blockedKeywords.contains(normalized)) return;
+    final newSettings = currentSettings.copyWith(
+      blockedKeywords: [...currentSettings.blockedKeywords, normalized],
+    );
+    await updateSettings(newSettings);
+  }
+
+  Future<void> removeBlockedKeyword(String keyword) async {
+    final currentSettings = _getCurrentSettings();
+    final newSettings = currentSettings.copyWith(
+      blockedKeywords: currentSettings.blockedKeywords
+          .where((k) => k != keyword)
+          .toList(),
+    );
     await updateSettings(newSettings);
   }
 

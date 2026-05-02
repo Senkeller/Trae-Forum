@@ -270,66 +270,71 @@ class _FeedCardState extends ConsumerState<FeedCard> {
     final colorScheme = Theme.of(context).colorScheme;
     final currentUser = ref.watch(currentUserProvider);
 
-    return Card(
-      margin: widget.margin,
-      color: colorScheme.surface,
-      child: InkWell(
-        onTap: widget.onTap,
-        child: Padding(
-          padding: widget.padding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 作者信息
-              FeedAuthor(
-                avatarUrl: widget.data.avatarUrl,
-                userId: widget.data.userId,
-                username: widget.data.username,
-                publishTime: widget.data.publishTime,
-                location: widget.data.location,
-                userLevel: widget.data.userLevel,
-                showFollowButton: widget.showFollowButton,
-                followStatus: widget.data.isFollowing
-                    ? FollowStatus.following
-                    : FollowStatus.notFollowing,
-                onFollowTap: widget.onFollow,
-                onMoreTap: widget.onMore,
-              ),
-              // 内容
-              FeedContent(
-                text: widget.data.text,
-                images: widget.data.images,
-                onImageTap: widget.onImageTap,
-              ),
-              const SizedBox(height: 12),
-              // 操作栏
-              FeedActions(
-                likeCount: widget.data.likeCount,
-                commentCount: _currentCommentCount,
-                shareCount: widget.data.shareCount,
-                isLiked: widget.data.isLiked,
-                isFavorited: widget.data.isFavorited,
-                onLike: widget.onLike,
-                onComment: widget.onComment,
-                onShare: widget.onShare,
-                onFavorite: widget.onFavorite,
-                showFavorite: widget.showFavoriteButton,
-                showShare: widget.showShareButton,
-              ),
-              // 快速评论栏
-              if (widget.showQuickCommentBar) ...[
-                const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: QuickCommentBar(
-                    currentUserAvatar: currentUser?.avatar,
-                    onTap: () => _openQuickCommentSheet(context),
-                  ),
+    return Semantics(
+      container: true,
+      label: '${widget.data.username}的动态，${widget.data.text ?? ''}',
+      hint: '双击查看详情',
+      child: Card(
+        margin: widget.margin,
+        color: colorScheme.surface,
+        child: InkWell(
+          onTap: widget.onTap,
+          child: Padding(
+            padding: widget.padding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 作者信息
+                FeedAuthor(
+                  avatarUrl: widget.data.avatarUrl,
+                  userId: widget.data.userId,
+                  username: widget.data.username,
+                  publishTime: widget.data.publishTime,
+                  location: widget.data.location,
+                  userLevel: widget.data.userLevel,
+                  showFollowButton: widget.showFollowButton,
+                  followStatus: widget.data.isFollowing
+                      ? FollowStatus.following
+                      : FollowStatus.notFollowing,
+                  onFollowTap: widget.onFollow,
+                  onMoreTap: widget.onMore,
                 ),
-                const SizedBox(height: 8),
+                // 内容
+                FeedContent(
+                  text: widget.data.text,
+                  images: widget.data.images,
+                  onImageTap: widget.onImageTap,
+                ),
+                const SizedBox(height: 12),
+                // 操作栏
+                FeedActions(
+                  likeCount: widget.data.likeCount,
+                  commentCount: _currentCommentCount,
+                  shareCount: widget.data.shareCount,
+                  isLiked: widget.data.isLiked,
+                  isFavorited: widget.data.isFavorited,
+                  onLike: widget.onLike,
+                  onComment: widget.onComment,
+                  onShare: widget.onShare,
+                  onFavorite: widget.onFavorite,
+                  showFavorite: widget.showFavoriteButton,
+                  showShare: widget.showShareButton,
+                ),
+                // 快速评论栏
+                if (widget.showQuickCommentBar) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: QuickCommentBar(
+                      currentUserAvatar: currentUser?.avatar,
+                      onTap: () => _openQuickCommentSheet(context),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

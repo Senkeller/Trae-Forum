@@ -103,31 +103,46 @@ class _SearchPageState extends ConsumerState<SearchPage>
 
     return Scaffold(
       appBar: AppBar(
-        title: TextField(
-          controller: _searchController,
-          focusNode: _focusNode,
-          textInputAction: TextInputAction.search,
-          onSubmitted: _performSearch,
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            hintText: '搜索 forum.trae.cn 话题',
-            border: InputBorder.none,
-            suffixIcon: _searchController.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear),
-                    onPressed: () {
-                      _searchController.clear();
-                      ref.read(sp.searchNotifierProvider.notifier).clearResults();
-                      setState(() {});
-                    },
-                  )
-                : null,
+        title: Semantics(
+          label: '搜索输入框',
+          hint: '输入关键词搜索话题',
+          textField: true,
+          child: TextField(
+            controller: _searchController,
+            focusNode: _focusNode,
+            textInputAction: TextInputAction.search,
+            onSubmitted: _performSearch,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: '搜索 forum.trae.cn 话题',
+              labelText: '搜索',
+              border: InputBorder.none,
+              suffixIcon: _searchController.text.isNotEmpty
+                  ? Semantics(
+                      label: '清空搜索内容',
+                      button: true,
+                      child: IconButton(
+                        icon: const Icon(Icons.clear),
+                        tooltip: '清空',
+                        onPressed: () {
+                          _searchController.clear();
+                          ref.read(sp.searchNotifierProvider.notifier).clearResults();
+                          setState(() {});
+                        },
+                      ),
+                    )
+                  : null,
+            ),
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => _performSearch(_searchController.text),
-            child: const Text('搜索'),
+          Semantics(
+            label: '搜索按钮',
+            button: true,
+            child: TextButton(
+              onPressed: () => _performSearch(_searchController.text),
+              child: const Text('搜索'),
+            ),
           ),
         ],
         bottom: TabBar(

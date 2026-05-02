@@ -97,11 +97,7 @@ class FeedAuthor extends StatelessWidget {
         child: Row(
           children: [
             // 头像
-            UserAvatar(
-              avatarUrl: avatarUrl,
-              userId: userId,
-              size: avatarSize,
-            ),
+            UserAvatar(avatarUrl: avatarUrl, userId: userId, size: avatarSize),
             const SizedBox(width: 12),
             // 用户信息
             Expanded(
@@ -126,10 +122,7 @@ class FeedAuthor extends StatelessWidget {
             // 关注按钮
             if (showFollowButton) ...[
               const SizedBox(width: 8),
-              FollowButton.small(
-                status: followStatus,
-                onPressed: onFollowTap,
-              ),
+              FollowButton.small(status: followStatus, onPressed: onFollowTap),
             ],
             // 更多按钮
             if (showMoreButton) ...[
@@ -137,10 +130,7 @@ class FeedAuthor extends StatelessWidget {
                 onPressed: onMoreTap,
                 icon: const Icon(Icons.more_vert),
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 40,
-                ),
+                constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               ),
             ],
           ],
@@ -199,10 +189,7 @@ class FeedAuthor extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: children,
-    );
+    return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 
   /// 格式化时间
@@ -283,11 +270,7 @@ class FeedAuthorSimple extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          UserAvatar(
-            avatarUrl: avatarUrl,
-            userId: userId,
-            size: avatarSize,
-          ),
+          UserAvatar(avatarUrl: avatarUrl, userId: userId, size: avatarSize),
           const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +321,7 @@ class FeedAuthorSimple extends StatelessWidget {
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
       final path = RoutePaths.userProfile.replaceFirst(
-        ':uid',
+        ':username',
         Uri.encodeComponent(userId!),
       );
       context.push(path);

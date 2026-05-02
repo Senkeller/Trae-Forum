@@ -7,14 +7,19 @@ import 'online_status_indicator.dart';
 enum UserLevel {
   /// 普通用户
   normal,
+
   /// VIP 用户
   vip,
+
   /// SVIP 用户
   svip,
+
   /// 管理员
   admin,
+
   /// 版主
   moderator,
+
   /// 官方账号
   official,
 }
@@ -188,7 +193,8 @@ class UserName extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final defaultStyle = style ??
+    final defaultStyle =
+        style ??
         textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
           color: colorScheme.onBackground,
@@ -240,11 +246,7 @@ class UserName extends StatelessWidget {
 
   /// 构建认证标识
   Widget _buildVerifiedBadge(ColorScheme colorScheme) {
-    return Icon(
-      Icons.verified,
-      size: badgeSize,
-      color: colorScheme.primary,
-    );
+    return Icon(Icons.verified, size: badgeSize, color: colorScheme.primary);
   }
 
   /// 构建等级标识
@@ -259,20 +261,13 @@ class UserName extends StatelessWidget {
       decoration: BoxDecoration(
         color: config.backgroundColor,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: config.badgeColor,
-          width: 0.5,
-        ),
+        border: Border.all(color: config.badgeColor, width: 0.5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (config.icon != null) ...[
-            Icon(
-              config.icon,
-              size: badgeSize * 0.7,
-              color: config.textColor,
-            ),
+            Icon(config.icon, size: badgeSize * 0.7, color: config.textColor),
             const SizedBox(width: 2),
           ],
           Text(
@@ -292,7 +287,7 @@ class UserName extends StatelessWidget {
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
       final path = RoutePaths.userProfile.replaceFirst(
-        ':uid',
+        ':username',
         Uri.encodeComponent(userId!),
       );
       context.push(path);
@@ -345,10 +340,9 @@ class UserNameSimple extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    final defaultStyle = style ??
-        textTheme.bodyMedium?.copyWith(
-          color: colorScheme.onBackground,
-        );
+    final defaultStyle =
+        style ??
+        textTheme.bodyMedium?.copyWith(color: colorScheme.onBackground);
 
     Widget content = Text(
       username,
@@ -371,7 +365,7 @@ class UserNameSimple extends StatelessWidget {
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
       final path = RoutePaths.userProfile.replaceFirst(
-        ':uid',
+        ':username',
         Uri.encodeComponent(userId!),
       );
       context.push(path);
@@ -465,7 +459,7 @@ class UserNameWithInfo extends StatelessWidget {
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
       final path = RoutePaths.userProfile.replaceFirst(
-        ':uid',
+        ':username',
         Uri.encodeComponent(userId!),
       );
       context.push(path);

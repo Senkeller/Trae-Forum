@@ -148,12 +148,14 @@ class _ComposerEditorState extends State<ComposerEditor> {
   late ComposerEditorMode _currentMode;
   final List<AttachmentItem> _attachments = [];
   bool _isComposing = false;
+  String _currentText = '';
 
   @override
   void initState() {
     super.initState();
     _currentMode = widget.initialMode;
     _isComposing = widget.initialText?.isNotEmpty ?? false;
+    _currentText = widget.initialText ?? '';
   }
 
   /// 处理文本变化
@@ -162,6 +164,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
     if (isComposing != _isComposing) {
       setState(() {
         _isComposing = isComposing;
+        _currentText = text;
+      });
+    } else if (_currentText != text) {
+      setState(() {
+        _currentText = text;
       });
     }
     widget.onTextChanged?.call(text);
@@ -176,6 +183,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   /// 切换编辑器模式
   void _switchMode(ComposerEditorMode mode) {
+    if (!_canShowPreviewModes && mode != ComposerEditorMode.edit) {
+      return;
+    }
     setState(() {
       _currentMode = mode;
     });
@@ -191,13 +201,11 @@ class _ComposerEditorState extends State<ComposerEditor> {
         if (widget.title != null) _buildHeader(context),
 
         // 模式切换栏
-        if (widget.enableSplitView && widget.showPreview)
+        if (widget.enableSplitView && _canShowPreviewModes)
           _buildModeSwitcher(context),
 
         // 编辑器主体
-        Flexible(
-          child: _buildEditorBody(context),
-        ),
+        Flexible(child: _buildEditorBody(context)),
 
         // 底部操作栏
         _buildBottomBar(context),
@@ -222,9 +230,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
         children: [
           Text(
             widget.title!,
-            style: textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -239,9 +245,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outline.withOpacity(0.3),
-          ),
+          bottom: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
         ),
       ),
       child: Row(
@@ -297,14 +301,18 @@ class _ComposerEditorState extends State<ComposerEditor> {
             Icon(
               icon,
               size: 16,
-              color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 4),
             Text(
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                color: isSelected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
@@ -312,18 +320,6 @@ class _ComposerEditorState extends State<ComposerEditor> {
         ),
       ),
     );
-  }
-
-  /// 构建编辑器主体
-  Widget _buildEditorBody(BuildContext context) {
-    switch (_currentMode) {
-      case ComposerEditorMode.edit:
-        return _buildTextField(context);
-      case ComposerEditorMode.preview:
-        return _buildPreview(context);
-      case ComposerEditorMode.split:
-        return _buildSplitView(context);
-    }
   }
 
   /// 构建文本输入框
@@ -342,14 +338,46 @@ class _ComposerEditorState extends State<ComposerEditor> {
 
   /// 构建预览区域
   Widget _buildPreview(BuildContext context) {
-    // 预览模式暂时使用简单的文本显示
-    // 后续可以集成 Markdown 预览
+    final content = _currentText.trim();
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
-      child: const Center(
-        child: Text('预览模式开发中...'),
-      ),
+      child: content.isEmpty
+          ? Center(
+              child: Text(
+                '暂无内容可预览',
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+            )
+          : SingleChildScrollView(
+              child: SelectableText(
+                _currentText,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
     );
+  }
+
+  bool get _canShowPreviewModes =>
+      widget.showPreview && _currentText.isNotEmpty;
+
+  ComposerEditorMode get _effectiveMode {
+    if (!_canShowPreviewModes && _currentMode != ComposerEditorMode.edit) {
+      return ComposerEditorMode.edit;
+    }
+    return _currentMode;
+  }
+
+  /// 构建编辑器主体
+  Widget _buildEditorBody(BuildContext context) {
+    switch (_effectiveMode) {
+      case ComposerEditorMode.edit:
+        return _buildTextField(context);
+      case ComposerEditorMode.preview:
+        return _buildPreview(context);
+      case ComposerEditorMode.split:
+        return _buildSplitView(context);
+    }
   }
 
   /// 构建分屏视图
@@ -370,9 +398,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
           ),
         ),
         // 预览区域
-        Expanded(
-          child: _buildPreview(context),
-        ),
+        Expanded(child: _buildPreview(context)),
       ],
     );
   }
@@ -385,9 +411,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(
-            color: colorScheme.outline.withOpacity(0.3),
-          ),
+          top: BorderSide(color: colorScheme.outline.withOpacity(0.3)),
         ),
       ),
       child: Row(
@@ -568,20 +592,10 @@ class AttachmentItem {
 }
 
 /// 附件类型
-enum AttachmentType {
-  image,
-  video,
-  audio,
-  file,
-}
+enum AttachmentType { image, video, audio, file }
 
 /// 上传状态
-enum UploadStatus {
-  pending,
-  uploading,
-  success,
-  failed,
-}
+enum UploadStatus { pending, uploading, success, failed }
 
 /// 链接插入回调函数类型
 ///
@@ -589,9 +603,10 @@ enum UploadStatus {
 /// [url] 链接 URL
 /// [isValid] URL 是否有效
 /// [errorMessage] 错误信息（如果 URL 无效）
-typedef LinkInsertCallback = void Function({
-  required String text,
-  required String url,
-  required bool isValid,
-  String? errorMessage,
-});
+typedef LinkInsertCallback =
+    void Function({
+      required String text,
+      required String url,
+      required bool isValid,
+      String? errorMessage,
+    });

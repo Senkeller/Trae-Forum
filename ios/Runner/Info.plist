@@ -56,5 +56,14 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<!-- 推送通知配置 -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>fetch</string>
+			<string>remote-notification</string>
+		</array>
+		<!-- Firebase配置 -->
+		<key>FirebaseAppDelegateProxyEnabled</key>
+		<false/>
 	</dict>
 </plist>

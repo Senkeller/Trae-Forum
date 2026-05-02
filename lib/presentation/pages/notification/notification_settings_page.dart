@@ -26,14 +26,32 @@ class _NotificationSettingsPageState
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSettings());
   }
 
   Future<void> _loadSettings() async {
-    await Future.delayed(const Duration(milliseconds: 200));
+    final settings = ref.read(currentSettingsProvider);
+    if (!mounted) return;
+    setState(() {
+      _notifyReplies = settings.notifyReplies;
+      _notifyLikes = settings.notifyLikes;
+      _notifyMentions = settings.notifyMentions;
+      _notifyFollows = settings.notifyFollows;
+      _notifySystem = settings.notifySystem;
+    });
   }
 
   Future<void> _saveSettings() async {
+    await ref
+        .read(settingsNotifierProvider.notifier)
+        .setNotificationPreferences(
+          notifyReplies: _notifyReplies,
+          notifyLikes: _notifyLikes,
+          notifyMentions: _notifyMentions,
+          notifyFollows: _notifyFollows,
+          notifySystem: _notifySystem,
+        );
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('设置已保存')));

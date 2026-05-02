@@ -239,7 +239,8 @@ class UserAvatar extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: fallbackBackgroundColor ??
+          color:
+              fallbackBackgroundColor ??
               placeholderColor ??
               colorScheme.surfaceVariant,
           shape: BoxShape.circle,
@@ -257,10 +258,7 @@ class UserAvatar extends StatelessWidget {
       avatar = Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(
-            color: borderColor!,
-            width: borderWidth,
-          ),
+          border: Border.all(color: borderColor!, width: borderWidth),
         ),
         child: avatar,
       );
@@ -286,10 +284,7 @@ class UserAvatar extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.green,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: colorScheme.background,
-                  width: 2,
-                ),
+                border: Border.all(color: colorScheme.background, width: 2),
               ),
             ),
           ),
@@ -314,10 +309,7 @@ class UserAvatar extends StatelessWidget {
             decoration: BoxDecoration(
               color: colorScheme.primary,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: colorScheme.background,
-                width: 2,
-              ),
+              border: Border.all(color: colorScheme.background, width: 2),
             ),
             child: Icon(
               Icons.check,
@@ -334,7 +326,7 @@ class UserAvatar extends StatelessWidget {
   void _navigateToUserProfile(BuildContext context) {
     if (userId != null) {
       final path = RoutePaths.userProfile.replaceFirst(
-        ':uid',
+        ':username',
         Uri.encodeComponent(userId!),
       );
       context.push(path);
@@ -387,7 +379,9 @@ class UserAvatarGroup extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: itemWidth * (displayUrls.length - 1) + size +
+        width:
+            itemWidth * (displayUrls.length - 1) +
+            size +
             (remainingCount > 0 ? itemWidth : 0),
         height: size,
         child: Stack(
@@ -411,10 +405,7 @@ class UserAvatarGroup extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceVariant,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: colorScheme.background,
-                      width: 2,
-                    ),
+                    border: Border.all(color: colorScheme.background, width: 2),
                   ),
                   child: Center(
                     child: Text(

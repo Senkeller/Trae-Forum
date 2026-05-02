@@ -10,6 +10,7 @@ import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/user.dart' as user_model;
 import '../../providers/auth_provider.dart';
 import '../../providers/home_provider.dart';
+import '../../providers/private_message_provider.dart';
 import '../../providers/user_badges_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
@@ -18,13 +19,13 @@ import '../../widgets/user/online_status_indicator.dart';
 /// 用户资料页
 class UserProfilePage extends ConsumerStatefulWidget {
   /// 用户名（Discourse username）
-  final String? uid;
+  final String? username;
   final String? initialTab;
   final String? initialActivityCategory;
 
   const UserProfilePage({
     super.key,
-    this.uid,
+    this.username,
     this.initialTab,
     this.initialActivityCategory,
   });
@@ -78,8 +79,8 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
   }
 
   String? _resolveUsername(user_model.UserInfo? currentUser) {
-    final target = widget.uid;
-    if (target != null && target.isNotEmpty && target != 'current_user') {
+    final target = widget.username?.trim();
+    if (target != null && target.isNotEmpty) {
       return target;
     }
 
@@ -280,10 +281,13 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
                 messenger.showSnackBar(SnackBar(content: Text(text)));
               },
               onSendMessage: () {
-                _showMessageDialog(context, username);
+                // 跳转到私信页面，创建新私信
+                _showSendMessageDialog(context, username);
               },
               onFollowersTap: () {
-                context.push(RoutePaths.fanList.replaceFirst(':uid', username));
+                context.push(
+                  RoutePaths.fanList.replaceFirst(':username', username),
+                );
               },
             ),
           ),
@@ -495,39 +499,6 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
     );
   }
 
-  void _showMessageDialog(BuildContext context, String username) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('发私信给 @$username'),
-        content: TextField(
-          controller: controller,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: '请输入私信内容...',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text('私信功能开发中')));
-            },
-            child: const Text('发送'),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// 打开论坛个人资料设置页面（/my/preferences/profile）
   void _openForumProfilePreferences(BuildContext context) {
     final baseUri = Uri.parse(AppConstants.forumUrl);
@@ -537,6 +508,14 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
 
     context.push(
       '${RoutePaths.webview}?url=${Uri.encodeComponent(profileUri.toString())}&title=${Uri.encodeComponent('编辑资料')}',
+    );
+  }
+
+  /// 显示发送私信对话框
+  void _showSendMessageDialog(BuildContext context, String username) {
+    showDialog(
+      context: context,
+      builder: (context) => _SendMessageDialog(targetUsername: username),
     );
   }
 }
@@ -849,7 +828,8 @@ class _SummaryStatItem extends StatelessWidget {
               Icon(
                 icon,
                 size: 12,
-                color: iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
+                color:
+                    iconColor ?? Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
             ],
@@ -1325,7 +1305,7 @@ class _ProfileHeader extends ConsumerWidget {
                 OutlinedButton.icon(
                   onPressed: onSendMessage,
                   icon: const Icon(Icons.message_outlined, size: 18),
-                  label: const Text('私信'),
+                  label: const Text('发私信'),
                 ),
               ],
             ),
@@ -1436,7 +1416,11 @@ class _ProfileHeader extends ConsumerWidget {
   }
 
   /// 构建用户徽章展示区域
-  Widget _buildUserBadgesSection(BuildContext context, WidgetRef ref, String username) {
+  Widget _buildUserBadgesSection(
+    BuildContext context,
+    WidgetRef ref,
+    String username,
+  ) {
     final badgesAsync = ref.watch(userBadgesProvider(username));
 
     return badgesAsync.when(
@@ -1463,7 +1447,10 @@ class _ProfileHeader extends ConsumerWidget {
                 ),
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(10),
@@ -1483,7 +1470,10 @@ class _ProfileHeader extends ConsumerWidget {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: badges.take(6).map((badge) => _buildBadgeItem(context, badge)).toList(),
+              children: badges
+                  .take(6)
+                  .map((badge) => _buildBadgeItem(context, badge))
+                  .toList(),
             ),
             // 查看更多按钮（如果徽章数量超过6个）
             if (badges.length > 6) ...[
@@ -1518,7 +1508,9 @@ class _ProfileHeader extends ConsumerWidget {
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
+              color: Theme.of(
+                context,
+              ).colorScheme.outlineVariant.withValues(alpha: 0.5),
             ),
           ),
           child: Row(
@@ -1576,9 +1568,7 @@ class _ProfileHeader extends ConsumerWidget {
   /// 导航到用户徽章列表页
   void _navigateToUserBadges(BuildContext context, String username) {
     final baseUri = Uri.parse(AppConstants.forumUrl);
-    final badgesUri = baseUri.replace(
-      pathSegments: ['u', username, 'badges'],
-    );
+    final badgesUri = baseUri.replace(pathSegments: ['u', username, 'badges']);
 
     context.push(
       '${RoutePaths.webview}?url=${Uri.encodeComponent(badgesUri.toString())}&title=${Uri.encodeComponent('徽章')}',
@@ -1842,6 +1832,127 @@ class _StateView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 发送私信对话框
+class _SendMessageDialog extends ConsumerStatefulWidget {
+  final String targetUsername;
+
+  const _SendMessageDialog({required this.targetUsername});
+
+  @override
+  ConsumerState<_SendMessageDialog> createState() => _SendMessageDialogState();
+}
+
+class _SendMessageDialogState extends ConsumerState<_SendMessageDialog> {
+  final _titleController = TextEditingController();
+  final _contentController = TextEditingController();
+  bool _isSending = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _contentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: Text('发私信给 @${widget.targetUsername}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: '标题',
+                hintText: '输入私信标题',
+                prefixIcon: Icon(Icons.title),
+              ),
+              enabled: !_isSending,
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _contentController,
+              decoration: const InputDecoration(
+                labelText: '内容',
+                hintText: '输入私信内容',
+                prefixIcon: Icon(Icons.message_outlined),
+                alignLabelWithHint: true,
+              ),
+              enabled: !_isSending,
+              maxLines: 4,
+              textInputAction: TextInputAction.send,
+              onSubmitted: (_) => _sendMessage(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSending ? null : () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          onPressed: _isSending ? null : _sendMessage,
+          child: _isSending
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('发送'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _sendMessage() async {
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+
+    if (title.isEmpty) {
+      _showError('请输入标题');
+      return;
+    }
+    if (content.isEmpty) {
+      _showError('请输入内容');
+      return;
+    }
+
+    setState(() => _isSending = true);
+
+    // 导入私信 provider
+    final notifier = ref.read(privateMessageChatNotifierProvider.notifier);
+    final topicId = await notifier.createConversation(
+      title: title,
+      content: content,
+      targetUsernames: [widget.targetUsername],
+    );
+
+    if (mounted) {
+      if (topicId != null) {
+        Navigator.of(context).pop();
+        // 跳转到新创建的会话
+        context.push('/chat/$topicId');
+      } else {
+        setState(() => _isSending = false);
+        final error = ref.read(privateMessageChatNotifierProvider).errorMessage;
+        _showError(error ?? '发送失败');
+      }
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

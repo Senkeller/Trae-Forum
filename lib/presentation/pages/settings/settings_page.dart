@@ -31,10 +31,23 @@ class SettingsPage extends ConsumerWidget {
     final userPresence = ref.watch(currentUserPresenceProvider);
     final presenceNotifier = ref.read(userPresenceNotifierProvider.notifier);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
-      body: ListView(
-        children: [
+    return Semantics(
+      label: '设置页面',
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('设置'),
+          leading: Semantics(
+            label: '返回',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: '返回',
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+        body: ListView(
+          children: [
           // 账号与安全
           _SectionHeader(title: '账号'),
           _SettingItem(
@@ -153,7 +166,7 @@ class SettingsPage extends ConsumerWidget {
           _SettingItem(
             icon: Icons.block_outlined,
             title: '黑名单',
-            subtitle: '已屏蔽 0 个用户',
+            subtitle: '已屏蔽 ${appSettings.blockedUsers.length} 个用户',
             onTap: () {
               context.push(RoutePaths.blacklist);
             },
@@ -210,7 +223,7 @@ class SettingsPage extends ConsumerWidget {
           _SettingItem(
             icon: Icons.storage_outlined,
             title: '清除缓存',
-            subtitle: '12.5 MB',
+            subtitle: '清理图片与网页缓存',
             onTap: () {
               _showClearCacheDialog(context, ref);
             },
@@ -250,7 +263,7 @@ class SettingsPage extends ConsumerWidget {
           _SettingItem(
             icon: Icons.update_outlined,
             title: '检查更新',
-            subtitle: '当前版本 1.0.0',
+            subtitle: '当前版本 ${AppConstants.appVersion}',
             onTap: () {
               _checkForUpdates(context);
             },
@@ -269,8 +282,9 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
         ],
-      ),
-    );
+          ),
+        ),
+      );
   }
 
   /// 显示图片质量选择对话框
@@ -332,9 +346,9 @@ class SettingsPage extends ConsumerWidget {
               groupValue: currentLanguage,
               onChanged: (value) async {
                 if (value == null) return;
-                await ref.read(settingsNotifierProvider.notifier).setLanguage(
-                  value,
-                );
+                await ref
+                    .read(settingsNotifierProvider.notifier)
+                    .setLanguage(value);
                 if (!context.mounted) return;
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -382,9 +396,9 @@ class SettingsPage extends ConsumerWidget {
               final message = clearedBytes > 0
                   ? '缓存已清理，释放 ${(clearedBytes / (1024 * 1024)).toStringAsFixed(2)} MB'
                   : '缓存已清理';
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(message)),
-              );
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(message)));
             },
             child: const Text('确定'),
           ),
@@ -399,15 +413,27 @@ class SettingsPage extends ConsumerWidget {
     required String path,
   }) {
     final url = '${AppConstants.forumUrl}$path';
-    context.push(
-      '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title)}',
-    );
+    _openWebPage(context, url: url, title: title);
   }
 
   void _checkForUpdates(BuildContext context) {
+    final releasesUrl = Uri.parse(
+      'https://github.com/trae-community/trae-forum-app/releases',
+    );
     Clipboard.setData(const ClipboardData(text: AppConstants.appVersion));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('当前已是最新版本（1.0.0），版本号已复制到剪贴板')),
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('已打开版本发布页，当前版本号已复制')));
+    _openWebPage(context, url: releasesUrl.toString(), title: '版本发布');
+  }
+
+  void _openWebPage(
+    BuildContext context, {
+    required String url,
+    required String title,
+  }) {
+    context.push(
+      '${RoutePaths.webview}?url=${Uri.encodeComponent(url)}&title=${Uri.encodeComponent(title)}',
     );
   }
 
@@ -756,10 +782,7 @@ class _PresenceSettingItem extends StatelessWidget {
   final VoidCallback onToggle;
 
   /// 构造函数
-  const _PresenceSettingItem({
-    required this.status,
-    required this.onToggle,
-  });
+  const _PresenceSettingItem({required this.status, required this.onToggle});
 
   @override
   Widget build(BuildContext context) {

@@ -5,6 +5,20 @@ import 'package:go_router/go_router.dart';
 import '../../../config/constants.dart';
 import '../../providers/auth_provider.dart';
 
+String? resolveQuickActionRoute(String route, String username) {
+  if (!route.contains(':username')) {
+    return route;
+  }
+  final normalizedUsername = username.trim();
+  if (normalizedUsername.isEmpty) {
+    return null;
+  }
+  return route.replaceFirst(
+    ':username',
+    Uri.encodeComponent(normalizedUsername),
+  );
+}
+
 /// 快捷功能项
 class QuickActionItem {
   final String title;
@@ -200,7 +214,17 @@ class QuickActionsGrid extends ConsumerWidget {
     }
 
     // 导航到对应页面
-    context.push(item.route);
+    final resolvedRoute = _resolveRoute(item.route, ref);
+    if (resolvedRoute == null) {
+      _showLoginDialog(context);
+      return;
+    }
+    context.push(resolvedRoute);
+  }
+
+  String? _resolveRoute(String route, WidgetRef ref) {
+    final currentUser = ref.read(currentUserProvider);
+    return resolveQuickActionRoute(route, currentUser?.username ?? '');
   }
 
   /// 显示登录对话框
@@ -264,7 +288,7 @@ final List<QuickActionItem> defaultQuickActions = [
   const QuickActionItem(
     title: '我的赞',
     icon: Icons.thumb_up_outlined,
-    route: '/user/current_user?tab=activity&category=likes',
+    route: '${RoutePaths.userProfile}?tab=activity&category=likes',
     requireLogin: true,
     iconColor: Color(0xFF2196F3),
     backgroundColor: Color(0xFFE3F2FD),
@@ -272,29 +296,13 @@ final List<QuickActionItem> defaultQuickActions = [
   const QuickActionItem(
     title: '我的回复',
     icon: Icons.chat_bubble_outline,
-    route: '/user/current_user?tab=activity&category=replies',
+    route: '${RoutePaths.userProfile}?tab=activity&category=replies',
     requireLogin: true,
     iconColor: Color(0xFF00BCD4),
     backgroundColor: Color(0xFFE0F7FA),
   ),
   const QuickActionItem(
-    title: '我的关注',
-    icon: Icons.person_add_outlined,
-    route: '/user/follows',
-    requireLogin: true,
-    iconColor: Color(0xFF3F51B5),
-    backgroundColor: Color(0xFFE8EAF6),
-  ),
-  const QuickActionItem(
-    title: '我的粉丝',
-    icon: Icons.people_outline,
-    route: '/user/fans',
-    requireLogin: true,
-    iconColor: Color(0xFF795548),
-    backgroundColor: Color(0xFFEFEBE9),
-  ),
-  const QuickActionItem(
-    title: '草稿箱',
+    title: '消息',
     icon: Icons.drafts_outlined,
     route: RoutePaths.message,
     requireLogin: true,

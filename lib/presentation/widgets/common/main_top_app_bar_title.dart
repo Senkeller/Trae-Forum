@@ -31,7 +31,7 @@ class MainTopAppBarTitle extends ConsumerWidget {
                     ? currentUser.username
                     : currentUser.uid;
                 context.push(
-                  RoutePaths.userProfile.replaceFirst(':uid', profileId),
+                  RoutePaths.userProfile.replaceFirst(':username', profileId),
                 );
               } else {
                 context.push(RoutePaths.login);

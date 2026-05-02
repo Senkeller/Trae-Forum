@@ -130,10 +130,10 @@ class RoutePaths {
   static const String feedEdit = '/feed/:id/edit';
 
   // 用户相关
-  static const String userProfile = '/user/:uid';
+  static const String userProfile = '/user/:username';
   static const String userEdit = '/user/edit';
-  static const String followList = '/user/:uid/follows';
-  static const String fanList = '/user/:uid/fans';
+  static const String followList = '/user/:username/follows';
+  static const String fanList = '/user/:username/fans';
 
   // 话题相关
   static const String topicList = '/topics';
@@ -151,6 +151,10 @@ class RoutePaths {
   static const String messageDetail = '/messages/:type';
   static const String notifications = '/notifications';
   static const String notificationSettings = '/notifications/settings';
+
+  // 私信
+  static const String conversations = '/conversations';
+  static const String chat = '/chat/:id';
 
   // 设置
   static const String settings = '/settings';

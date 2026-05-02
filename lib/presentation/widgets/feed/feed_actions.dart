@@ -123,6 +123,7 @@ class FeedActions extends StatelessWidget {
               isActive: isLiked,
               activeColor: AppTheme.likeColor,
               onTap: onLike,
+              semanticsLabel: isLiked ? '已点赞，$likeCount人点赞' : '点赞，$likeCount人点赞',
             ),
           ),
           // 评论按钮
@@ -132,6 +133,7 @@ class FeedActions extends StatelessWidget {
               icon: Icons.chat_bubble_outline,
               count: commentCount,
               onTap: onComment,
+              semanticsLabel: '评论，$commentCount条评论',
             ),
           ),
           // 收藏按钮
@@ -144,6 +146,7 @@ class FeedActions extends StatelessWidget {
                 isActive: isFavorited,
                 activeColor: AppTheme.favoriteColor,
                 onTap: onFavorite,
+                semanticsLabel: isFavorited ? '已收藏' : '收藏',
               ),
             ),
           // 分享按钮
@@ -154,6 +157,7 @@ class FeedActions extends StatelessWidget {
                 icon: Icons.share,
                 count: shareCount,
                 onTap: onShare,
+                semanticsLabel: '分享，$shareCount次分享',
               ),
             ),
           // 更多按钮
@@ -162,6 +166,7 @@ class FeedActions extends StatelessWidget {
               context,
               icon: Icons.more_horiz,
               onTap: onMore,
+              semanticsLabel: '更多操作',
             ),
         ],
       ),
@@ -177,6 +182,7 @@ class FeedActions extends StatelessWidget {
     bool isActive = false,
     Color? activeColor,
     VoidCallback? onTap,
+    String? semanticsLabel,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -189,32 +195,39 @@ class FeedActions extends StatelessWidget {
         ? (activeColor ?? colorScheme.primary)
         : colorScheme.onSurfaceVariant;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: iconColor,
-              ),
-              if (count > 0 || (label != null && label.isNotEmpty)) ...[
-                const SizedBox(width: 4),
-                Text(
-                  count > 0 ? _formatCount(count) : label!,
-                  style: textTheme.bodySmall?.copyWith(
-                    color: textColor,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                  ),
+    final displayText = count > 0 ? _formatCount(count) : (label ?? '');
+    final fullSemanticsLabel = semanticsLabel ?? displayText;
+
+    return Semantics(
+      label: fullSemanticsLabel,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: iconColor,
                 ),
+                if (count > 0 || (label != null && label.isNotEmpty)) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    displayText,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: textColor,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
