@@ -60,7 +60,11 @@ class _PostReplyListState extends ConsumerState<PostReplyList> {
   final ScrollController _scrollController = ScrollController();
 
   /// 滚动加载守卫，用于管理回复列表的触底加载逻辑
-  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard();
+  /// 阈值设置为 500 像素，提前预加载更多回复，提供更流畅的滚动体验
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard(
+    threshold: 500,
+    minIntervalMs: 300,
+  );
 
   @override
   void initState() {
@@ -167,19 +171,34 @@ class _PostReplyListState extends ConsumerState<PostReplyList> {
   }
 
   /// 构建加载更多指示器
+  ///
+  /// 显示进度指示器和加载文字，提供更友好的加载体验
   Widget _buildLoadMoreIndicator(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 20),
       alignment: Alignment.center,
-      child: SizedBox(
-        width: 24,
-        height: 24,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-        ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '加载更多回复...',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

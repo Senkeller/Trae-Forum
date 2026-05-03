@@ -60,7 +60,12 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
   final Map<String, GlobalKey> _replyItemKeys = {};
 
   /// 滚动加载守卫，用于管理评论列表的触底加载逻辑
-  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard(threshold: 220);
+  /// 阈值设置为 500 像素，提前预加载更多评论，提供更流畅的滚动体验
+  /// 最小触发间隔 300 毫秒，防止过于频繁的加载请求
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard(
+    threshold: 500,
+    minIntervalMs: 300,
+  );
 
   FeedContentData? _topicDetail;
   List<TopicContentBlock> _topicBlocks = const [];
@@ -650,6 +655,62 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
     return html.replaceAll(RegExp(r'\s+'), '').replaceAll('&nbsp;', '').trim();
   }
 
+  /// 构建底部加载指示器
+  ///
+  /// 根据当前加载状态显示不同的UI：
+  /// - 正在加载：显示进度指示器和加载文字
+  /// - 没有更多：显示提示文字
+  /// - 默认：显示空组件
+  Widget _buildBottomLoader() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    if (_isLoadingMoreComments) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '加载更多回复...',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (!_hasMoreComments && _comments.isNotEmpty) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Divider(
+            color: colorScheme.outline.withOpacity(0.2),
+            indent: 60,
+            endIndent: 60,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '—— 没有更多回复了 ——',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
   /// 记录浏览历史
   ///
   /// 当用户查看帖子详情时，将帖子信息保存到本地浏览历史
@@ -1196,22 +1257,12 @@ class _FeedDetailPageState extends ConsumerState<FeedDetailPage> {
               );
             },
           ),
+        // 底部加载指示器区域
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 20),
             child: Center(
-              child: _isLoadingMoreComments
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : (!_hasMoreComments && _comments.isNotEmpty)
-                  ? Text(
-                      '没有更多回复了',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    )
-                  : const SizedBox.shrink(),
+              child: _buildBottomLoader(),
             ),
           ),
         ),

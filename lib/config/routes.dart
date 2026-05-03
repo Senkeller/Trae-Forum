@@ -19,6 +19,7 @@ import '../presentation/pages/search/search_result_page.dart';
 import '../presentation/pages/message/message_page.dart';
 import '../presentation/pages/message/message_detail_page.dart';
 import '../presentation/pages/message/conversation_list_page.dart';
+import '../presentation/pages/message/new_conversation_page.dart';
 import '../presentation/pages/message/chat_page.dart';
 
 import '../presentation/pages/notification/notification_settings_page.dart';
@@ -642,6 +643,12 @@ class AppRouter {
       GoRoute(
         path: RoutePaths.conversations,
         builder: (context, state) => const ConversationListPage(),
+      ),
+
+      // 新建私信页面
+      GoRoute(
+        path: RoutePaths.newConversation,
+        builder: (context, state) => const NewConversationPage(),
       ),
 
       // 私信聊天页面

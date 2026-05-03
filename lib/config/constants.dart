@@ -154,6 +154,7 @@ class RoutePaths {
 
   // 私信
   static const String conversations = '/conversations';
+  static const String newConversation = '/conversations/new';
   static const String chat = '/chat/:id';
 
   // 设置

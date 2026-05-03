@@ -103,7 +103,7 @@ class CommentCard extends StatelessWidget {
   /// [onMore] 更多操作回调
   /// [onImageTap] 图片点击回调
   /// [showReplies] 是否显示回复列表，默认 true
-  /// [maxReplies] 最大显示回复数，默认 3
+  /// [maxReplies] 最大显示回复数，默认 5
   /// [isSubComment] 是否为子评论，默认 false
   const CommentCard({
     super.key,
@@ -114,7 +114,7 @@ class CommentCard extends StatelessWidget {
     this.onMore,
     this.onImageTap,
     this.showReplies = true,
-    this.maxReplies = 3,
+    this.maxReplies = 5,
     this.isSubComment = false,
   });
 

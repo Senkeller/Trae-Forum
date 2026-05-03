@@ -178,13 +178,13 @@ class FeaturedCommentList extends StatelessWidget {
   ///
   /// [comments] 评论列表（必填）
   /// [onCommentTap] 评论点击回调
-  /// [maxCount] 最大显示数量，默认 3
+  /// [maxCount] 最大显示数量，默认 5
   /// [itemSpacing] 条目间距，默认 8
   const FeaturedCommentList({
     super.key,
     required this.comments,
     this.onCommentTap,
-    this.maxCount = 3,
+    this.maxCount = 5,
     this.itemSpacing = 8,
   });
 
