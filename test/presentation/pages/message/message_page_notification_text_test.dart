@@ -32,6 +32,19 @@ void main() {
         '等3人赞了你',
       );
     });
+
+    test('uses formal tone for system notifications', () {
+      expect(
+        getNotificationActionText(DiscourseNotificationType.assigned),
+        '向你分配了新的待办事项',
+      );
+      expect(
+        getNotificationActionText(
+          DiscourseNotificationType.upcomingChangeAvailable,
+        ),
+        '发布了即将生效的变更通知',
+      );
+    });
   });
 
   group('getNotificationContentText', () {
@@ -49,6 +62,20 @@ void main() {
         topicTitle: '这是一个话题',
       );
       expect(getNotificationContentText(withTopic), '话题：这是一个话题');
+    });
+
+    test('uses natural social tone and formal system tone for fallback copy', () {
+      final social = DiscourseNotification(
+        id: 3,
+        notificationType: DiscourseNotificationType.liked,
+      );
+      expect(getNotificationContentText(social), '你的内容又收到了新的赞');
+
+      final system = DiscourseNotification(
+        id: 4,
+        notificationType: DiscourseNotificationType.postApproved,
+      );
+      expect(getNotificationContentText(system), '系统已完成帖子审核，请查看最新状态');
     });
   });
 }
