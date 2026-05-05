@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
 import '../../../core/network/discourse_api_service.dart';
@@ -24,7 +25,7 @@ class TopicsPage extends ConsumerStatefulWidget {
 }
 
 class _TopicsPageState extends ConsumerState<TopicsPage>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   /// 当前选中的分类索引
   int _selectedCategoryIndex = 0;
 
@@ -38,6 +39,12 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   late AnimationController _animationController;
   final Map<String, int> _tagTopicCounts = {};
 
+  /// 上次刷新时间，用于节流
+  DateTime? _lastRefreshTime;
+
+  /// 刷新间隔（毫秒）
+  static const int _refreshIntervalMs = 30000; // 30秒
+
   @override
   void initState() {
     super.initState();
@@ -48,13 +55,25 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     );
     _animationController.forward();
     _loadTagTopicCounts();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _animationController.dispose();
+    _refreshController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 当应用从后台恢复到前台时刷新标签数量
+    if (state == AppLifecycleState.resumed) {
+      _loadTagTopicCounts();
+    }
   }
 
   @override
@@ -163,6 +182,9 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     );
   }
 
+  /// 刷新控制器
+  final RefreshController _refreshController = RefreshController();
+
   /// 构建右侧内容区域
   ///
   /// [theme] 当前主题
@@ -172,9 +194,23 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     final currentGroup = _tagGroups[_selectedCategoryIndex];
     final tags = currentGroup.tags;
 
-    return CustomScrollView(
-      controller: _scrollController,
-      slivers: [
+    return SmartRefresher(
+      controller: _refreshController,
+      enablePullDown: true,
+      enablePullUp: false,
+      onRefresh: () async {
+        // 强制刷新标签数量
+        _lastRefreshTime = null;
+        await _loadTagTopicCounts();
+        _refreshController.refreshCompleted();
+      },
+      header: const WaterDropMaterialHeader(
+        backgroundColor: Colors.white,
+        color: Colors.black87,
+      ),
+      child: CustomScrollView(
+        controller: _scrollController,
+        slivers: [
         // 分类标题 - 优化为更紧凑的样式
         SliverToBoxAdapter(
           child: Container(
@@ -281,8 +317,9 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
         ),
         // 底部间距
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
-      ],
-    );
+          ],
+        ),
+      );
   }
 
   /// 获取分类图标
@@ -328,9 +365,19 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   }
 
   Future<void> _loadTagTopicCounts() async {
+    // 节流检查：如果距离上次刷新不足30秒，则跳过
+    if (_lastRefreshTime != null) {
+      final elapsed = DateTime.now().difference(_lastRefreshTime!).inMilliseconds;
+      if (elapsed < _refreshIntervalMs) {
+        return;
+      }
+    }
+
     try {
       final discourseApi = ref.read(discourseApiServiceProvider);
       final response = await discourseApi.getTags();
+      _lastRefreshTime = DateTime.now();
+
       final data = response.data;
       if (data is! Map) {
         return;
