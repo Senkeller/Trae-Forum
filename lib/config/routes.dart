@@ -248,15 +248,16 @@ class AppRouter {
           return CustomTransitionPage(
             key: state.pageKey,
             child: FeedReplyPage(feedId: id),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return PageTransitionBuilder.build(
-                context: context,
-                animation: animation,
-                secondaryAnimation: secondaryAnimation,
-                child: child,
-                config: PageTransitionConfig.bottomSheet,
-              );
-            },
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return PageTransitionBuilder.build(
+                    context: context,
+                    animation: animation,
+                    secondaryAnimation: secondaryAnimation,
+                    child: child,
+                    config: PageTransitionConfig.bottomSheet,
+                  );
+                },
           );
         },
       ),
@@ -269,15 +270,16 @@ class AppRouter {
           return CustomTransitionPage(
             key: state.pageKey,
             child: FeedEditPage(feedId: id),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return PageTransitionBuilder.build(
-                context: context,
-                animation: animation,
-                secondaryAnimation: secondaryAnimation,
-                child: child,
-                config: PageTransitionConfig.fade,
-              );
-            },
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return PageTransitionBuilder.build(
+                    context: context,
+                    animation: animation,
+                    secondaryAnimation: secondaryAnimation,
+                    child: child,
+                    config: PageTransitionConfig.fade,
+                  );
+                },
           );
         },
       ),
@@ -296,15 +298,16 @@ class AppRouter {
               initialTab: tab,
               initialActivityCategory: category,
             ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return PageTransitionBuilder.build(
-                context: context,
-                animation: animation,
-                secondaryAnimation: secondaryAnimation,
-                child: child,
-                config: PageTransitionConfig.fade,
-              );
-            },
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return PageTransitionBuilder.build(
+                    context: context,
+                    animation: animation,
+                    secondaryAnimation: secondaryAnimation,
+                    child: child,
+                    config: PageTransitionConfig.fade,
+                  );
+                },
           );
         },
       ),
@@ -350,12 +353,18 @@ class AppRouter {
         path: RoutePaths.topicDetail,
         builder: (context, state) {
           final rawTag = state.pathParameters['tag']!;
+          final expectedCount = int.tryParse(
+            state.uri.queryParameters['expectedCount'] ?? '',
+          );
           try {
             final tag = Uri.decodeComponent(rawTag);
-            return TopicDetailPage(tag: tag);
+            return TopicDetailPage(tag: tag, expectedTopicCount: expectedCount);
           } catch (e) {
             // 如果解码失败，直接使用原始标签
-            return TopicDetailPage(tag: rawTag);
+            return TopicDetailPage(
+              tag: rawTag,
+              expectedTopicCount: expectedCount,
+            );
           }
         },
       ),
@@ -365,12 +374,18 @@ class AppRouter {
         path: RoutePaths.tagDetail,
         builder: (context, state) {
           final rawTag = state.pathParameters['tag']!;
+          final expectedCount = int.tryParse(
+            state.uri.queryParameters['expectedCount'] ?? '',
+          );
           try {
             final tag = Uri.decodeComponent(rawTag);
-            return TopicDetailPage(tag: tag);
+            return TopicDetailPage(tag: tag, expectedTopicCount: expectedCount);
           } catch (e) {
             // 如果解码失败，直接使用原始标签
-            return TopicDetailPage(tag: rawTag);
+            return TopicDetailPage(
+              tag: rawTag,
+              expectedTopicCount: expectedCount,
+            );
           }
         },
       ),
@@ -526,19 +541,20 @@ class AppRouter {
             opaque: false,
             fullscreenDialog: true,
             child: ImagePreviewPage(imageUrls: images, initialIndex: index),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return PageTransitionBuilder.build(
-                context: context,
-                animation: animation,
-                secondaryAnimation: secondaryAnimation,
-                child: child,
-                config: const PageTransitionConfig(
-                  type: PageTransitionType.scaleAndFade,
-                  duration: Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                ),
-              );
-            },
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return PageTransitionBuilder.build(
+                    context: context,
+                    animation: animation,
+                    secondaryAnimation: secondaryAnimation,
+                    child: child,
+                    config: const PageTransitionConfig(
+                      type: PageTransitionType.scaleAndFade,
+                      duration: Duration(milliseconds: 250),
+                      curve: Curves.easeOutCubic,
+                    ),
+                  );
+                },
           );
         },
       ),

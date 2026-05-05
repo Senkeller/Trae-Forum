@@ -321,7 +321,10 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     // 同时处理可能的 % 字符，避免双重编码问题
     final sanitizedTag = rawTag.replaceAll('%', '%25');
     final encodedTag = Uri.encodeComponent(sanitizedTag);
-    context.push(RoutePaths.tagDetail.replaceFirst(':tag', encodedTag));
+    final displayedCount = _resolveTagCount(tag);
+    context.push(
+      '${RoutePaths.tagDetail.replaceFirst(':tag', encodedTag)}?expectedCount=$displayedCount',
+    );
   }
 
   Future<void> _loadTagTopicCounts() async {
@@ -341,10 +344,22 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
 
       for (final tag in tags) {
         final name = (tag['name'] ?? '').toString().trim().toLowerCase();
-        if (name.isEmpty) {
+        final id = (tag['id'] ?? '').toString().trim().toLowerCase();
+        final slug = (tag['slug'] ?? '').toString().trim().toLowerCase();
+        final count = _parseCount(tag['topic_count'] ?? tag['count']);
+
+        if (name.isEmpty && id.isEmpty && slug.isEmpty) {
           continue;
         }
-        counts[name] = _parseCount(tag['topic_count'] ?? tag['count']);
+        if (name.isNotEmpty) {
+          counts[name] = count;
+        }
+        if (id.isNotEmpty) {
+          counts[id] = count;
+        }
+        if (slug.isNotEmpty) {
+          counts[slug] = count;
+        }
       }
 
       if (!mounted) {
@@ -372,6 +387,12 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   }
 
   int _resolveTagCount(TagItem tag) {
+    final normalizedSlug = tag.slug.trim().toLowerCase();
+    if (normalizedSlug.isNotEmpty &&
+        _tagTopicCounts.containsKey(normalizedSlug)) {
+      return _tagTopicCounts[normalizedSlug]!;
+    }
+
     final normalizedName = tag.name.trim().toLowerCase();
     if (normalizedName.isNotEmpty &&
         _tagTopicCounts.containsKey(normalizedName)) {

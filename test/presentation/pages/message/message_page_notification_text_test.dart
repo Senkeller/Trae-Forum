@@ -3,6 +3,37 @@ import 'package:traeu/data/models/discourse/discourse_notification.dart';
 import 'package:traeu/presentation/pages/message/notification_copy.dart';
 
 void main() {
+  group('mapNotificationTypeToScene', () {
+    test('maps key scenarios correctly', () {
+      expect(
+        mapNotificationTypeToScene(DiscourseNotificationType.mentioned),
+        NotificationCopyScene.mention,
+      );
+      expect(
+        mapNotificationTypeToScene(DiscourseNotificationType.replied),
+        NotificationCopyScene.replyTopic,
+      );
+      expect(
+        mapNotificationTypeToScene(DiscourseNotificationType.posted),
+        NotificationCopyScene.replyComment,
+      );
+      expect(
+        mapNotificationTypeToScene(DiscourseNotificationType.liked),
+        NotificationCopyScene.like,
+      );
+      expect(
+        mapNotificationTypeToScene(DiscourseNotificationType.postApproved),
+        NotificationCopyScene.systemApproval,
+      );
+      expect(
+        mapNotificationTypeToScene(
+          DiscourseNotificationType.upcomingChangeAvailable,
+        ),
+        NotificationCopyScene.systemChange,
+      );
+    });
+  });
+
   group('getNotificationActionText', () {
     test('uses specific copy for mention/reply types', () {
       expect(

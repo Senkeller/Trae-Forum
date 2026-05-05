@@ -14,8 +14,13 @@ import '../../widgets/home/pinned_topics_banner.dart';
 /// 展示特定标签下的所有话题
 class TopicDetailPage extends ConsumerStatefulWidget {
   final String tag;
+  final int? expectedTopicCount;
 
-  const TopicDetailPage({super.key, required this.tag});
+  const TopicDetailPage({
+    super.key,
+    required this.tag,
+    this.expectedTopicCount,
+  });
 
   @override
   ConsumerState<TopicDetailPage> createState() => _TopicDetailPageState();
@@ -336,12 +341,28 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
   @override
   Widget build(BuildContext context) {
     final localizedTag = _getLocalizedTag(widget.tag);
+    final expectedCount = widget.expectedTopicCount;
+    final countSummary = expectedCount != null && expectedCount > 0
+        ? '已加载 ${_topics.length} / 入口约 $expectedCount'
+        : '已加载 ${_topics.length}';
 
     return Semantics(
       label: '话题详情页，标签 $localizedTag',
       child: Scaffold(
         appBar: AppBar(
-          title: Text('#$localizedTag'),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('#$localizedTag'),
+              Text(
+                countSummary,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.open_in_browser),
@@ -404,13 +425,20 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _topics.length + 1,
+        itemCount: _topics.length + 2,
         itemBuilder: (context, index) {
           if (index == 0) {
             return const PinnedTopicsBanner();
           }
 
-          final topic = _topics[index - 1];
+          if (index == 1) {
+            return _TopicCountHintCard(
+              loadedCount: _topics.length,
+              expectedCount: widget.expectedTopicCount,
+            );
+          }
+
+          final topic = _topics[index - 2];
           return _TopicCard(
             topic: topic,
             onTap: () {
@@ -418,6 +446,48 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _TopicCountHintCard extends StatelessWidget {
+  const _TopicCountHintCard({
+    required this.loadedCount,
+    required this.expectedCount,
+  });
+
+  final int loadedCount;
+  final int? expectedCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final hintText = expectedCount != null && expectedCount! > 0
+        ? '当前已加载 $loadedCount 条，入口显示约 $expectedCount 条。可下拉刷新或上拉继续加载。'
+        : '当前已加载 $loadedCount 条，可下拉刷新或上拉继续加载。';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 16, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              hintText,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -434,7 +504,8 @@ class _TopicCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Semantics(
-      label: '${topic.username}发布的话题：${topic.title}，${topic.likeCount}个赞，${topic.replyCount}条评论',
+      label:
+          '${topic.username}发布的话题：${topic.title}，${topic.likeCount}个赞，${topic.replyCount}条评论',
       hint: '双击查看详情',
       button: true,
       child: Card(
@@ -481,13 +552,14 @@ class _TopicCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   topic.title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (topic.content.isNotEmpty && topic.content != topic.title) ...[
+                if (topic.content.isNotEmpty &&
+                    topic.content != topic.title) ...[
                   const SizedBox(height: 8),
                   Text(
                     topic.content,

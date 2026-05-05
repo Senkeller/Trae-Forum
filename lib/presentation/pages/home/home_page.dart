@@ -185,7 +185,8 @@ class _HomePageState extends ConsumerState<HomePage>
                   isScrollable: true,
                   tabs: homeFeedTabs
                       .map(
-                        (type) => Tab(text: homeFeedTabLabels[type] ?? type.name),
+                        (type) =>
+                            Tab(text: homeFeedTabLabels[type] ?? type.name),
                       )
                       .toList(),
                 ),
@@ -305,6 +306,7 @@ class _FeedListView extends ConsumerWidget {
     final feedType = homeFeedTabs[tabIndex];
     final isOfficialTab = feedType == FeedType.official;
     final isLatestTab = feedType == FeedType.latest;
+    final isRecommendedTab = feedType == FeedType.recommended;
     final tabState = ref.watch(
       homeNotifierProvider.select(
         (homeState) => homeState.tabStates[feedType] ?? const TabFeedState(),
@@ -356,7 +358,11 @@ class _FeedListView extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              isOfficialTab ? '暂无官方公告' : (isLatestTab ? '暂无最新内容' : '暂无内容'),
+              isOfficialTab
+                  ? '暂无官方公告'
+                  : (isLatestTab
+                        ? '暂无最新内容'
+                        : (isRecommendedTab ? '暂无推荐内容' : '暂无内容')),
               style: TextStyle(color: Colors.grey[600]),
             ),
             if (isOfficialTab) ...[
@@ -373,6 +379,7 @@ class _FeedListView extends ConsumerWidget {
 
     final officialRows = isOfficialTab ? _buildOfficialRows(feedList) : null;
     final contentCount = isOfficialTab ? officialRows!.length : feedList.length;
+    final leadingCount = (showBanner ? 1 : 0) + (isRecommendedTab ? 1 : 0);
 
     return SmartRefresher(
       controller: refreshController,
@@ -393,19 +400,32 @@ class _FeedListView extends ConsumerWidget {
       child: ListView.builder(
         controller: scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: contentCount + (showBanner ? 1 : 0),
+        itemCount: contentCount + leadingCount,
         cacheExtent: MediaQuery.of(context).size.height * 0.5,
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
         addSemanticIndexes: false,
         itemBuilder: (context, index) {
-          // 如果是第一个位置且需要显示Banner
-          if (showBanner && index == 0) {
+          var leadingOffset = 0;
+
+          // Banner 区域
+          if (showBanner && index == leadingOffset) {
             return PinnedTopicsBanner(categoryId: bannerCategoryId);
+          }
+          if (showBanner) {
+            leadingOffset += 1;
+          }
+
+          // 推荐页导语卡片
+          if (isRecommendedTab && index == leadingOffset) {
+            return _RecommendedFeedIntroCard(totalCount: feedList.length);
+          }
+          if (isRecommendedTab) {
+            leadingOffset += 1;
           }
 
           // 计算实际的feed索引
-          final feedIndex = showBanner ? index - 1 : index;
+          final feedIndex = index - leadingOffset;
           if (isOfficialTab) {
             final row = officialRows![feedIndex];
             if (row.isHeader) {
@@ -417,6 +437,7 @@ class _FeedListView extends ConsumerWidget {
               child: _FeedCard(
                 key: ValueKey('${feedType.name}_${rowFeed.id}'),
                 feed: rowFeed,
+                highlightRecommended: false,
                 onTap: () {
                   context.push('/feed/${rowFeed.id}');
                 },
@@ -430,6 +451,7 @@ class _FeedListView extends ConsumerWidget {
             child: _FeedCard(
               key: ValueKey('${feedType.name}_${feed.id}'),
               feed: feed,
+              highlightRecommended: isRecommendedTab,
               onTap: () {
                 context.push('/feed/${feed.id}');
               },
@@ -800,11 +822,19 @@ class _FeedCard extends ConsumerStatefulWidget {
   /// 点击回调
   final VoidCallback onTap;
 
+  /// 是否启用推荐卡片强化展示
+  final bool highlightRecommended;
+
   /// 构造函数
   ///
   /// [feed] Feed 数据
   /// [onTap] 点击回调
-  const _FeedCard({super.key, required this.feed, required this.onTap});
+  const _FeedCard({
+    super.key,
+    required this.feed,
+    required this.onTap,
+    this.highlightRecommended = false,
+  });
 
   @override
   ConsumerState<_FeedCard> createState() => _FeedCardState();
@@ -957,6 +987,13 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
               children: [
                 _buildUserInfo(context, colorScheme),
                 const SizedBox(height: 12),
+                if (widget.highlightRecommended) ...[
+                  _buildRecommendationReasonTags(context),
+                  const SizedBox(height: 8),
+                ],
+                if (widget.highlightRecommended)
+                  _buildRecommendedHighlights(context),
+                if (widget.highlightRecommended) const SizedBox(height: 8),
                 if (widget.feed.title.isNotEmpty)
                   Text(
                     widget.feed.title,
@@ -977,7 +1014,7 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
                       height: 1.5,
                       color: colorScheme.onSurfaceVariant,
                     ),
-                    maxLines: 3,
+                    maxLines: widget.highlightRecommended ? 4 : 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                 if (widget.feed.images.isNotEmpty) ...[
@@ -1368,5 +1405,136 @@ class _FeedCardState extends ConsumerState<_FeedCard> {
   /// @return 格式化后的时间文本
   String _formatTime(String timestamp) {
     return _formatFeedTime(timestamp);
+  }
+
+  Widget _buildRecommendedHighlights(BuildContext context) {
+    final likes = widget.feed.likeCount;
+    final replies = widget.feed.replyCount;
+    final views = widget.feed.viewCount;
+    final isHot = views >= 300 || likes >= 20 || replies >= 15;
+    if (!isHot) {
+      return const SizedBox.shrink();
+    }
+
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.local_fire_department, size: 14, color: colorScheme.error),
+          const SizedBox(width: 6),
+          Text(
+            '热度 $likes赞 · $replies评 · $views阅',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: colorScheme.onErrorContainer,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationReasonTags(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final reasons = <String>[];
+
+    final isOfficialCategory = const {
+      4,
+      17,
+      18,
+      19,
+      20,
+    }.contains(widget.feed.categoryId);
+    final isHotDiscussion =
+        widget.feed.viewCount >= 200 ||
+        widget.feed.replyCount >= 10 ||
+        widget.feed.likeCount >= 15;
+    final isActiveDiscussion = widget.feed.replyCount >= 5;
+
+    if (isOfficialCategory) {
+      reasons.add('官方精选');
+    }
+    if (widget.feed.isPinned) {
+      reasons.add('置顶内容');
+    }
+    if (isHotDiscussion) {
+      reasons.add('热门讨论');
+    } else if (isActiveDiscussion) {
+      reasons.add('活跃讨论');
+    }
+    if (widget.feed.images.isNotEmpty) {
+      reasons.add('图文内容');
+    }
+
+    if (reasons.isEmpty) {
+      reasons.add('社区推荐');
+    }
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: reasons
+          .take(3)
+          .map(
+            (reason) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.65),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colorScheme.primary.withOpacity(0.18),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                reason,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _RecommendedFeedIntroCard extends StatelessWidget {
+  const _RecommendedFeedIntroCard({required this.totalCount});
+
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '为你精选 $totalCount 条社区内容，优先展示高质量讨论与热门经验。',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1,17 +1,136 @@
 import '../../../data/models/discourse/discourse_notification.dart';
 
+enum NotificationCopyScene {
+  mention,
+  replyTopic,
+  replyComment,
+  like,
+  systemApproval,
+  systemChange,
+  chat,
+  genericSocial,
+  genericSystem,
+  generic,
+}
+
+class NotificationCopyTemplate {
+  final String action;
+  final String fallbackContent;
+
+  const NotificationCopyTemplate({
+    required this.action,
+    required this.fallbackContent,
+  });
+}
+
+const Map<NotificationCopyScene, NotificationCopyTemplate> _sceneTemplates = {
+  NotificationCopyScene.mention: NotificationCopyTemplate(
+    action: '在话题中@了你',
+    fallbackContent: '有人在话题内容中@了你，点击查看上下文',
+  ),
+  NotificationCopyScene.replyTopic: NotificationCopyTemplate(
+    action: '回复了你发布的话题',
+    fallbackContent: '有人回复了你发布的话题，点击查看回复详情',
+  ),
+  NotificationCopyScene.replyComment: NotificationCopyTemplate(
+    action: '回复了你的评论',
+    fallbackContent: '有人回复了你的评论，点击查看对话上下文',
+  ),
+  NotificationCopyScene.like: NotificationCopyTemplate(
+    action: '赞了你',
+    fallbackContent: '你的内容又收到了新的赞',
+  ),
+  NotificationCopyScene.systemApproval: NotificationCopyTemplate(
+    action: '已完成相关审核',
+    fallbackContent: '系统已完成审核，请查看最新状态',
+  ),
+  NotificationCopyScene.systemChange: NotificationCopyTemplate(
+    action: '发布了变更通知',
+    fallbackContent: '系统发布了变更通知，请关注最新影响范围',
+  ),
+  NotificationCopyScene.chat: NotificationCopyTemplate(
+    action: '发送了新的聊天动态',
+    fallbackContent: '有新的聊天动态，点击进入聊天查看',
+  ),
+  NotificationCopyScene.genericSocial: NotificationCopyTemplate(
+    action: '与你产生了新的互动',
+    fallbackContent: '你收到了新的互动通知，点击查看详情',
+  ),
+  NotificationCopyScene.genericSystem: NotificationCopyTemplate(
+    action: '向你发送了系统通知',
+    fallbackContent: '系统向你发送了新通知，请查看详细内容',
+  ),
+  NotificationCopyScene.generic: NotificationCopyTemplate(
+    action: '向你发送了通知',
+    fallbackContent: '点击查看通知详情',
+  ),
+};
+
+NotificationCopyScene mapNotificationTypeToScene(int notificationType) {
+  switch (notificationType) {
+    case DiscourseNotificationType.mentioned:
+    case DiscourseNotificationType.groupMentioned:
+      return NotificationCopyScene.mention;
+    case DiscourseNotificationType.replied:
+      return NotificationCopyScene.replyTopic;
+    case DiscourseNotificationType.posted:
+      return NotificationCopyScene.replyComment;
+    case DiscourseNotificationType.liked:
+    case DiscourseNotificationType.likedConsolidated:
+      return NotificationCopyScene.like;
+    case DiscourseNotificationType.postApproved:
+    case DiscourseNotificationType.codeReviewCommitApproved:
+      return NotificationCopyScene.systemApproval;
+    case DiscourseNotificationType.upcomingChangeAvailable:
+    case DiscourseNotificationType.upcomingChangeAutomaticallyPromoted:
+      return NotificationCopyScene.systemChange;
+    case DiscourseNotificationType.chatMention:
+    case DiscourseNotificationType.chatMessage:
+    case DiscourseNotificationType.chatQuoted:
+      return NotificationCopyScene.chat;
+    case DiscourseNotificationType.custom:
+    case DiscourseNotificationType.newFeatures:
+    case DiscourseNotificationType.adminProblems:
+    case DiscourseNotificationType.assigned:
+    case DiscourseNotificationType.votesReleased:
+      return NotificationCopyScene.genericSystem;
+    case DiscourseNotificationType.quoted:
+    case DiscourseNotificationType.reaction:
+    case DiscourseNotificationType.following:
+    case DiscourseNotificationType.followingCreatedTopic:
+    case DiscourseNotificationType.followingReplied:
+    case DiscourseNotificationType.edited:
+    case DiscourseNotificationType.invitedToTopic:
+    case DiscourseNotificationType.linked:
+    case DiscourseNotificationType.linkedConsolidated:
+    case DiscourseNotificationType.movedPost:
+    case DiscourseNotificationType.watchingCategoryOrTag:
+    case DiscourseNotificationType.eventInvitation:
+    case DiscourseNotificationType.eventReminder:
+    case DiscourseNotificationType.topicReminder:
+    case DiscourseNotificationType.watchingFirstPost:
+    case DiscourseNotificationType.membershipRequestAccepted:
+    case DiscourseNotificationType.membershipRequestConsolidated:
+    case DiscourseNotificationType.grantedBadge:
+    case DiscourseNotificationType.questionAnswerUserCommented:
+    case DiscourseNotificationType.invitedToPrivateMessage:
+      return NotificationCopyScene.genericSocial;
+    default:
+      return NotificationCopyScene.generic;
+  }
+}
+
 String getNotificationActionText(
   int notificationType, {
   NotificationData? data,
 }) {
+  final scene = mapNotificationTypeToScene(notificationType);
   switch (notificationType) {
     case DiscourseNotificationType.mentioned:
     case DiscourseNotificationType.groupMentioned:
-      return '在话题中@了你';
     case DiscourseNotificationType.replied:
-      return '回复了你发布的话题';
     case DiscourseNotificationType.posted:
-      return '回复了你的评论';
+      return _sceneTemplates[scene]!.action;
     case DiscourseNotificationType.questionAnswerUserCommented:
       return '评论了你关注的问答内容';
     case DiscourseNotificationType.quoted:
@@ -82,7 +201,7 @@ String getNotificationActionText(
     case DiscourseNotificationType.upcomingChangeAutomaticallyPromoted:
       return '发布的变更已自动升级';
     default:
-      return '向你发送了通知';
+      return _sceneTemplates[scene]!.action;
   }
 }
 
@@ -97,17 +216,16 @@ String getNotificationContentText(DiscourseNotification notification) {
     return '话题：$topicTitle';
   }
 
+  final scene = mapNotificationTypeToScene(notification.notificationType);
   switch (notification.notificationType) {
     case DiscourseNotificationType.mentioned:
     case DiscourseNotificationType.groupMentioned:
-      return '有人在话题内容中@了你，点击查看上下文';
     case DiscourseNotificationType.replied:
-      return '有人回复了你发布的话题，点击查看回复详情';
     case DiscourseNotificationType.posted:
-      return '有人回复了你的评论，点击查看对话上下文';
+      return _sceneTemplates[scene]!.fallbackContent;
     case DiscourseNotificationType.liked:
     case DiscourseNotificationType.likedConsolidated:
-      return '你的内容又收到了新的赞';
+      return _sceneTemplates[NotificationCopyScene.like]!.fallbackContent;
     case DiscourseNotificationType.quoted:
       return '有人引用了你的内容，点击查看原文上下文';
     case DiscourseNotificationType.reaction:
@@ -115,7 +233,7 @@ String getNotificationContentText(DiscourseNotification notification) {
     case DiscourseNotificationType.chatMessage:
     case DiscourseNotificationType.chatMention:
     case DiscourseNotificationType.chatQuoted:
-      return '有新的聊天动态，点击进入聊天查看';
+      return _sceneTemplates[NotificationCopyScene.chat]!.fallbackContent;
     case DiscourseNotificationType.invitedToPrivateMessage:
       return '你收到了私信会话邀请';
     case DiscourseNotificationType.postApproved:
@@ -129,7 +247,7 @@ String getNotificationContentText(DiscourseNotification notification) {
     case DiscourseNotificationType.upcomingChangeAutomaticallyPromoted:
       return '系统已自动应用变更升级，请确认当前使用状态';
     default:
-      return '点击查看通知详情';
+      return _sceneTemplates[scene]!.fallbackContent;
   }
 }
 
