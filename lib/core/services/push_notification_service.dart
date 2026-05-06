@@ -1,12 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,7 +30,6 @@ class PushNotificationService {
       LocalNotificationService.instance;
 
   bool _initialized = false;
-  bool _firebaseAvailable = false;
   String? _currentToken;
   Ref? _ref;
 
@@ -92,7 +88,6 @@ class PushNotificationService {
       if (Firebase.apps.isNotEmpty) {
         debugPrint('ℹ️ [PushNotificationService] Firebase已初始化');
         _messaging = FirebaseMessaging.instance;
-        _firebaseAvailable = true;
         return true;
       }
 
@@ -100,7 +95,6 @@ class PushNotificationService {
       await Firebase.initializeApp();
       debugPrint('✅ [PushNotificationService] Firebase初始化完成');
       _messaging = FirebaseMessaging.instance;
-      _firebaseAvailable = true;
       return true;
     } catch (e) {
       // 检查是否是配置错误（缺少配置文件）
@@ -111,13 +105,11 @@ class PushNotificationService {
           errorString.contains('FirebaseApp')) {
         debugPrint('⚠️ [PushNotificationService] Firebase未配置: $e');
         debugPrint('   如需使用FCM推送功能，请配置Firebase项目');
-        _firebaseAvailable = false;
         return false;
       }
 
       // 其他错误，记录但继续
       debugPrint('⚠️ [PushNotificationService] Firebase初始化失败: $e');
-      _firebaseAvailable = false;
       return false;
     }
   }
@@ -258,12 +250,6 @@ class PushNotificationService {
   Future<void> _saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_fcmTokenKey, token);
-  }
-
-  /// 从本地获取Token
-  Future<String?> _getSavedToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_fcmTokenKey);
   }
 
   /// 发送Token到服务器

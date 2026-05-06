@@ -158,10 +158,10 @@ class OnlineStatusIndicator extends ConsumerWidget {
   String _formatLastSeen(Duration difference) {
     if (difference.inDays > 365) {
       final years = difference.inDays ~/ 365;
-      return '${years}年前';
+      return '$years年前';
     } else if (difference.inDays > 30) {
       final months = difference.inDays ~/ 30;
-      return '${months}个月前';
+      return '$months个月前';
     } else if (difference.inDays > 0) {
       return '${difference.inDays}天前';
     } else if (difference.inHours > 0) {

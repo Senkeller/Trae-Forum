@@ -233,8 +233,6 @@ class AINewsCardV2 extends StatelessWidget {
 
   /// 构建底部信息栏
   Widget _buildFooter(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Row(
       children: [
         // 来源

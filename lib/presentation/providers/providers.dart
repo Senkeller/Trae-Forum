@@ -1,5 +1,6 @@
 /// Providers 导出文件
 /// 统一导出所有 providers，方便其他模块导入
+library;
 
 // 主题状态
 export 'theme_provider.dart';

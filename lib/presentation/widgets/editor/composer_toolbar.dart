@@ -301,9 +301,6 @@ class _ToolbarButton extends StatelessWidget {
   /// 图标大小
   final double iconSize;
 
-  /// 按钮大小
-  final double buttonSize;
-
   /// 构造函数
   const _ToolbarButton({
     required this.icon,
@@ -311,7 +308,6 @@ class _ToolbarButton extends StatelessWidget {
     required this.onTap,
     this.label,
     this.iconSize = 20,
-    this.buttonSize = 36,
   });
 
   @override
@@ -323,8 +319,8 @@ class _ToolbarButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: buttonSize,
-          height: buttonSize,
+          width: 40,
+          height: 40,
           margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
@@ -675,6 +671,15 @@ class _DropdownButton extends StatelessWidget {
     return PopupMenuButton<MarkdownSyntax>(
       tooltip: tooltip,
       offset: const Offset(0, 36),
+      itemBuilder: (context) {
+        return items.map((item) {
+          return PopupMenuItem(
+            value: item.value,
+            child: Text(item.label),
+          );
+        }).toList();
+      },
+      onSelected: onSelected,
       child: Container(
         width: 32,
         height: 32,
@@ -688,15 +693,6 @@ class _DropdownButton extends StatelessWidget {
           color: colorScheme.onSurfaceVariant,
         ),
       ),
-      itemBuilder: (context) {
-        return items.map((item) {
-          return PopupMenuItem(
-            value: item.value,
-            child: Text(item.label),
-          );
-        }).toList();
-      },
-      onSelected: onSelected,
     );
   }
 }

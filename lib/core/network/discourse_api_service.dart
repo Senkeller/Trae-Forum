@@ -444,7 +444,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -485,7 +485,7 @@ class DiscourseApiService {
         'X-Requested-With': 'XMLHttpRequest',
         'Discourse-Logged-In': 'true',
         'Discourse-Present': 'true',
-        if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        'X-CSRF-Token': ?csrfToken,
       },
     );
 
@@ -503,7 +503,7 @@ class DiscourseApiService {
               'X-Requested-With': 'XMLHttpRequest',
               'Discourse-Logged-In': 'true',
               'Discourse-Present': 'true',
-              if (retryToken != null) 'X-CSRF-Token': retryToken,
+              'X-CSRF-Token': ?retryToken,
             },
           ),
         );
@@ -539,7 +539,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       );
     }
@@ -592,7 +592,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -614,7 +614,7 @@ class DiscourseApiService {
               'X-Requested-With': 'XMLHttpRequest',
               'Discourse-Logged-In': 'true',
               'Discourse-Present': 'true',
-              if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+              'X-CSRF-Token': ?csrfToken,
             },
           ),
         );
@@ -649,7 +649,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -670,7 +670,7 @@ class DiscourseApiService {
               'X-Requested-With': 'XMLHttpRequest',
               'Discourse-Logged-In': 'true',
               'Discourse-Present': 'true',
-              if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+              'X-CSRF-Token': ?csrfToken,
             },
           ),
         );
@@ -709,7 +709,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -788,7 +788,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -814,7 +814,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -844,7 +844,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -888,7 +888,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -911,7 +911,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -932,7 +932,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -992,7 +992,7 @@ class DiscourseApiService {
         'X-Requested-With': 'XMLHttpRequest',
         'Discourse-Logged-In': 'true',
         'Discourse-Present': 'true',
-        if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+        'X-CSRF-Token': ?csrfToken,
       },
     );
 
@@ -1010,7 +1010,7 @@ class DiscourseApiService {
               'X-Requested-With': 'XMLHttpRequest',
               'Discourse-Logged-In': 'true',
               'Discourse-Present': 'true',
-              if (retryToken != null) 'X-CSRF-Token': retryToken,
+              'X-CSRF-Token': ?retryToken,
             },
           ),
         );
@@ -1055,7 +1055,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1076,7 +1076,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1124,7 +1124,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1153,7 +1153,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1203,7 +1203,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1281,7 +1281,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1310,7 +1310,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1338,7 +1338,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );
@@ -1363,7 +1363,7 @@ class DiscourseApiService {
           'X-Requested-With': 'XMLHttpRequest',
           'Discourse-Logged-In': 'true',
           'Discourse-Present': 'true',
-          if (csrfToken != null) 'X-CSRF-Token': csrfToken,
+          'X-CSRF-Token': ?csrfToken,
         },
       ),
     );

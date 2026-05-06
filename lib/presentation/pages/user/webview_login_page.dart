@@ -533,19 +533,6 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     }
   }
 
-  String _formatAvatarUrl(String username, String avatarTemplate) {
-    var url = avatarTemplate.replaceAll('{size}', '120');
-    if (url.startsWith('//')) {
-      url = 'https:$url';
-    } else if (url.startsWith('/')) {
-      url = 'https://forum.trae.cn$url';
-    } else if (!url.startsWith('http')) {
-      url =
-          'https://forum.trae.cn/user_avatar/forum.trae.cn/$username/120/0_2.png';
-    }
-    return url;
-  }
-
   String _extractUsernameFromUrl(String? url) {
     if (url == null || url.isEmpty) return '';
     final uri = Uri.tryParse(url);

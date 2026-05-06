@@ -1,5 +1,6 @@
 /// 数据仓库层导出文件
 /// 统一导出所有仓库类，方便其他模块引用
+library;
 
 // 认证仓库
 export 'auth_repository.dart';

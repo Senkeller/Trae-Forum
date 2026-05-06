@@ -181,11 +181,11 @@ class MaomuScraperServiceV2 {
 
       // 如果没有标签，从内容中提取
       if (tags.isEmpty) {
-        tags = _extractTagsFromContent(title + ' ' + (content ?? ''));
+        tags = _extractTagsFromContent('$title ${content ?? ''}');
       }
 
       // 检测分类
-      final category = _detectCategory(title + ' ' + (content ?? ''));
+      final category = _detectCategory('$title ${content ?? ''}');
 
       return AINews(
         id: 'maomu_$index',
@@ -226,7 +226,7 @@ class MaomuScraperServiceV2 {
       return sentences[0].trim();
     }
     // 如果第一句话太短，返回前50个字符
-    return text.length > 50 ? text.substring(0, 50) + '...' : text;
+    return text.length > 50 ? '${text.substring(0, 50)}...' : text;
   }
 
   /// 检测是否包含AI关键词

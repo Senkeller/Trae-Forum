@@ -7,7 +7,6 @@ import '../../../core/utils/discourse_image_url_resolver.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/scroll_load_guard.dart';
 import '../../../data/models/discourse/discourse_private_message.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/private_message_provider.dart';
 import '../../widgets/common/empty_widget.dart';
 import '../../widgets/common/error_widget.dart';
@@ -231,7 +230,6 @@ class _ConversationItem extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final currentUser = ref.watch(currentUserProvider);
     final isUnread = conversation.unreadCount > 0;
 
     // 获取对方用户信息

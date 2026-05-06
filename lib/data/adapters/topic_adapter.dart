@@ -144,7 +144,7 @@ class TopicAdapter {
         firstPost.avatarTemplate,
         firstPost.username,
       ),
-      level: firstPost.trustLevel ?? 1,
+      level: firstPost.trustLevel,
     );
 
     final feedData = FeedContentData(

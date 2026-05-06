@@ -68,7 +68,7 @@ class DraftKey {
   /// [postNumber] 回复目标帖子编号
   /// @return 草稿key字符串
   static String nestedReply(int topicId, int postNumber) =>
-      'topic_$topicId\_$postNumber';
+      'topic_${topicId}_$postNumber';
 
   /// 新话题草稿key
   ///

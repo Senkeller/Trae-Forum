@@ -23,10 +23,9 @@ AINewsRepository aiNewsRepository(Ref ref) {
 }
 
 class AINewsRepository {
-  final AINewsService _service;
   final MaomuScraperService _scraper;
 
-  AINewsRepository(this._service, this._scraper);
+  AINewsRepository(AINewsService _, this._scraper);
 
   /// 获取AI快讯列表
   ///

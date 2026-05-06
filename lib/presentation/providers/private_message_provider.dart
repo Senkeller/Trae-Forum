@@ -1,7 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../data/models/discourse/discourse_post.dart';
 import '../../data/models/discourse/discourse_private_message.dart';
-import '../../data/models/discourse/discourse_topic.dart';
 import '../../data/repositories/private_message_repository.dart';
 import 'auth_provider.dart';
 

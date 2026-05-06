@@ -1,14 +1,10 @@
-import 'package:dio/dio.dart';
 import '../models/forum_topic.dart';
-import '../../core/network/dio_client.dart';
 
 /// 论坛数据仓库
 /// 
 /// 负责论坛相关的数据获取和缓存管理
 class ForumRepository {
-  final Dio _dio;
-
-  ForumRepository({Dio? dio}) : _dio = dio ?? DioClient.dio;
+  ForumRepository();
 
   // ==================== 分类相关 ====================
 

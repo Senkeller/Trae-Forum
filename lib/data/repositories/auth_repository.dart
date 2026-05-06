@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/network/api_service.dart' as api;
-import '../../core/network/dio_client.dart';
 
 part 'auth_repository.g.dart';
 

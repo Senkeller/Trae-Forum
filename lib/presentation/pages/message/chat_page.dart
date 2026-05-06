@@ -400,12 +400,10 @@ class _MessageBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final avatarUrl = message.avatarTemplate != null
-        ? DiscourseImageUrlResolver.resolveAvatarUrl(
+    final avatarUrl = DiscourseImageUrlResolver.resolveAvatarUrl(
             message.avatarTemplate,
             size: 64,
-          )
-        : null;
+          );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),

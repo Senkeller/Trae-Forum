@@ -220,7 +220,7 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
         page: 1,
       );
 
-      if (response.status == 1 && response.data != null) {
+      if (response.status == 1) {
         final comments = (response.data as List<dynamic>)
             .map((item) => CommentItem.fromJson(item as Map<String, dynamic>))
             .toList();
@@ -261,7 +261,7 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
         page: 1,
       );
 
-      if (response.status == 1 && response.data != null) {
+      if (response.status == 1) {
         final comments = (response.data as List<dynamic>)
             .map((item) => CommentItem.fromJson(item as Map<String, dynamic>))
             .toList();
@@ -306,7 +306,7 @@ class FeedDetailNotifier extends _$FeedDetailNotifier {
         lastItem: lastItem,
       );
 
-      if (response.status == 1 && response.data != null) {
+      if (response.status == 1) {
         final newComments = (response.data as List<dynamic>)
             .map((item) => CommentItem.fromJson(item as Map<String, dynamic>))
             .toList();

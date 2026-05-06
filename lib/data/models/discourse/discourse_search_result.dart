@@ -1,7 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'discourse_topic.dart';
-import 'discourse_user.dart';
 
 part 'discourse_search_result.freezed.dart';
 part 'discourse_search_result.g.dart';

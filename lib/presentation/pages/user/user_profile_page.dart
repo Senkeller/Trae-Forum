@@ -778,20 +778,20 @@ class _SummarySection extends StatelessWidget {
 
     final days = seconds ~/ 86400;
     if (days > 0) {
-      return '${days}天';
+      return '$days天';
     }
 
     final hours = seconds ~/ 3600;
     if (hours > 0) {
-      return '${hours}小时';
+      return '$hours小时';
     }
 
     final minutes = seconds ~/ 60;
     if (minutes > 0) {
-      return '${minutes}分钟';
+      return '$minutes分钟';
     }
 
-    return '${seconds}秒';
+    return '$seconds秒';
   }
 }
 
@@ -1399,20 +1399,20 @@ class _ProfileHeader extends ConsumerWidget {
 
     final days = seconds ~/ 86400;
     if (days > 0) {
-      return '${days}天';
+      return '$days天';
     }
 
     final hours = seconds ~/ 3600;
     if (hours > 0) {
-      return '${hours}小时';
+      return '$hours小时';
     }
 
     final minutes = seconds ~/ 60;
     if (minutes > 0) {
-      return '${minutes}分钟';
+      return '$minutes分钟';
     }
 
-    return '${seconds}秒';
+    return '$seconds秒';
   }
 
   /// 构建用户徽章展示区域
@@ -1618,37 +1618,6 @@ class _HeaderStatItem extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final String count;
-  final String label;
-  final VoidCallback? onTap;
-
-  const _StatItem({required this.count, required this.label, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Column(
-          children: [
-            Text(
-              count,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -1860,8 +1829,6 @@ class _SendMessageDialogState extends ConsumerState<_SendMessageDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return AlertDialog(
       title: Text('发私信给 @${widget.targetUsername}'),
       content: SingleChildScrollView(

@@ -106,9 +106,9 @@ class _WebViewPageState extends State<WebViewPage> {
           },
           onWebResourceError: (WebResourceError error) {
             // 忽略某些非关键错误（如 ORB 阻止的第三方资源）
-            final isNonCriticalError = error.description?.contains('ERR_BLOCKED_BY_ORB') == true ||
-                error.description?.contains('ERR_BLOCKED_BY_RESPONSE') == true ||
-                error.description?.contains('ERR_ABORTED') == true;
+            final isNonCriticalError = error.description.contains('ERR_BLOCKED_BY_ORB') == true ||
+                error.description.contains('ERR_BLOCKED_BY_RESPONSE') == true ||
+                error.description.contains('ERR_ABORTED') == true;
 
             if (isNonCriticalError) {
               debugPrint('WebView 非关键错误(已忽略): ${error.description} - URL: ${error.url}');
