@@ -370,6 +370,13 @@ class HomeNotifier extends _$HomeNotifier {
     }
   }
 
+  /// 刷新当前 Tab 的数据
+  ///
+  /// 用于下拉刷新场景，强制刷新当前 Tab 的数据
+  Future<void> refreshCurrentTab() async {
+    await refreshFeeds(force: true);
+  }
+
   /// 刷新 Feed 列表
   ///
   /// 清空当前列表并重新加载第一页数据

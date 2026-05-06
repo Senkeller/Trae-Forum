@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 import '../../../config/constants.dart';
+import '../../../config/routes.dart';
+import '../../../core/utils/scroll_load_guard.dart';
 import '../../providers/home_provider.dart';
 import '../../widgets/home/pinned_topics_banner.dart';
 
@@ -17,32 +18,38 @@ class TopicListPage extends ConsumerStatefulWidget {
 class _TopicListPageState extends ConsumerState<TopicListPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final RefreshController _refreshController = RefreshController();
   final ScrollController _scrollController = ScrollController();
+
+  /// 滚动加载守卫，用于管理话题列表的触底加载逻辑
+  /// 阈值设置为 500 像素，提前预加载更多话题，提供更流畅的滚动体验
+  final ScrollLoadGuard _scrollLoadGuard = ScrollLoadGuard(
+    threshold: 500,
+    minIntervalMs: 300,
+  );
 
   final List<String> _tabs = ['latest', 'top', 'hot', 'votes'];
   final List<String> _tabLabels = ['最新', '精华', '热门', '投票'];
 
   int _currentTabIndex = 0;
-  List<FeedItem> _topics = [];
-  bool _isLoading = false;
-  bool _isLoadingMore = false;
-  bool _hasMore = true;
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabs.length, vsync: this);
     _tabController.addListener(_onTabChanged);
-    _loadTopics();
+    _scrollController.addListener(_handleScroll);
+
+    // 初始化加载数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialData();
+    });
   }
 
   @override
   void dispose() {
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
-    _refreshController.dispose();
+    _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -50,64 +57,89 @@ class _TopicListPageState extends ConsumerState<TopicListPage>
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
     if (_currentTabIndex != _tabController.index) {
-      _currentTabIndex = _tabController.index;
-      _loadTopics();
+      setState(() {
+        _currentTabIndex = _tabController.index;
+      });
+      _loadInitialData();
     }
   }
 
-  Future<void> _loadTopics() async {
-    if (_isLoading) return;
+  /// 处理滚动事件，使用 ScrollLoadGuard 管理触底加载逻辑
+  void _handleScroll() {
+    final homeState = ref.read(homeNotifierProvider);
+    final feedType = _getFeedTypeByTabIndex(_currentTabIndex);
+    final tabState = homeState.tabStates[feedType];
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await ref.read(homeNotifierProvider.notifier).refreshFeeds();
-
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      setState(() {
-        _isLoading = false;
-        _topics = [];
-        _hasMore = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = '加载失败: $e';
-      });
-    }
-  }
-
-  Future<void> _onRefresh() async {
-    await _loadTopics();
-    _refreshController.refreshCompleted();
-  }
-
-  Future<void> _onLoading() async {
-    if (_isLoadingMore || !_hasMore) {
-      _refreshController.loadComplete();
+    if (tabState == null || !tabState.hasMore || tabState.isLoadingMore) {
       return;
     }
 
-    setState(() {
-      _isLoadingMore = true;
-    });
+    _scrollLoadGuard.tryTrigger(
+      scrollController: _scrollController,
+      onLoad: _loadMoreTopics,
+    );
+  }
 
-    await Future.delayed(const Duration(milliseconds: 500));
+  /// 根据 Tab 索引获取 FeedType
+  FeedType _getFeedTypeByTabIndex(int index) {
+    switch (_tabs[index]) {
+      case 'latest':
+        return FeedType.latest;
+      case 'top':
+        return FeedType.hot;
+      case 'hot':
+        return FeedType.hot;
+      case 'votes':
+        return FeedType.recommended;
+      default:
+        return FeedType.latest;
+    }
+  }
 
-    setState(() {
-      _isLoadingMore = false;
-      _hasMore = false;
-    });
+  /// 加载初始数据
+  void _loadInitialData() {
+    final feedType = _getFeedTypeByTabIndex(_currentTabIndex);
+    ref.read(homeNotifierProvider.notifier).switchTab(
+          _feedTypeToTabIndex(feedType),
+        );
+  }
 
-    _refreshController.loadComplete();
+  /// 将 FeedType 转换为 Tab 索引
+  int _feedTypeToTabIndex(FeedType feedType) {
+    switch (feedType) {
+      case FeedType.latest:
+        return 0;
+      case FeedType.hot:
+        return _currentTabIndex == 1 ? 1 : 2;
+      case FeedType.recommended:
+        return 3;
+      default:
+        return 0;
+    }
+  }
+
+  /// 加载更多话题
+  Future<void> _loadMoreTopics() async {
+    await ref.read(homeNotifierProvider.notifier).loadMoreFeeds();
+  }
+
+  /// 下拉刷新
+  Future<void> _onRefresh() async {
+    await ref.read(homeNotifierProvider.notifier).refreshCurrentTab();
   }
 
   @override
   Widget build(BuildContext context) {
+    final homeState = ref.watch(homeNotifierProvider);
+    final feedType = _getFeedTypeByTabIndex(_currentTabIndex);
+    final tabState = homeState.tabStates[feedType];
+
+    final topics = tabState?.feedList ?? [];
+    final isLoading = tabState?.isRefreshing ?? false;
+    final isLoadingMore = tabState?.isLoadingMore ?? false;
+    final hasMore = tabState?.hasMore ?? false;
+    final errorMessage = tabState?.errorMessage;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('综合话题流'),
@@ -117,26 +149,38 @@ class _TopicListPageState extends ConsumerState<TopicListPage>
           tabs: _tabLabels.map((label) => Tab(text: label)).toList(),
         ),
       ),
-      body: _buildBody(),
+      body: _buildBody(
+        topics: topics,
+        isLoading: isLoading,
+        isLoadingMore: isLoadingMore,
+        hasMore: hasMore,
+        errorMessage: errorMessage,
+      ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading && _topics.isEmpty) {
+  Widget _buildBody({
+    required List<FeedItem> topics,
+    required bool isLoading,
+    required bool isLoadingMore,
+    required bool hasMore,
+    String? errorMessage,
+  }) {
+    if (isLoading && topics.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_errorMessage != null && _topics.isEmpty) {
+    if (errorMessage != null && topics.isEmpty) {
       return _StateView(
         icon: Icons.error_outline,
         title: '加载失败',
-        message: _errorMessage!,
+        message: errorMessage,
         actionLabel: '重试',
-        onAction: _loadTopics,
+        onAction: _loadInitialData,
       );
     }
 
-    if (_topics.isEmpty) {
+    if (topics.isEmpty) {
       return _StateView(
         icon: Icons.inbox_outlined,
         title: '暂无话题',
@@ -144,34 +188,75 @@ class _TopicListPageState extends ConsumerState<TopicListPage>
       );
     }
 
-    return SmartRefresher(
-      controller: _refreshController,
-      enablePullDown: true,
-      enablePullUp: _hasMore,
+    return RefreshIndicator(
       onRefresh: _onRefresh,
-      onLoading: _hasMore ? _onLoading : null,
       child: ListView.builder(
         controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: _topics.length + 1,
-        cacheExtent: 200,
+        itemCount: topics.length + 1 + (hasMore ? 1 : 0),
+        cacheExtent: MediaQuery.of(context).size.height * 0.5,
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
         itemBuilder: (context, index) {
+          // 第一个位置显示置顶横幅
           if (index == 0) {
             return const PinnedTopicsBanner();
           }
 
-          final topic = _topics[index - 1];
-          return _TopicCard(
-            topic: topic,
-            onTap: () {
-              context.push(RoutePaths.feedDetail.replaceFirst(':id', topic.id));
-            },
-          );
+          // 话题列表
+          if (index <= topics.length) {
+            final topic = topics[index - 1];
+            return _TopicCard(
+              topic: topic,
+              onTap: () {
+                context.push(
+                  RoutePaths.feedDetail.replaceFirst(':id', topic.id),
+                );
+              },
+            );
+          }
+
+          // 底部加载指示器
+          return _buildBottomLoader(isLoadingMore);
         },
       ),
     );
+  }
+
+  /// 构建底部加载指示器
+  Widget _buildBottomLoader(bool isLoadingMore) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    if (isLoadingMore) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '加载更多话题...',
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 }
 
@@ -213,13 +298,16 @@ class _TopicCard extends StatelessWidget {
                       children: [
                         Text(
                           topic.username,
-                          style: Theme.of(context).textTheme.bodyMedium
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
                               ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         Text(
                           _formatTime(topic.createTime),
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ],
                     ),
@@ -237,8 +325,8 @@ class _TopicCard extends StatelessWidget {
                       child: Text(
                         '置顶',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer,
-                        ),
+                              color: colorScheme.onPrimaryContainer,
+                            ),
                       ),
                     ),
                 ],
@@ -246,9 +334,9 @@ class _TopicCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 topic.title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -281,8 +369,8 @@ class _TopicCard extends StatelessWidget {
                       child: Text(
                         '#$tag',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.primary,
-                        ),
+                              color: colorScheme.primary,
+                            ),
                       ),
                     );
                   }).toList(),

@@ -25,14 +25,6 @@ void main() {
     );
   }
 
-  /// 清理测试资源
-  Future<void> cleanupTest(WidgetTester tester) async {
-    // 等待所有微任务完成
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-    // 额外等待以确保 Shimmer 动画停止
-    await Future.delayed(const Duration(milliseconds: 200));
-  }
-
   group('FeedCard 渲染测试', () {
     /// 测试目的：验证 FeedCard 正常渲染
     testWidgets('应正确渲染 FeedCard 组件', (WidgetTester tester) async {
@@ -57,6 +49,10 @@ void main() {
       // 验证渲染
       expect(find.text('测试用户'), findsOneWidget);
       expect(find.text('这是一条测试动态'), findsOneWidget);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证带图片的 FeedCard 渲染
@@ -79,6 +75,10 @@ void main() {
 
       expect(find.text('图片用户'), findsOneWidget);
       expect(find.text('带图片的动态'), findsOneWidget);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证简洁版 FeedCardSimple 渲染
@@ -99,6 +99,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('简洁用户'), findsOneWidget);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证骨架屏渲染
@@ -116,6 +120,10 @@ void main() {
 
       // 骨架屏应渲染 CardSkeletonWidget 组件
       expect(find.byType(CardSkeletonWidget), findsOneWidget);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
   });
 
@@ -146,6 +154,10 @@ void main() {
       await tester.pump();
 
       expect(tapped, isTrue);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证点赞按钮触发回调
@@ -176,6 +188,10 @@ void main() {
       await tester.tap(likeButton);
       await tester.pump();
       expect(liked, isTrue);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证评论按钮触发回调
@@ -205,6 +221,10 @@ void main() {
       await tester.tap(commentButton);
       await tester.pump();
       expect(commented, isTrue);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证分享按钮触发回调
@@ -234,6 +254,10 @@ void main() {
       await tester.tap(shareButton);
       await tester.pump();
       expect(shared, isTrue);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
   });
 
@@ -259,6 +283,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('配置测试用户'), findsOneWidget);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证隐藏收藏按钮
@@ -282,6 +310,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('收藏测试用户'), findsOneWidget);
+      
+      // 清理资源
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
 
     /// 测试目的：验证自定义外边距
@@ -305,6 +337,10 @@ void main() {
       await tester.pump();
 
       expect(find.byType(FeedCard), findsOneWidget);
+
+      // 清理资源，确保 Shimmer Timer 被停止
+      await tester.pumpWidget(Container());
+      await tester.pump(const Duration(milliseconds: 100));
     });
   });
 }

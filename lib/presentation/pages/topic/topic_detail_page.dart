@@ -140,13 +140,13 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
       final discourseApi = ref.read(discourseApiServiceProvider);
       final response = await discourseApi.getTopicsByTag(widget.tag, page: 0);
 
-      final topics = _parseTopicsFromResponse(response);
+      final (topics, hasMore) = _parseTopicsFromResponse(response);
 
       setState(() {
         _isLoading = false;
         _topics = topics;
         _currentPage = 0;
-        _hasMore = topics.length >= AppConstants.pageSize;
+        _hasMore = hasMore;
       });
     } catch (e) {
       setState(() {
@@ -179,7 +179,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
         page: nextPage,
       );
 
-      final newTopics = _parseTopicsFromResponse(response);
+      final (newTopics, hasMore) = _parseTopicsFromResponse(response);
 
       setState(() {
         _isLoadingMore = false;
@@ -193,7 +193,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
               .where((e) => !existingIds.contains(e.id))
               .toList();
           _topics = [..._topics, ...dedupedNewTopics];
-          _hasMore = newTopics.length >= AppConstants.pageSize;
+          _hasMore = hasMore;
         }
       });
     } catch (e) {
@@ -205,8 +205,10 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
     _refreshController.loadComplete();
   }
 
-  /// 从响应中解析话题列表
-  List<FeedItem> _parseTopicsFromResponse(dynamic response) {
+  /// 从响应中解析话题列表和分页信息
+  ///
+  /// 返回一个元组：(话题列表, 是否还有更多话题)
+  (List<FeedItem>, bool) _parseTopicsFromResponse(dynamic response) {
     final raw = response.data;
     final data = raw is Map<String, dynamic>
         ? raw
@@ -222,6 +224,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
 
+    // 检查是否还有更多话题
+    // Discourse API 通过 more_topics_url 字段指示是否还有更多话题
+    final moreTopicsUrl = topicListMap?['more_topics_url'] as String?;
+    final hasMore = moreTopicsUrl != null && moreTopicsUrl.isNotEmpty;
+
     final userMap = <int, Map<String, dynamic>>{};
     for (final user in users) {
       final id = _parseInt(user['id']);
@@ -230,9 +237,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
       }
     }
 
-    return topics
+    final feedItems = topics
         .map((topic) => _adaptTopicToFeedItem(topic, userMap))
         .toList();
+
+    return (feedItems, hasMore);
   }
 
   FeedItem _adaptTopicToFeedItem(
