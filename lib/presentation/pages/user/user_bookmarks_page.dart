@@ -232,6 +232,9 @@ class _UserBookmarksPageState extends ConsumerState<UserBookmarksPage> {
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       itemCount: _bookmarks.length + (_hasMore || _isLoading ? 1 : 0),
+      cacheExtent: 200,
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: true,
       itemBuilder: (context, index) {
         if (index == _bookmarks.length) {
           if (_isLoading) {

@@ -152,6 +152,9 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
         itemCount: _tagGroups.length,
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           final group = _tagGroups[index];
           final isSelected = index == _selectedCategoryIndex;

@@ -175,6 +175,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _historyList.length + 1,
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index == 0) {
             return const PinnedTopicsBanner();

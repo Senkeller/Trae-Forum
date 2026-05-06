@@ -198,6 +198,9 @@ class _UserReadPageState extends ConsumerState<UserReadPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _readItems.length + (_hasMore || _isLoading ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index < _readItems.length) {
             final item = _readItems[index];

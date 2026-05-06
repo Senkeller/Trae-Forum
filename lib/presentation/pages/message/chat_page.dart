@@ -184,6 +184,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         reverse: true,
         itemCount: state.messages.length + (state.hasMore ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           // 加载更多指示器
           if (index == state.messages.length) {

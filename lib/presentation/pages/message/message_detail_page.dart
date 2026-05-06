@@ -315,6 +315,9 @@ class _MessageDetailPageState extends ConsumerState<MessageDetailPage> {
         itemCount:
             notificationState.notifications.length +
             (notificationState.isLoadingMore ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index >= notificationState.notifications.length) {
             return const Center(

@@ -263,6 +263,9 @@ class _UserDraftsPageState extends ConsumerState<UserDraftsPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _drafts.length + (_hasMore || _isLoading ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index < _drafts.length) {
             final draft = _drafts[index];

@@ -50,6 +50,12 @@ class CachedImage extends StatelessWidget {
   /// 淡入动画持续时间
   final Duration fadeInDuration;
 
+  /// 语义标签，用于辅助功能
+  final String? semanticLabel;
+
+  /// 是否排除在语义树之外
+  final bool excludeFromSemantics;
+
   /// 构造函数
   ///
   /// [imageUrl] 图片 URL（必填）
@@ -66,6 +72,8 @@ class CachedImage extends StatelessWidget {
   /// [memCacheWidth] 内存缓存宽度，用于限制内存占用
   /// [memCacheHeight] 内存缓存高度，用于限制内存占用
   /// [fadeInDuration] 淡入动画持续时间，默认 300ms
+  /// [semanticLabel] 语义标签，用于辅助功能描述图片内容
+  /// [excludeFromSemantics] 是否排除在语义树之外，默认 false
   const CachedImage({
     super.key,
     required this.imageUrl,
@@ -82,6 +90,8 @@ class CachedImage extends StatelessWidget {
     this.memCacheWidth,
     this.memCacheHeight,
     this.fadeInDuration = const Duration(milliseconds: 300),
+    this.semanticLabel,
+    this.excludeFromSemantics = false,
   });
 
   @override
@@ -126,7 +136,23 @@ class CachedImage extends StatelessWidget {
 
     // 添加点击手势
     if (onTap != null) {
-      imageWidget = GestureDetector(onTap: onTap, child: imageWidget);
+      imageWidget = GestureDetector(
+        onTap: onTap,
+        child: imageWidget,
+      );
+    }
+
+    // 添加语义支持
+    if (!excludeFromSemantics) {
+      imageWidget = Semantics(
+        label: semanticLabel,
+        image: true,
+        button: onTap != null,
+        child: ExcludeSemantics(
+          excluding: semanticLabel == null,
+          child: imageWidget,
+        ),
+      );
     }
 
     return imageWidget;

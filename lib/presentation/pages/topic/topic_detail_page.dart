@@ -426,6 +426,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage> {
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _topics.length + 2,
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index == 0) {
             return const PinnedTopicsBanner();

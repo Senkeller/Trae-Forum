@@ -245,6 +245,9 @@ class _UserRepliesPageState extends ConsumerState<UserRepliesPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _replies.length + (_hasMore ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index >= _replies.length) {
             return const Padding(

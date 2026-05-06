@@ -165,6 +165,9 @@ class _UserVotesPageState extends ConsumerState<UserVotesPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _votes.length + (_hasMore || _isLoading ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index >= _votes.length) {
             // 底部加载指示器

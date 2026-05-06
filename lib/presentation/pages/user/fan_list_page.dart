@@ -124,6 +124,9 @@ class _FanListPageState extends ConsumerState<FanListPage> {
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: users.length,
+              cacheExtent: 200,
+              addAutomaticKeepAlives: false,
+              addRepaintBoundaries: true,
               itemBuilder: (context, index) {
                 final user = users[index];
                 final username = user.username;

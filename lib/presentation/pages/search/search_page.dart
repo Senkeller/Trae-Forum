@@ -237,6 +237,9 @@ class _SearchBody extends StatelessWidget {
         child: ListView.builder(
           controller: scrollController,
           itemCount: state.results.length + 1,
+          cacheExtent: 200,
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: true,
           itemBuilder: (context, index) {
             if (index == state.results.length) {
               if (state.isLoadingMore) {

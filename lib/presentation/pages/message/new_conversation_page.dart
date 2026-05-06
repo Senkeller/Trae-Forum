@@ -162,6 +162,9 @@ class _NewConversationPageState extends ConsumerState<NewConversationPage> {
     return ListView.builder(
       padding: EdgeInsets.zero,
       itemCount: searchState.results.length,
+      cacheExtent: 200,
+      addAutomaticKeepAlives: false,
+      addRepaintBoundaries: true,
       itemBuilder: (context, index) {
         final user = searchState.results[index];
         return _UserListItem(

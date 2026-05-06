@@ -197,6 +197,9 @@ class _UserTopicsPageState extends ConsumerState<UserTopicsPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _topics.length + (_hasMore || _isLoading ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index < _topics.length) {
             final topic = _topics[index];

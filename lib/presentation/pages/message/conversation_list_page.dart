@@ -119,6 +119,9 @@ class _ConversationListPageState extends ConsumerState<ConversationListPage> {
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: state.conversations.length + (state.isLoadingMore ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index == state.conversations.length) {
             // 加载更多指示器

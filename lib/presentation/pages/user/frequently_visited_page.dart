@@ -102,6 +102,9 @@ class _FrequentlyVisitedPageState extends ConsumerState<FrequentlyVisitedPage> {
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: list.length,
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           final item = list[index];
           return _VisitedCard(

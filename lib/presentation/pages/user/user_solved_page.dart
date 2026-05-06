@@ -246,6 +246,9 @@ class _UserSolvedPageState extends ConsumerState<UserSolvedPage> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _solvedList.length + (_hasMore || _isLoading ? 1 : 0),
+        cacheExtent: 200,
+        addAutomaticKeepAlives: false,
+        addRepaintBoundaries: true,
         itemBuilder: (context, index) {
           if (index >= _solvedList.length) {
             // 底部加载指示器
