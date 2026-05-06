@@ -18,13 +18,13 @@ void main() {
   group('用户资料页基础渲染测试', () {
     testWidgets('用户资料页应该正确渲染用户名', (WidgetTester tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
+        ProviderScope(
           child: MaterialApp(
             home: Scaffold(
               appBar: AppBar(
-                title: Text('@test_user'),
+                title: const Text('@test_user'),
               ),
-              body: Center(
+              body: const Center(
                 child: Text('用户资料内容'),
               ),
             ),
@@ -369,14 +369,14 @@ void main() {
   group('资料编辑入口测试', () {
     testWidgets('编辑资料按钮应该正确渲染', (WidgetTester tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
+        ProviderScope(
           child: MaterialApp(
             home: Scaffold(
               body: Center(
                 child: OutlinedButton.icon(
                   onPressed: null,
-                  icon: Icon(Icons.edit, size: 18),
-                  label: Text('编辑资料'),
+                  icon: const Icon(Icons.edit, size: 18),
+                  label: const Text('编辑资料'),
                 ),
               ),
             ),
@@ -427,18 +427,18 @@ void main() {
 
     testWidgets('自己的资料页应该显示编辑按钮', (WidgetTester tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
+        ProviderScope(
           child: MaterialApp(
             home: Scaffold(
               appBar: AppBar(
-                actions: [
+                actions: const [
                   IconButton(
                     onPressed: null,
                     icon: Icon(Icons.settings),
                   ),
                 ],
               ),
-              body: Center(
+              body: const Center(
                 child: OutlinedButton(
                   onPressed: null,
                   child: Text('编辑资料'),
@@ -457,11 +457,11 @@ void main() {
 
     testWidgets('他人的资料页应该显示更多选项', (WidgetTester tester) async {
       await tester.pumpWidget(
-        const ProviderScope(
+        ProviderScope(
           child: MaterialApp(
             home: Scaffold(
               appBar: AppBar(
-                actions: [
+                actions: const [
                   IconButton(
                     onPressed: null,
                     icon: Icon(Icons.more_vert),

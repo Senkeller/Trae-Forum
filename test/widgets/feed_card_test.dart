@@ -25,6 +25,14 @@ void main() {
     );
   }
 
+  /// 清理测试资源
+  Future<void> cleanupTest(WidgetTester tester) async {
+    // 等待所有微任务完成
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+    // 额外等待以确保 Shimmer 动画停止
+    await Future.delayed(const Duration(milliseconds: 200));
+  }
+
   group('FeedCard 渲染测试', () {
     /// 测试目的：验证 FeedCard 正常渲染
     testWidgets('应正确渲染 FeedCard 组件', (WidgetTester tester) async {

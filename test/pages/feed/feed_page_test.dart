@@ -17,11 +17,11 @@ import 'package:traeu/data/models/user.dart';
 import '../../test_utils.dart';
 
 /// Mock HomeNotifier
-class MockHomeNotifier extends AsyncNotifier<HomeState>
+class MockHomeNotifier extends AutoDisposeNotifier<HomeState>
     with Mock
     implements HomeNotifier {
   @override
-  Future<HomeState> build() async {
+  HomeState build() {
     return const HomeState();
   }
 
